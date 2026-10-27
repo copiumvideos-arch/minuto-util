@@ -6,7 +6,7 @@
 // Secrets (wrangler secret put): TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET (also given to Telegram's setWebhook),
 // OWNER_CHAT_ID, GITHUB_TOKEN (fine-grained, this repository only, "Actions: read and write"). Var: GITHUB_REPO.
 
-const CALLBACK = /^(pub|rej):(\d{8}-\d{4})$/;
+const CALLBACK = /^(pub|rej|redo):(\d{8}-\d{4})$/;
 const NEW_VIDEO = /^\/novo(?:@\w+)?(?:\s+(.+))?$/s;
 const IDEA_COMMAND = /^\/ideia(?:@\w+)?(?:\s+(.+))?$/s;
 const IDEA = /^idea:(\d{8}):(\d{1,2})$/;
@@ -78,14 +78,18 @@ export async function handleUpdate(update, env, fetchImpl) {
       await telegram(env, fetchImpl, "answerCallbackQuery", { callback_query_id: query.id, text: "Botão desconhecido." });
       return;
     }
+    const redo = match[1] === "redo";
     const action = match[1] === "pub" ? "publish" : "reject";
-    const status = await dispatch(env, fetchImpl, "publish.yml", { tag: match[2], action });
+    const status = redo
+      ? await dispatch(env, fetchImpl, "render.yml", { article: "", remake: match[2] })
+      : await dispatch(env, fetchImpl, "publish.yml", { tag: match[2], action });
     if (status !== 204) {
       await answerFailure(env, fetchImpl, query, status);
       return;
     }
     await telegram(env, fetchImpl, "answerCallbackQuery", {
-      callback_query_id: query.id, text: action === "publish" ? "Publicando..." : "Rejeitando...",
+      callback_query_id: query.id,
+      text: redo ? "Refazendo: o novo vídeo chega em uns 15 minutos." : action === "publish" ? "Publicando..." : "Rejeitando...",
     });
     // The buttons go away so the same video is not sent twice by a second tap.
     await telegram(env, fetchImpl, "editMessageReplyMarkup", {

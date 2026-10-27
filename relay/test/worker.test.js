@@ -47,6 +47,14 @@ test("Publicar starts publish.yml for that run and removes the buttons", async (
   assert.deepEqual(edit.body, { chat_id: 1000000001, message_id: 77, reply_markup: { inline_keyboard: [] } });
 });
 
+test("Refazer starts render.yml remaking that run and removes the buttons", async () => {
+  const { calls, worker } = fakeNetwork();
+  await worker.fetch(post(tap("redo:20261027-1959")), env);
+  assert.equal(calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/render.yml/dispatches");
+  assert.deepEqual(calls[0].body.inputs, { article: "", remake: "20261027-1959" });
+  assert.ok(calls.some((c) => c.url.endsWith("/editMessageReplyMarkup")));
+});
+
 test("Rejeitar starts publish.yml with the reject action", async () => {
   const { calls, worker } = fakeNetwork();
   await worker.fetch(post(tap("rej:20261027-1800")), env);

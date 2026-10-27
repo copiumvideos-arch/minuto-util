@@ -12,7 +12,7 @@ using MinutoUtil.Core.Publishing;
 ///   cloud ideas   --state <dir> [--again]                           sends the day's 10 ideas (from the trends)
 ///   cloud approve --state <dir> --date <yyyyMMdd> --index <n>        the owner tapped idea n of that day's list
 ///   cloud add-idea --state <dir> --idea "<text>"                    the owner's own idea, first in line
-///   cloud next    --state <dir> --tag <tag> [--article "<idea>"]    picks the topic, prints it as JSON
+///   cloud next    --state <dir> --tag <tag> [--article "<idea>" | --remake <old tag>]   picks the topic, prints it as JSON
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
 ///   cloud reject  --state <dir> --tag <tag>
@@ -54,6 +54,8 @@ internal static class CloudCommands
             switch (step)
             {
                 case "next":
+                    if (Option(args, "--remake") is { Length: > 0 } remake)
+                        return Started(state, tag, flow.Remake(RunTag.Validate(remake)), left: -1);
                     return await NextAsync(state, tag, config, root, key, Option(args, "--article"), telegram, cts.Token);
                 case "review":
                 {
@@ -132,6 +134,12 @@ internal static class CloudCommands
         }
         if (string.IsNullOrWhiteSpace(article) && left <= 5)
             await telegram.SendTextAsync($"📋 Restam {left} temas na fila (config/topics.json).", ct);
+        return Started(state, tag, next, left);
+    }
+
+    /// <summary>Records the run as rendering and prints the topic as JSON for the workflow.</summary>
+    private static int Started(CloudState state, string tag, BacklogTopic next, int left)
+    {
         state.Save(new RunRecord { Tag = tag, Article = next.Article, PortugueseArticle = next.PortugueseArticle, Year = next.Year > 0 ? next.Year : null,
             Topic = next.Topic, Trend = next.Trend, Status = RunStatus.Rendering, UpdatedAt = DateTimeOffset.UtcNow });
         Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, portugueseArticle = next.PortugueseArticle ?? "", year = next.Year,

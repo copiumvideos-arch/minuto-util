@@ -228,6 +228,22 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public void A_remake_takes_the_same_topic_and_retires_the_old_run_unless_it_was_published()
+    {
+        using var temp = new TempFolder();
+        var (state, _) = Setup(temp);
+        state.Save(state.Find(Tag)! with { PortugueseArticle = "Desembarques na Normandia", Trend = "sua ideia: dia D" });
+        var flow = new CloudFlow(state, new Messages().Send, new FakeTimeProvider(PublishData.Now));
+
+        var topic = flow.Remake(Tag);
+
+        Assert.Equal(new BacklogTopic("Normandy landings", 1944, "Segunda Guerra Mundial", "sua ideia: dia D", "Desembarques na Normandia"), topic);
+        Assert.Equal(RunStatus.Rejected, state.Find(Tag)!.Status);
+        state.Save(state.Find(Tag)! with { Status = RunStatus.Published });
+        Assert.Throws<PublishRefusedException>(() => flow.Remake(Tag));
+    }
+
+    [Fact]
     public async Task A_rejected_run_is_never_published_and_a_published_one_cannot_be_rejected()
     {
         using var temp = new TempFolder();
@@ -280,7 +296,7 @@ public sealed class CloudFlowTests
         Assert.DoesNotContain("gemini-3.8-flash", caption);
         Assert.Contains("mais 35 no run.log", caption);
         Assert.True(caption.Length <= TelegramNotifier.MaxCaption);
-        Assert.Equal(["pub:" + Tag, "rej:" + Tag], CloudFlow.ReviewButtons(Tag).Select(b => b.Data));
+        Assert.Equal(["pub:" + Tag, "redo:" + Tag, "rej:" + Tag], CloudFlow.ReviewButtons(Tag).Select(b => b.Data));
     }
 }
 

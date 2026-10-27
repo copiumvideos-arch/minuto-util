@@ -13,7 +13,7 @@ public delegate Task SendMessage(string text, IReadOnlyList<TelegramButton> butt
 /// </summary>
 public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider time)
 {
-    public const string PublishPrefix = "pub:", RejectPrefix = "rej:", IdeaPrefix = "idea:";
+    public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:";
 
     /// <summary>
     /// The daily list: numbered ideas (Portuguese title when there is one, year, series, what inspired it) and a button
@@ -32,8 +32,22 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         return (TextUtil.Truncate(text.ToString(), 4000), buttons);
     }
 
+    /// <summary>Publish, make the same topic again with a new script, voice and pictures, or drop it.</summary>
     public static IReadOnlyList<TelegramButton> ReviewButtons(string tag) =>
-        [new("✅ Publicar", PublishPrefix + RunTag.Validate(tag)), new("❌ Rejeitar", RejectPrefix + tag)];
+        [new("✅ Publicar", PublishPrefix + RunTag.Validate(tag)), new("🔁 Refazer", RedoPrefix + tag), new("❌ Rejeitar", RejectPrefix + tag)];
+
+    /// <summary>
+    /// The topic of an earlier run, for a remake: the old run is marked rejected (its video is dropped by the
+    /// workflow) and the new run takes the same article, Portuguese article, year, series and inspiration.
+    /// </summary>
+    public BacklogTopic Remake(string oldTag)
+    {
+        var old = state.Find(oldTag) ?? throw new PublishRefusedException($"Run {oldTag} is not in the state branch.");
+        if (old.Status is RunStatus.Published or RunStatus.Publishing)
+            throw new PublishRefusedException($"Run {oldTag} is {old.Status.ToString().ToLowerInvariant()}; it is not remade.");
+        state.Save(old with { Status = RunStatus.Rejected, Note = "remade", UpdatedAt = time.GetUtcNow() });
+        return new BacklogTopic(old.Article, old.Year ?? 0, old.Topic, old.Trend, old.PortugueseArticle);
+    }
 
     /// <summary>The caption under the review video: what it is, how long, which voice, and the run's warnings to check.</summary>
     public static string ReviewCaption(RunRecord run, VideoMetadata metadata, IEnumerable<string> logLines)
