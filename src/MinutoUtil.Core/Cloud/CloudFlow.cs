@@ -24,6 +24,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var text = new StringBuilder();
         text.AppendLine($"🎬 {metadata.Title}");
         text.AppendLine($"{run.Topic} · {run.Article} ({run.Year})");
+        if (run.Trend is { Length: > 0 } trend) text.AppendLine($"📈 Ligado ao que está em alta: {trend}");
         text.AppendLine($"{metadata.DurationSeconds:0} s · voz {metadata.Voice} · roteiro {metadata.Writer}");
         // The log's warnings are what a reviewer should look or listen for (a section Whisper heard poorly, a reused picture).
         var warnings = logLines.Select(l => l.IndexOf(" WARN ", StringComparison.Ordinal) is var i and >= 0 ? l[(i + 6)..] : null)

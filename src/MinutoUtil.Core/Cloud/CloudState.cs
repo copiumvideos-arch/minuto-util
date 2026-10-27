@@ -3,8 +3,11 @@ using System.Text.RegularExpressions;
 
 namespace MinutoUtil.Core.Cloud;
 
-/// <summary>One event in config/topics.json: the English article, the year it happened and the series name.</summary>
-public sealed record BacklogTopic(string Article, int Year, string Topic);
+/// <summary>
+/// One event to render: the English article, the year it happened and the series name, from config/topics.json or
+/// from today's trends (<see cref="Trend"/> says which search inspired it).
+/// </summary>
+public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null);
 
 public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics)
 {
@@ -32,6 +35,7 @@ public sealed record RunRecord
     public required string Article { get; init; }
     public int? Year { get; init; }
     public string Topic { get; init; } = "";
+    public string? Trend { get; init; }
     public required RunStatus Status { get; init; }
     public string? Title { get; init; }
     public string? YouTubeUrl { get; init; }
@@ -63,6 +67,21 @@ public sealed class CloudState(string folder)
 
     public string QuotaFile => Path.Combine(Folder, "quota-state.json");
 
+    private string TrendFile => Path.Combine(Folder, "trending.json");
+
+    public TrendQueue? Trending() =>
+        File.Exists(TrendFile) ? JsonSerializer.Deserialize<TrendQueue>(File.ReadAllText(TrendFile), Json.Options) : null;
+
+    public void SaveTrending(TrendQueue queue)
+    {
+        Directory.CreateDirectory(Folder);
+        File.WriteAllText(TrendFile + ".tmp", JsonSerializer.Serialize(queue, Json.Options));
+        File.Move(TrendFile + ".tmp", TrendFile, overwrite: true);
+    }
+
+    /// <summary>Every article rendered so far, whatever happened to it: the trend picker must not suggest them again.</summary>
+    public IReadOnlyList<string> MadeArticles() => Runs().Select(r => r.Article).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
     private string RunsFolder => Path.Combine(Folder, "runs");
 
     public IReadOnlyList<RunRecord> Runs() =>
@@ -86,17 +105,20 @@ public sealed class CloudState(string folder)
     }
 
     /// <summary>
-    /// The first backlog topic not rendered yet: any run that is not a failure uses its article up (a rejected video
-    /// is not tried again), and an article that failed <see cref="MaxFailures"/> times is skipped.
+    /// The next topic not rendered yet: today's trend picks first (while younger than <see cref="TrendQueue.Lifetime"/>),
+    /// then the backlog in order. Any run that is not a failure uses its article up (a rejected video is not tried
+    /// again), and an article that failed <see cref="MaxFailures"/> times is skipped. <c>Left</c> counts the backlog only.
     /// </summary>
-    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog)
+    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog, DateTimeOffset now)
     {
         var runs = Runs();
-        var left = backlog.Topics.Where(t =>
+        bool Open(BacklogTopic t)
         {
             var mine = runs.Where(r => string.Equals(r.Article, t.Article, StringComparison.OrdinalIgnoreCase)).ToList();
             return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures;
-        }).ToList();
-        return (left.FirstOrDefault(), left.Count);
+        }
+        var left = backlog.Topics.Where(Open).ToList();
+        var trend = Trending() is { } queue && now - queue.UpdatedAt < TrendQueue.Lifetime ? queue.Topics.FirstOrDefault(Open) : null;
+        return (trend ?? left.FirstOrDefault(), left.Count);
     }
 }

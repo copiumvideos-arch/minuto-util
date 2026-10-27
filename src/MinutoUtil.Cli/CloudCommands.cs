@@ -3,11 +3,13 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using MinutoUtil.Core;
 using MinutoUtil.Core.Cloud;
+using MinutoUtil.Core.Llm;
 using MinutoUtil.Core.Publishing;
 
 /// <summary>
 /// The steps the GitHub Actions workflows (.github/workflows) run around `make` and `publish`, plus `cloud secrets`,
 /// which copies this PC's keys and sign-ins into the repository's Actions secrets without printing them.
+///   cloud trends  --state <dir> [--force]                           turns today's trends into topics (once a day)
 ///   cloud next    --state <dir> --tag <tag> [--article "<title>"]   picks the topic, prints it as JSON
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
@@ -31,6 +33,7 @@ internal static class CloudCommands
             if (step == "secrets") return await SecretsAsync(config, key, Option(args, "--repo") ?? throw new ArgumentException("cloud secrets needs --repo <owner/name>."));
 
             var state = new CloudState(Option(args, "--state") ?? throw new ArgumentException("cloud needs --state <state branch folder>."));
+            if (step == "trends") return await TrendsAsync(state, config, root, key, args.Contains("--force"), cts.Token);
             var tag = RunTag.Validate(Option(args, "--tag"));
             using var apiHttp = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(30));
             using var uploadHttp = SafeHttp.CreatePublicClient(TimeSpan.FromMinutes(10));
@@ -86,7 +89,7 @@ internal static class CloudCommands
     private static async Task<int> NextAsync(CloudState state, string tag, string backlogPath, string? article, TelegramNotifier telegram, CancellationToken ct)
     {
         var backlog = TopicBacklog.Load(backlogPath);
-        var (next, left) = state.NextTopic(backlog);
+        var (next, left) = state.NextTopic(backlog, DateTimeOffset.UtcNow);
         if (!string.IsNullOrWhiteSpace(article))
             next = backlog.Topics.FirstOrDefault(t => string.Equals(t.Article, article.Trim(), StringComparison.OrdinalIgnoreCase))
                 ?? new BacklogTopic(article.Trim(), 0, "História");
@@ -98,8 +101,51 @@ internal static class CloudCommands
         if (string.IsNullOrWhiteSpace(article) && left <= 5)
             await telegram.SendTextAsync($"📋 Restam {left} temas na fila (config/topics.json).", ct);
         state.Save(new RunRecord { Tag = tag, Article = next.Article, Year = next.Year > 0 ? next.Year : null, Topic = next.Topic,
-            Status = RunStatus.Rendering, UpdatedAt = DateTimeOffset.UtcNow });
-        Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, year = next.Year, topic = next.Topic, left }));
+            Trend = next.Trend, Status = RunStatus.Rendering, UpdatedAt = DateTimeOffset.UtcNow });
+        Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, year = next.Year, topic = next.Topic, trend = next.Trend, left }));
+        return 0;
+    }
+
+    /// <summary>
+    /// Once a day (or with --force): reads Google Trends Brazil and pt.wikipedia's most read pages, asks the writer
+    /// models for historical events related to them (one request; Gemini's quota file on the state branch), checks the
+    /// picks on Wikipedia and saves them as trending.json, ahead of the backlog. Any failure only warns: the run goes on
+    /// with the backlog.
+    /// </summary>
+    private static async Task<int> TrendsAsync(CloudState state, AppConfig config, string root, Func<string, string?> key, bool force, CancellationToken ct)
+    {
+        if (!force && state.Trending() is { } queue && DateTimeOffset.UtcNow - queue.UpdatedAt < TrendQueue.ScanEvery)
+        {
+            Log.Info($"trends: scanned at {queue.UpdatedAt:yyyy-MM-dd HH:mm} UTC, not again yet");
+            return 0;
+        }
+        using var http = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(30));
+        using var llmHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+        try
+        {
+            var signals = await TrendSignals.FetchAsync(http, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)), ct);
+            if (signals.IsEmpty)
+            {
+                Log.Warn("trends: no trend source answered; the backlog is used");
+                return 0;
+            }
+            Log.Info($"trends: {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
+            // A busy first Gemini model hands over to the next: two requests at most.
+            var usage = new RunUsage(2);
+            var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
+            var models = new List<ILlmClient>();
+            if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));
+            if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
+            var picker = new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(Path.Combine(root, "prompts", "trends.md")),
+                config.Channel.Name, TimeProvider.System);
+            var picks = await picker.PickAsync(signals, state.MadeArticles(), ct);
+            state.SaveTrending(new TrendQueue(DateTimeOffset.UtcNow, picks));
+            Log.Info($"trends: {picks.Count} topic(s) queued ahead of the backlog ({usage.Summary()})");
+        }
+        catch (Exception ex) when (ex is LlmException or HttpRequestException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"trends: no picks today ({TextUtil.Truncate(ex.Message, 200)}); the backlog is used");
+        }
         return 0;
     }
 

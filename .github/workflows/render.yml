@@ -62,6 +62,15 @@ jobs:
           (cd tools && uv sync --frozen --no-dev)
           dotnet build src/MinutoUtil.Cli -c Release -v q
 
+      # Once a day: historical events tied to what Brazil searches today go ahead of the backlog. Never blocks the run.
+      - name: Look at today's trends
+        if: inputs.article == ''
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: $CLI cloud trends --state state
+
       - name: Pick the topic
         id: next
         env:

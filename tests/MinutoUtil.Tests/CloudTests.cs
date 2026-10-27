@@ -37,18 +37,18 @@ public sealed class TopicQueueTests
         var state = new CloudState(temp.Path);
         var backlog = new TopicBacklog([new("A", 1900, "x"), new("B", 1901, "x"), new("C", 1902, "x"), new("D", 1903, "x")]);
 
-        Assert.Equal(("A", 4), (state.NextTopic(backlog).Next!.Article, state.NextTopic(backlog).Left));
+        Assert.Equal(("A", 4), (state.NextTopic(backlog, PublishData.Now).Next!.Article, state.NextTopic(backlog, PublishData.Now).Left));
 
         state.Save(Run("20261027-1200", "A", RunStatus.Rejected));
         state.Save(Run("20261027-1300", "B", RunStatus.Failed));
-        Assert.Equal("B", state.NextTopic(backlog).Next!.Article);
+        Assert.Equal("B", state.NextTopic(backlog, PublishData.Now).Next!.Article);
 
         state.Save(Run("20261027-1400", "b", RunStatus.Failed));
-        Assert.Equal("C", state.NextTopic(backlog).Next!.Article);
+        Assert.Equal("C", state.NextTopic(backlog, PublishData.Now).Next!.Article);
 
         state.Save(Run("20261027-1500", "C", RunStatus.Review));
         state.Save(Run("20261027-1600", "D", RunStatus.Published));
-        Assert.Equal((null, 0), (state.NextTopic(backlog).Next, state.NextTopic(backlog).Left));
+        Assert.Equal((null, 0), (state.NextTopic(backlog, PublishData.Now).Next, state.NextTopic(backlog, PublishData.Now).Left));
     }
 
     [Theory]
@@ -309,5 +309,125 @@ public sealed class TelegramVideoTests
         var ex = await Assert.ThrowsAsync<HttpRequestException>(() => failing.SendVideoAsync(video, "x", [], CancellationToken.None));
         Assert.Contains("Too Large", ex.Message);
         Assert.DoesNotContain("secret", ex.Message);
+    }
+}
+
+public sealed class TrendTests
+{
+    /// <summary>A writer model that answers with fixed ideas and keeps the prompts it got.</summary>
+    private sealed class FakeLlm(params TrendIdea[] ideas) : MinutoUtil.Core.Llm.ILlmClient
+    {
+        public string Name => "fake";
+        public List<string> Prompts { get; } = [];
+
+        public Task<T> CompleteJsonAsync<T>(string system, string user, CancellationToken ct)
+        {
+            Prompts.Add(system + "\n" + user);
+            return Task.FromResult((T)(object)new TrendIdeas(ideas));
+        }
+    }
+
+    /// <summary>en.wikipedia's query API as it answers for these titles: a redirect, a missing page, a disambiguation page, one without a Portuguese twin.</summary>
+    private static FakeHandler Wikipedia() => new((request, _) =>
+    {
+        Assert.StartsWith("https://en.wikipedia.org/w/api.php?", request.RequestUri!.AbsoluteUri);
+        return FakeHandler.Json(HttpStatusCode.OK, """
+            {"query":{
+              "normalized":[{"from":"magna carta","to":"Magna carta"}],
+              "redirects":[{"from":"Magna carta","to":"Magna Carta"},{"from":"Women's suffrage in Brazil","to":"Women's suffrage in Brazil"}],
+              "pages":[
+                {"title":"Magna Carta","langlinks":[{"lang":"pt","title":"Magna Carta"}]},
+                {"title":"Proclamation of the Republic (Brazil)","langlinks":[{"lang":"pt","title":"Proclamação"}]},
+                {"title":"Made Up Battle","missing":true},
+                {"title":"Election","pageprops":{"disambiguation":""},"langlinks":[{"lang":"pt","title":"Eleição"}]},
+                {"title":"Obscure Vote of 1850"},
+                {"title":"Storming of the Bastille","langlinks":[{"lang":"pt","title":"Tomada da Bastilha"}]}
+              ]}}
+            """);
+    });
+
+    [Fact]
+    public async Task Picks_are_checked_on_wikipedia_and_against_the_rules_before_they_are_queued()
+    {
+        var llm = new FakeLlm(
+            new("magna carta", 1215, "Democracia", "eleições 2026"),
+            new("Made Up Battle", 1900, "Guerras", "x"),
+            new("Election", 1950, "Democracia", "x"),
+            new("Obscure Vote of 1850", 1850, "Democracia", "x"),
+            new("Storming of the Bastille", 1789, "Revoluções", "x"),
+            new("2022 Brazilian general election", 2022, "Democracia", "eleições"),
+            new("Battle of Marathon", -490, "Grécia", "x"),
+            new("Proclamation of the Republic (Brazil)", 1889, "História do Brasil", "presidentes do Brasil"));
+        var picker = new TrendPicker(llm, new HttpClient(Wikipedia()), File.ReadAllText(Path.Combine(TestPaths.RepositoryRoot, "prompts", "trends.md")),
+            "Minuto Útil", new FakeTimeProvider(PublishData.Now));
+        var signals = new TrendSignals(["eleições: Segundo turno movimenta o país"], ["Lista de presidentes do Brasil"]);
+
+        var picks = await picker.PickAsync(signals, ["Storming of the Bastille"], CancellationToken.None);
+
+        Assert.Equal(["Magna Carta", "Proclamation of the Republic (Brazil)"], picks.Select(p => p.Article));
+        Assert.Equal(new BacklogTopic("Magna Carta", 1215, "Democracia", "eleições 2026"), picks[0]);
+        var prompt = Assert.Single(llm.Prompts);
+        Assert.Contains("Minuto Útil", prompt);
+        Assert.Contains("- eleições: Segundo turno movimenta o país", prompt);
+        Assert.Contains("- Lista de presidentes do Brasil", prompt);
+        Assert.Contains("Already made (do not pick):\n- Storming of the Bastille".ReplaceLineEndings(), prompt.ReplaceLineEndings());
+        Assert.Contains("never a living politician", prompt);
+    }
+
+    [Fact]
+    public async Task Trend_sources_are_read_as_untrusted_data()
+    {
+        const string rss = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss xmlns:ht="https://trends.google.com/trending/rss" version="2.0"><channel>
+              <item><title>eleições</title><ht:news_item><ht:news_item_title>Segundo turno &lt;b&gt;movimenta&lt;/b&gt; o país</ht:news_item_title></ht:news_item></item>
+              <item><title>menino</title></item>
+            </channel></rss>
+            """;
+        const string top = """
+            {"items":[{"articles":[{"article":"Wikipédia:Página_principal"},{"article":"Lista_de_presidentes_do_Brasil"},{"article":"Especial:Pesquisar"},{"article":"Proclamação_da_República_do_Brasil"}]}]}
+            """;
+        var handler = new FakeHandler((request, _) => request.RequestUri == TrendSignals.GoogleTrendsFeed
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(rss) }
+            : FakeHandler.Json(HttpStatusCode.OK, top));
+
+        var signals = await TrendSignals.FetchAsync(new HttpClient(handler), new DateOnly(2026, 10, 26), CancellationToken.None);
+
+        Assert.Equal(["eleições: Segundo turno  b movimenta /b  o país", "menino"], signals.Searches);
+        Assert.Equal(["Lista de presidentes do Brasil", "Proclamação da República do Brasil"], signals.WikipediaReads);
+        Assert.Equal("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/pt.wikipedia/all-access/2026/10/26", handler.Requests[1].Request.RequestUri!.AbsoluteUri);
+
+        // A feed with a DTD is refused (no entity expansion); Wikipedia still counts. A source that is down is skipped.
+        var hostile = new FakeHandler((request, _) => request.RequestUri == TrendSignals.GoogleTrendsFeed
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY a \"aaaa\">]><rss><channel><item><title>&a;</title></item></channel></rss>") }
+            : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        var none = await TrendSignals.FetchAsync(new HttpClient(hostile), new DateOnly(2026, 10, 26), CancellationToken.None);
+        Assert.True(none.IsEmpty);
+    }
+
+    [Fact]
+    public void Fresh_trend_picks_go_ahead_of_the_backlog_and_stale_ones_give_way()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(temp.Path);
+        var backlog = new TopicBacklog([new("Sinking of the Titanic", 1912, "Grandes desastres")]);
+        state.SaveTrending(new TrendQueue(PublishData.Now, [new("Magna Carta", 1215, "Democracia", "eleições"), new("Lei Áurea", 1888, "História do Brasil", "eleições")]));
+
+        Assert.Equal("Magna Carta", state.NextTopic(backlog, PublishData.Now.AddHours(5)).Next!.Article);
+
+        state.Save(new RunRecord { Tag = "20261027-1900", Article = "Magna Carta", Status = RunStatus.Review, UpdatedAt = PublishData.Now });
+        var next = state.NextTopic(backlog, PublishData.Now.AddHours(5)).Next!;
+        Assert.Equal(("Lei Áurea", "eleições"), (next.Article, next.Trend));
+        Assert.Contains("Magna Carta", state.MadeArticles());
+
+        Assert.Equal("Sinking of the Titanic", state.NextTopic(backlog, PublishData.Now.AddDays(4)).Next!.Article);
+    }
+
+    [Fact]
+    public void The_review_caption_says_which_trend_inspired_the_video()
+    {
+        var run = new RunRecord { Tag = "20261027-1800", Article = "Magna Carta", Year = 1215, Topic = "Democracia", Trend = "eleições 2026",
+            Status = RunStatus.Rendering, UpdatedAt = PublishData.Now };
+        Assert.Contains("📈 Ligado ao que está em alta: eleições 2026", CloudFlow.ReviewCaption(run, PublishData.Metadata(), []));
     }
 }

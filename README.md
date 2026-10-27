@@ -217,8 +217,15 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
 - **Topics**: `config/topics.json`, taken in order. An article that was rendered (in review, published or rejected) is
   skipped; one that failed gets one more try, then leaves the queue. Telegram warns when 5 topics are left. On
   Telegram, `/novo` renders the next topic now and `/novo <English Wikipedia article>` renders that article.
+- **Trends**: once a day, before the topic is picked, `cloud trends` reads Google Trends Brazil (daily searches with
+  a headline each) and the most read pages on Portuguese Wikipedia, and asks the writer models (one request,
+  `prompts/trends.md`) for historical events related to them: elections in the news become the first democratic
+  elections, the Magna Carta, the end of a monarchy. Never the current news itself, a living politician or a party,
+  and only events at least 25 years old. Every pick is checked on Wikipedia (English article, not a disambiguation
+  page, Portuguese twin) and against the runs so far, then queued in `state/trending.json` ahead of the backlog for 3
+  days. The review message says which trend inspired the video. If anything fails, the backlog is used.
 - **State**: the `state` branch holds `runs/<tag>.json` (topic, status, title, links), `quota-state.json` (the Gemini
-  quota tracker, `make --quota-file`) and the sealed token files. Every job commits it with
+  quota tracker, `make --quota-file`), `trending.json` and the sealed token files. Every job commits it with
   `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.
 - **Tokens on the runner**: the refresh tokens start from the Actions secrets. When a platform hands back a new refresh
   token (TikTok may on every refresh), it is written AES-256-GCM encrypted to `state/<platform>-token.enc` with the key
