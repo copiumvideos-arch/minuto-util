@@ -544,3 +544,84 @@ public sealed class CloudflareAiTests
             MinutoUtil.Core.Llm.OpenRouterClient.ForCloudflare(new HttpClient(handler), "t", "../evil", ["m"], usage));
     }
 }
+
+public sealed class QueueTests
+{
+    private static readonly TopicBacklog Backlog = new([
+        new("Sinking of the Titanic", 1912, "Grandes desastres"),
+        new("Santos-Dumont 14-bis", 1906, "História do Brasil"),
+        new("Attack on Pearl Harbor", 1941, "Segunda Guerra Mundial"),
+        new("Christmas truce", 1914, "Primeira Guerra Mundial"),
+    ]);
+
+    private static CloudState WithIdeas(TempFolder temp)
+    {
+        var state = new CloudState(temp.Path);
+        state.SaveApproved(new ApprovedIdea("20261028-01", new("Magna Carta", 1215, "Democracia", "eleições"), FromText: false, PublishData.Now));
+        state.SaveApproved(new ApprovedIdea("20261028-120000-text", new("Electronic voting in Brazil", 1996, "Democracia", "sua ideia: urna",
+            "Urna eletrônica (Brasil)"), FromText: true, PublishData.Now.AddHours(1)));
+        return state;
+    }
+
+    private static string[] Articles(CloudState state) => [.. state.Queue(Backlog).Select(e => e.Topic.Article)];
+
+    [Fact]
+    public void The_queue_is_text_ideas_then_tapped_ideas_then_the_backlog_without_used_or_removed_topics()
+    {
+        using var temp = new TempFolder();
+        var state = WithIdeas(temp);
+        state.Save(new RunRecord { Tag = "20261028-1000", Article = "Sinking of the Titanic", Status = RunStatus.Published, UpdatedAt = PublishData.Now });
+
+        Assert.Equal(["Electronic voting in Brazil", "Magna Carta", "Santos-Dumont 14-bis", "Attack on Pearl Harbor", "Christmas truce"], Articles(state));
+        Assert.Equal("Electronic voting in Brazil", state.NextTopic(Backlog).Next!.Article);
+        Assert.Equal(3, state.NextTopic(Backlog).Left);
+    }
+
+    [Fact]
+    public void Moving_pins_the_order_and_removing_takes_an_item_out_for_good()
+    {
+        using var temp = new TempFolder();
+        var state = WithIdeas(temp);
+
+        // /mover 6 2: position 6 (Christmas truce) becomes second.
+        state.Move(Backlog, "6", 2);
+        Assert.Equal(["Electronic voting in Brazil", "Christmas truce", "Magna Carta", "Sinking of the Titanic", "Santos-Dumont 14-bis", "Attack on Pearl Harbor"], Articles(state));
+
+        // The ⏫ button carries the key, which still finds the item after the move.
+        var key = state.Queue(Backlog).Single(e => e.Topic.Article == "Attack on Pearl Harbor").Key;
+        state.Move(Backlog, key, 1);
+        Assert.Equal("Attack on Pearl Harbor", Articles(state)[0]);
+        Assert.Equal("Christmas truce", Articles(state)[2]);
+
+        // 🗑 on a text idea deletes its file; on a backlog topic it keeps it out of the queue too.
+        state.Remove(Backlog, "a-20261028-120000-text");
+        state.Remove(Backlog, state.Queue(Backlog).Single(e => e.Topic.Article == "Sinking of the Titanic").Key);
+        Assert.DoesNotContain("Electronic voting in Brazil", Articles(state));
+        Assert.DoesNotContain("Sinking of the Titanic", Articles(state));
+        Assert.DoesNotContain(state.Approved(), a => a.Id == "20261028-120000-text");
+        Assert.Equal(4, Articles(state).Length);
+
+        Assert.Throws<ArgumentException>(() => state.Find(Backlog, "9"));
+        Assert.Throws<ArgumentException>(() => state.Find(Backlog, "b-not-there"));
+    }
+
+    [Fact]
+    public void The_queue_message_numbers_the_items_with_top_and_remove_buttons_by_key()
+    {
+        using var temp = new TempFolder();
+        var state = WithIdeas(temp);
+
+        var (text, buttons) = CloudFlow.QueueMessage(state.Queue(Backlog), "⏫ No topo: X");
+
+        var lines = text.ReplaceLineEndings("\n");
+        Assert.StartsWith("⏫ No topo: X", lines);
+        Assert.Contains("\n1. Urna eletrônica (Brasil) (1996) · sua ideia", lines);
+        Assert.Contains("\n2. Magna Carta (1215) · da lista do dia", lines);
+        Assert.Contains("\n3. Sinking of the Titanic (1912) · fila padrão", lines);
+        Assert.Equal(12, buttons.Count);
+        Assert.Equal(new TelegramButton("⏫ 1", "qt:a-20261028-120000-text"), buttons[0]);
+        Assert.Equal(new TelegramButton("🗑 3", "qd:b-sinking-of-the-titanic"), buttons[5]);
+        Assert.All(buttons, b => Assert.True(System.Text.Encoding.UTF8.GetByteCount(b.Data) <= 64));
+        Assert.Contains("A fila está vazia", CloudFlow.QueueMessage([]).Text);
+    }
+}

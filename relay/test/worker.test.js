@@ -105,12 +105,12 @@ test("/novo starts render.yml now, with the idea when one is given", async () =>
 });
 
 test("a plain text or /ideia queues the idea for the next video through ideas.yml", async () => {
-  for (const text of ["por que só o Brasil usa urna eletrônica?", "/ideia por que só o Brasil usa urna eletrônica?"]) {
+  for (const text of ["por que só o Brasil usa urna eletrônica?", "/ideia por que só o Brasil usa urna eletrônica?", "/adicionar por que só o Brasil usa urna eletrônica?"]) {
     const net = fakeNetwork();
     await net.worker.fetch(post(message(text)), env);
     const [github] = githubCalls(net.calls);
     assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
-    assert.deepEqual(github.body.inputs, { action: "add", date: "", index: "", idea: "por que só o Brasil usa urna eletrônica?" });
+    assert.deepEqual(github.body.inputs, { action: "add", date: "", index: "", idea: "por que só o Brasil usa urna eletrônica?", item: "" });
     assert.ok(net.calls.at(-1).body.text.startsWith("Procurando um tema"));
   }
   for (const text of ["/ideia", "/start", `${"x".repeat(201)}`]) {
@@ -124,6 +124,41 @@ test("a plain text or /ideia queues the idea for the next video through ideas.ym
   assert.equal(net.calls.length, 0);
 });
 
+test("/fila, /mover and /remover change the queue through ideas.yml", async () => {
+  const cases = [
+    ["/fila", { action: "queue", item: "", index: "" }],
+    ["/queue", { action: "queue", item: "", index: "" }],
+    ["/mover 5 2", { action: "move", item: "5", index: "2" }],
+    ["/remover 3", { action: "remove", item: "3", index: "" }],
+  ];
+  for (const [text, expected] of cases) {
+    const net = fakeNetwork();
+    await net.worker.fetch(post(message(text)), env);
+    const [github] = githubCalls(net.calls);
+    assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches", text);
+    assert.deepEqual(github.body.inputs, { ...expected, date: "", idea: "" }, text);
+  }
+  for (const text of ["/mover 5", "/mover cinco dois", "/remover", "/fila agora"]) {
+    const net = fakeNetwork();
+    await net.worker.fetch(post(message(text)), env);
+    assert.ok(!githubCalls(net.calls).some((c) => c.body.inputs.action !== undefined && c.body.inputs.action !== "add"), text);
+  }
+});
+
+test("the queue buttons move an item to the top or remove it by its key, and retire the old list", async () => {
+  for (const [data, action] of [["qt:b-sinking-of-the-titanic", "top"], ["qd:a-20261027-200000-text", "remove"]]) {
+    const { calls, worker } = fakeNetwork();
+    await worker.fetch(post(tap(data)), env);
+    const [github] = githubCalls(calls);
+    assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
+    assert.deepEqual(github.body.inputs, { action, date: "", index: "", idea: "", item: data.slice(3) });
+    assert.deepEqual(calls.find((c) => c.url.endsWith("/editMessageReplyMarkup")).body.reply_markup, { inline_keyboard: [] });
+  }
+  const forged = fakeNetwork();
+  await forged.worker.fetch(post(tap("qd:../../etc")), env);
+  assert.equal(githubCalls(forged.calls).length, 0);
+});
+
 test("tapping an idea approves it through ideas.yml and turns only that number into a check mark", async () => {
   const keyboard = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]].map((row) => row.map((n) => ({ text: `${n}`, callback_data: `idea:20261028:${n}` })));
   const update = tap("idea:20261028:7");
@@ -134,7 +169,7 @@ test("tapping an idea approves it through ideas.yml and turns only that number i
 
   const [github] = githubCalls(calls);
   assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
-  assert.deepEqual(github.body.inputs, { action: "approve", date: "20261028", index: "7", idea: "" });
+  assert.deepEqual(github.body.inputs, { action: "approve", date: "20261028", index: "7", idea: "", item: "" });
   const edit = calls.find((c) => c.url.endsWith("/editMessageReplyMarkup")).body.reply_markup.inline_keyboard;
   assert.deepEqual(edit[1][1], { text: "✅ 7", callback_data: "done" });
   assert.deepEqual(edit[0][0], { text: "1", callback_data: "idea:20261028:1" });

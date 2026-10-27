@@ -8,10 +8,15 @@
 
 const CALLBACK = /^(pub|rej|redo):(\d{8}-\d{4})$/;
 const NEW_VIDEO = /^\/novo(?:@\w+)?(?:\s+(.+))?$/s;
-const IDEA_COMMAND = /^\/ideia(?:@\w+)?(?:\s+(.+))?$/s;
+const IDEA_COMMAND = /^\/(?:ideia|adicionar|add)(?:@\w+)?(?:\s+(.+))?$/s;
+const QUEUE = /^\/(?:fila|queue)(?:@\w+)?$/;
+const MOVE = /^\/(?:mover|move)(?:@\w+)?\s+(\d{1,2})\s+(\d{1,2})$/;
+const REMOVE = /^\/(?:remover|remove)(?:@\w+)?\s+(\d{1,2})$/;
+const QUEUE_BUTTON = /^(qt|qd):([0-9a-z-]{1,40})$/;
 const IDEA = /^idea:(\d{8}):(\d{1,2})$/;
 const DONE = "done";
-const HELP = "Mande um tema ou uma pergunta (até 200 letras) para o próximo vídeo, ou /novo <tema> para fazer agora.";
+const HELP = "Mande um tema ou uma pergunta (até 200 letras) para o próximo vídeo, ou /novo <tema> para fazer agora. " +
+  "/fila mostra os próximos vídeos; /mover 5 2 muda a ordem; /remover 3 tira da fila.";
 
 export function createWorker(fetchImpl = (...args) => fetch(...args)) {
   return {
@@ -57,9 +62,26 @@ export async function handleUpdate(update, env, fetchImpl) {
       await telegram(env, fetchImpl, "answerCallbackQuery", { callback_query_id: query.id, text: "Essa já está aprovada." });
       return;
     }
+    const queueButton = QUEUE_BUTTON.exec(data);
+    if (queueButton) {
+      const top = queueButton[1] === "qt";
+      const status = await dispatch(env, fetchImpl, "ideas.yml", { action: top ? "top" : "remove", date: "", index: "", idea: "", item: queueButton[2] });
+      if (status !== 204) {
+        await answerFailure(env, fetchImpl, query, status);
+        return;
+      }
+      await telegram(env, fetchImpl, "answerCallbackQuery", {
+        callback_query_id: query.id, text: top ? "Levando para o topo. A fila nova chega em um minuto." : "Tirando da fila. A fila nova chega em um minuto.",
+      });
+      // This list is out of date now; the updated one comes as a new message.
+      await telegram(env, fetchImpl, "editMessageReplyMarkup", {
+        chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: { inline_keyboard: [] },
+      });
+      return;
+    }
     const idea = IDEA.exec(data);
     if (idea) {
-      const status = await dispatch(env, fetchImpl, "ideas.yml", { action: "approve", date: idea[1], index: idea[2], idea: "" });
+      const status = await dispatch(env, fetchImpl, "ideas.yml", { action: "approve", date: idea[1], index: idea[2], idea: "", item: "" });
       if (status !== 204) {
         await answerFailure(env, fetchImpl, query, status);
         return;
@@ -104,7 +126,18 @@ export async function handleUpdate(update, env, fetchImpl) {
   if (!text) return;
   const reply = (body) => telegram(env, fetchImpl, "sendMessage", { chat_id: message.chat.id, text: body });
 
-  // "/novo [idea]": a video now. "/ideia <idea>" or any plain text: the idea goes first in line for the next video.
+  // The queue: show it, move an item (positions as /fila numbers them), remove one.
+  const queueCommand = QUEUE.exec(text) ? { action: "queue", item: "", index: "" }
+    : MOVE.exec(text) ? { action: "move", item: MOVE.exec(text)[1], index: MOVE.exec(text)[2] }
+    : REMOVE.exec(text) ? { action: "remove", item: REMOVE.exec(text)[1], index: "" }
+    : null;
+  if (queueCommand) {
+    const status = await dispatch(env, fetchImpl, "ideas.yml", { ...queueCommand, date: "", idea: "" });
+    await reply(status === 204 ? "Um momento, a fila chega em um minuto." : `Não consegui abrir a fila (GitHub ${status}).`);
+    return;
+  }
+
+  // "/novo [idea]": a video now. "/adicionar <idea>" (or /ideia, /add) or any plain text: first in line for the next video.
   const now = NEW_VIDEO.exec(text);
   const queued = now ? null : IDEA_COMMAND.exec(text) ?? (text.startsWith("/") ? null : [text, text]);
   if (!now && !queued) {
@@ -123,7 +156,7 @@ export async function handleUpdate(update, env, fetchImpl) {
       : `Não consegui iniciar (GitHub ${status}).`);
     return;
   }
-  const status = await dispatch(env, fetchImpl, "ideas.yml", { action: "add", date: "", index: "", idea });
+  const status = await dispatch(env, fetchImpl, "ideas.yml", { action: "add", date: "", index: "", idea, item: "" });
   await reply(status === 204 ? `Procurando um tema na Wikipedia para: ${idea}` : `Não consegui anotar (GitHub ${status}).`);
 }
 

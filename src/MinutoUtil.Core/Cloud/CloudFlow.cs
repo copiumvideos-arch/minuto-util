@@ -13,7 +13,36 @@ public delegate Task SendMessage(string text, IReadOnlyList<TelegramButton> butt
 /// </summary>
 public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider time)
 {
-    public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:";
+    public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:",
+        TopPrefix = "qt:", RemovePrefix = "qd:";
+
+    /// <summary>Items shown by /fila; the rest is counted.</summary>
+    public const int QueueShown = 10;
+
+    /// <summary>
+    /// /fila: the next videos in order, where each came from, and per item a ⏫ (to the top) and a 🗑 (remove) button,
+    /// two per row. The buttons carry the item's key, so they still point at the right item after the queue moves.
+    /// </summary>
+    public static (string Text, IReadOnlyList<TelegramButton> Buttons) QueueMessage(IReadOnlyList<QueueEntry> queue, string? done = null)
+    {
+        var text = new StringBuilder();
+        if (done is not null) text.AppendLine(done).AppendLine();
+        if (queue.Count == 0) return (text.Append("📭 A fila está vazia. Mande um tema para o próximo vídeo.").ToString(), []);
+        text.AppendLine("📋 Próximos vídeos (o primeiro é o próximo):");
+        for (var i = 0; i < Math.Min(queue.Count, QueueShown); i++)
+        {
+            var (_, topic, origin) = queue[i];
+            var from = origin switch { QueueOrigin.Text => "sua ideia", QueueOrigin.Tapped => "da lista do dia", _ => "fila padrão" };
+            text.Append($"\n{i + 1}. {topic.PortugueseArticle ?? topic.Article} ({topic.Year}) · {from}");
+        }
+        if (queue.Count > QueueShown) text.Append($"\n... e mais {queue.Count - QueueShown}");
+        text.Append("\n\n⏫ leva para o topo, 🗑 tira da fila. Também: /mover 5 2, /remover 3, ou mande um tema para adicionar.");
+        var buttons = queue.Take(QueueShown).SelectMany((e, i) => new[]
+        {
+            new TelegramButton($"⏫ {i + 1}", TopPrefix + e.Key), new TelegramButton($"🗑 {i + 1}", RemovePrefix + e.Key),
+        }).ToList();
+        return (text.ToString(), buttons);
+    }
 
     /// <summary>
     /// The daily list: numbered ideas (Portuguese title when there is one, year, series, what inspired it) and a button

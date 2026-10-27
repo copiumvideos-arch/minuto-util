@@ -231,6 +231,11 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   the state branch). Any text the owner sends the bot (or `/ideia <text>`) is an idea of its own, for example "por que
   só o Brasil usa urna eletrônica?": the picker turns it into the history that answers it and it goes first in line.
   `/novo [text]` makes a video right away. Renders take text ideas first, then tapped ideas, then `config/topics.json`.
+- **The queue on Telegram**: `/fila` (or `/queue`) lists the next videos with a ⏫ (to the top) and a 🗑 (remove) button
+  per item; `/mover 5 2` puts item 5 second; `/remover 3` takes item 3 out; `/adicionar <text>` (or `/add`, or plain
+  text) adds an idea, which becomes the next video. The owner's order is kept in `order.json` on the state branch
+  (only the head is pinned, the default order fills the rest), removals in `removed/`. A review video's
+  **🔁 Refazer** button makes the same topic again with a new script, voice and pictures.
 - **State**: the `state` branch holds `runs/<tag>.json` (topic, status, title, links), `quota-state.json` (the Gemini
   quota tracker, `make --quota-file`), `ideas/<date>.json`, `approved/*.json` and the sealed token files. Every job commits it with
   `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.

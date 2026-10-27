@@ -59,6 +59,16 @@ public static partial class RunTag
     private static partial Regex Pattern();
 }
 
+public enum QueueOrigin
+{
+    Text,
+    Tapped,
+    Backlog,
+}
+
+/// <summary>One upcoming video: <see cref="Key"/> stays the same while the queue changes around it (for buttons).</summary>
+public sealed record QueueEntry(string Key, BacklogTopic Topic, QueueOrigin Origin);
+
 /// <summary>The state branch checked out in a folder: runs/*.json plus the files the cloud runs keep between jobs.</summary>
 public sealed class CloudState(string folder)
 {
@@ -140,21 +150,86 @@ public sealed class CloudState(string folder)
         File.Move(path + ".tmp", path, overwrite: true);
     }
 
+    private string OrderFile => Path.Combine(Folder, "order.json");
+
+    private string RemovedFolder => Path.Combine(Folder, "removed");
+
     /// <summary>
-    /// The next topic not rendered yet: the owner's text ideas first, then the ideas tapped in the daily lists (oldest
-    /// first), then the backlog in order. Any run that is not a failure uses its article up (a rejected video is not
-    /// tried again), and an article that failed <see cref="MaxFailures"/> times is skipped. <c>Left</c> counts the backlog only.
+    /// What the next videos will be, in order. By default: the owner's text ideas, then the ideas tapped in the daily
+    /// lists (oldest first), then the backlog. The owner's own ordering (order.json, from /mover and the ⏫ button) comes
+    /// before that default. Any run that is not a failure uses its article up (a rejected video is not tried again), an
+    /// article that failed <see cref="MaxFailures"/> times is skipped, and so is one the owner removed.
     /// </summary>
-    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog)
+    public IReadOnlyList<QueueEntry> Queue(TopicBacklog backlog)
     {
         var runs = Runs();
+        var removed = Removed();
+        var keys = new HashSet<string>(StringComparer.Ordinal);
         bool Open(BacklogTopic t)
         {
+            if (removed.Contains(TextUtil.Slug(t.Article, 60))) return false;
             var mine = runs.Where(r => string.Equals(r.Article, t.Article, StringComparison.OrdinalIgnoreCase)).ToList();
             return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures;
         }
-        var left = backlog.Topics.Where(Open).ToList();
-        var approved = Approved().OrderByDescending(a => a.FromText).ThenBy(a => a.ApprovedAt).Select(a => a.Topic).FirstOrDefault(Open);
-        return (approved ?? left.FirstOrDefault(), left.Count);
+        var entries = Approved().OrderByDescending(a => a.FromText).ThenBy(a => a.ApprovedAt)
+            .Select(a => new QueueEntry("a-" + a.Id, a.Topic, a.FromText ? QueueOrigin.Text : QueueOrigin.Tapped))
+            .Concat(backlog.Topics.Select(t => new QueueEntry("b-" + TextUtil.Slug(t.Article, 34), t, QueueOrigin.Backlog)))
+            .Where(e => Open(e.Topic))
+            // The same article twice (tapped and in the backlog): the first one stands.
+            .Where(e => keys.Add("article:" + e.Topic.Article.ToLowerInvariant()) && keys.Add(e.Key))
+            .ToList();
+        var order = File.Exists(OrderFile) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(OrderFile), Json.Options) ?? [] : [];
+        var ordered = order.Select(k => entries.FirstOrDefault(e => e.Key == k)).OfType<QueueEntry>().ToList();
+        return [.. ordered, .. entries.Except(ordered)];
     }
+
+    /// <summary>The next topic, and how many backlog topics are left (the Telegram warning when it runs low).</summary>
+    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog)
+    {
+        var queue = Queue(backlog);
+        return (queue.FirstOrDefault()?.Topic, queue.Count(e => e.Origin == QueueOrigin.Backlog));
+    }
+
+    /// <summary>The entry a key (from a button) or a 1-based position (from /mover, /remover) points at.</summary>
+    public QueueEntry Find(TopicBacklog backlog, string item)
+    {
+        var queue = Queue(backlog);
+        var entry = int.TryParse(item, out var position)
+            ? position >= 1 && position <= queue.Count ? queue[position - 1] : null
+            : queue.FirstOrDefault(e => e.Key == item);
+        return entry ?? throw new ArgumentException($"The queue has no item {TextUtil.Truncate(item, 40)}.");
+    }
+
+    /// <summary>Puts an entry at a 1-based position; the order of everything above the end of the change is saved.</summary>
+    public QueueEntry Move(TopicBacklog backlog, string item, int position)
+    {
+        var entry = Find(backlog, item);
+        var keys = Queue(backlog).Select(e => e.Key).Where(k => k != entry.Key).ToList();
+        keys.Insert(Math.Clamp(position, 1, keys.Count + 1) - 1, entry.Key);
+        // Only the head is pinned (down to the new position, or as far as an earlier move pinned): the default order
+        // still decides where new ideas and the rest of the backlog go.
+        var pinnedBefore = File.Exists(OrderFile) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(OrderFile), Json.Options)?.Count ?? 0 : 0;
+        // One more than before: the moved item joins the pinned head without pushing an earlier pin out of it.
+        Write(OrderFile, keys.Take(Math.Max(position, pinnedBefore + 1)).ToList());
+        return entry;
+    }
+
+    /// <summary>Takes an entry out of the queue for good: a removed idea's file goes, and its article is never picked again.</summary>
+    public QueueEntry Remove(TopicBacklog backlog, string item)
+    {
+        var entry = Find(backlog, item);
+        Write(Path.Combine(RemovedFolder, $"{TextUtil.Slug(entry.Topic.Article, 60)}.json"),
+            new { article = entry.Topic.Article, removedAt = DateTimeOffset.UtcNow });
+        if (entry.Origin != QueueOrigin.Backlog)
+        {
+            var path = Path.Combine(ApprovedFolder, $"{entry.Key[2..]}.json");
+            if (File.Exists(path)) File.Delete(path);
+        }
+        return entry;
+    }
+
+    private HashSet<string> Removed() =>
+        Directory.Exists(RemovedFolder)
+            ? Directory.GetFiles(RemovedFolder, "*.json").Select(Path.GetFileNameWithoutExtension).OfType<string>().ToHashSet(StringComparer.Ordinal)
+            : [];
 }

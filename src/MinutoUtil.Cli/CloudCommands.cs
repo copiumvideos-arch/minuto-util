@@ -12,6 +12,7 @@ using MinutoUtil.Core.Publishing;
 ///   cloud ideas   --state <dir> [--again]                           sends the day's 10 ideas (from the trends)
 ///   cloud approve --state <dir> --date <yyyyMMdd> --index <n>        the owner tapped idea n of that day's list
 ///   cloud add-idea --state <dir> --idea "<text>"                    the owner's own idea, first in line
+///   cloud queue   --state <dir> [--top <item> | --remove <item> | --move <item> --to <n>]   changes, then shows the queue
 ///   cloud next    --state <dir> --tag <tag> [--article "<idea>" | --remake <old tag>]   picks the topic, prints it as JSON
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
@@ -47,9 +48,12 @@ internal static class CloudCommands
                     return Approve(state, Option(args, "--date") ?? "", int.TryParse(Option(args, "--index"), out var index) ? index : 0);
                 case "add-idea":
                     return await AddIdeaAsync(state, config, root, key, Option(args, "--idea") ?? "", telegram, cts.Token);
+                case "queue":
+                    return await QueueAsync(state, root, Option(args, "--top"), Option(args, "--remove"), Option(args, "--move"),
+                        Option(args, "--to"), telegram, cts.Token);
             }
             var tag = RunTag.Validate(Option(args, "--tag"));
-            var flow = new CloudFlow(state, telegram.SendTextAsync, TimeProvider.System);
+            var flow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System);
 
             switch (step)
             {
@@ -209,6 +213,36 @@ internal static class CloudCommands
         return 0;
     }
 
+    /// <summary>
+    /// /fila and its buttons: applies the change (an item is a key from a button or a 1-based position from /mover and
+    /// /remover) and sends the queue as it is now.
+    /// </summary>
+    private static async Task<int> QueueAsync(CloudState state, string root, string? top, string? remove, string? move, string? to,
+        TelegramNotifier telegram, CancellationToken ct)
+    {
+        var backlog = TopicBacklog.Load(Path.Combine(root, "config", "topics.json"));
+        string? done = null;
+        try
+        {
+            if (top is not null) done = $"⏫ No topo: {Title(state.Move(backlog, top, 1).Topic)}";
+            else if (remove is not null) done = $"🗑 Removido da fila: {Title(state.Remove(backlog, remove).Topic)}";
+            else if (move is not null)
+            {
+                var position = int.TryParse(to, out var p) ? p : throw new ArgumentException("/mover needs two numbers: /mover 5 2");
+                done = $"↕️ {Title(state.Move(backlog, move, position).Topic)} agora é o {position}º";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            done = $"⚠️ {ex.Message} Veja os números atuais abaixo.";
+        }
+        var (text, buttons) = CloudFlow.QueueMessage(state.Queue(backlog), done);
+        await telegram.SendTextAsync(text, buttons, ct, perRow: 2);
+        return 0;
+
+        static string Title(BacklogTopic t) => $"{t.PortugueseArticle ?? t.Article} ({t.Year})";
+    }
+
     /// <summary>The owner tapped idea <paramref name="index"/> (1-based) of a day's list: it joins the approved ideas.</summary>
     private static int Approve(CloudState state, string date, int index)
     {
@@ -241,8 +275,11 @@ internal static class CloudCommands
             return 0;
         }
         var now = DateTimeOffset.UtcNow;
-        state.SaveApproved(new ApprovedIdea($"{now.UtcDateTime:yyyyMMdd-HHmmss}-text", topic, FromText: true, now));
-        await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({topic.Year}). É o próximo vídeo da fila. Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
+        var id = $"{now.UtcDateTime:yyyyMMdd-HHmmss}-text";
+        state.SaveApproved(new ApprovedIdea(id, topic, FromText: true, now));
+        // The newest idea is the next video, even ahead of items the owner moved up earlier.
+        state.Move(TopicBacklog.Load(Path.Combine(root, "config", "topics.json")), "a-" + id, 1);
+        await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({topic.Year}). É o próximo vídeo da fila (veja com /fila). Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
         return 0;
     }
 

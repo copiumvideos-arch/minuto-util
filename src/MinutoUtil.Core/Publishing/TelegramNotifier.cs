@@ -25,10 +25,10 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
 
     public Task SendTextAsync(string text, CancellationToken ct) => SendTextAsync(text, [], ct);
 
-    public async Task SendTextAsync(string text, IReadOnlyList<TelegramButton> buttons, CancellationToken ct)
+    public async Task SendTextAsync(string text, IReadOnlyList<TelegramButton> buttons, CancellationToken ct, int perRow = 5)
     {
         var body = new Dictionary<string, object> { ["chat_id"] = chatId, ["text"] = text, ["link_preview_options"] = new { is_disabled = true } };
-        if (buttons.Count > 0) body["reply_markup"] = Keyboard(buttons);
+        if (buttons.Count > 0) body["reply_markup"] = Keyboard(buttons, perRow);
         using var response = await http.PostAsJsonAsync(Url("sendMessage"), body, ct);
         await EnsureOkAsync(response, "sendMessage", ct);
     }
@@ -42,7 +42,7 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
             { new StringContent(chatId), "chat_id" },
             { new StringContent(TextUtil.Truncate(caption, MaxCaption)), "caption" },
             { new StringContent("true"), "supports_streaming" },
-            { new StringContent(JsonSerializer.Serialize(Keyboard(buttons))), "reply_markup" },
+            { new StringContent(JsonSerializer.Serialize(Keyboard(buttons, 5))), "reply_markup" },
         };
         var video = new StreamContent(file);
         video.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
@@ -53,9 +53,9 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
 
     private string Url(string method) => $"https://api.telegram.org/bot{botToken}/{method}";
 
-    /// <summary>One row of buttons, or rows of 5 when there are more (the daily idea list's 1 to 10).</summary>
-    private static object Keyboard(IReadOnlyList<TelegramButton> buttons) =>
-        new { inline_keyboard = buttons.Chunk(5).Select(row => row.Select(b => new { text = b.Text, callback_data = b.Data }).ToArray()).ToArray() };
+    /// <summary>Rows of <paramref name="perRow"/> buttons (the daily idea list's 1 to 10 in two rows, the queue's ⏫ and 🗑 in pairs).</summary>
+    private static object Keyboard(IReadOnlyList<TelegramButton> buttons, int perRow) =>
+        new { inline_keyboard = buttons.Chunk(perRow).Select(row => row.Select(b => new { text = b.Text, callback_data = b.Data }).ToArray()).ToArray() };
 
     private static async Task EnsureOkAsync(HttpResponseMessage response, string method, CancellationToken ct)
     {

@@ -12,14 +12,18 @@ on:
     inputs:
       action:
         type: choice
-        options: [list, approve, add]
+        options: [list, approve, add, queue, top, remove, move]
         default: list
+      item:
+        description: "top, remove, move: the queue item (a key from a button, or its position)"
+        required: false
+        default: ""
       date:
         description: "approve: the list's date (yyyyMMdd)"
         required: false
         default: ""
       index:
-        description: "approve: the idea's number in that list"
+        description: "approve: the idea's number in that list; move: the new position"
         required: false
         default: ""
       idea:
@@ -43,6 +47,7 @@ jobs:
       DATE: ${{ inputs.date }}
       INDEX: ${{ inputs.index }}
       IDEA: ${{ inputs.idea }}
+      ITEM: ${{ inputs.item }}
       AGAIN: ${{ inputs.again && '--again' || '' }}
       CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
     steps:
@@ -52,6 +57,9 @@ jobs:
             list) ;;
             approve) [[ "$DATE" =~ ^[0-9]{8}$ && "$INDEX" =~ ^[0-9]{1,2}$ ]] || { echo "bad date or index"; exit 1; } ;;
             add) [ -n "$IDEA" ] && [ "${#IDEA}" -le 200 ] || { echo "bad idea"; exit 1; } ;;
+            queue) ;;
+            top|remove) [[ "$ITEM" =~ ^[0-9a-z-]{1,40}$ ]] || { echo "bad item"; exit 1; } ;;
+            move) [[ "$ITEM" =~ ^[0-9a-z-]{1,40}$ && "$INDEX" =~ ^[0-9]{1,2}$ ]] || { echo "bad item or position"; exit 1; } ;;
             *) echo "bad action"; exit 1 ;;
           esac
 
@@ -79,6 +87,10 @@ jobs:
             list) $CLI cloud ideas --state state $AGAIN ;;
             approve) $CLI cloud approve --state state --date "$DATE" --index "$INDEX" ;;
             add) $CLI cloud add-idea --state state --idea "$IDEA" ;;
+            queue) $CLI cloud queue --state state ;;
+            top) $CLI cloud queue --state state --top "$ITEM" ;;
+            remove) $CLI cloud queue --state state --remove "$ITEM" ;;
+            move) $CLI cloud queue --state state --move "$ITEM" --to "$INDEX" ;;
           esac
 
       - name: Save the state
