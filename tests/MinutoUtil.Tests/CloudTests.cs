@@ -682,7 +682,26 @@ public sealed class BotFeatureTests
         Assert.Contains("Revisão de roteiro ligada", text);
         Assert.Contains("Roteiros esperando você:\n• Como surgiu a urna", text.ReplaceLineEndings("\n"));
         Assert.Contains("A Magna Carta (27/10 15:00): no voice", text);
-        Assert.Contains("fila vazia", text);
+        Assert.Contains("Fila vazia", text);
+    }
+
+    [Fact]
+    public void Status_says_when_each_next_topic_is_made()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(temp.Path);
+        var queue = new[] { "Magna Carta", "Lei Áurea", "Apollo 11", "Sputnik 1" }
+            .Select((a, i) => new QueueEntry($"b-{i}", new BacklogTopic(a, 1900, "x"), QueueOrigin.Backlog)).ToList();
+        // Tuesday 27/10 15:30 in Brasília: the next renders are 19h today, then 07h and 11h tomorrow.
+        var now = new DateTimeOffset(2026, 10, 27, 15, 30, 0, TimeSpan.FromHours(-3));
+
+        var text = CloudFlow.StatusMessage(new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
+
+        Assert.Contains("\n1. Magna Carta: hoje às 19h\n2. Lei Áurea: amanhã às 07h\n3. Apollo 11: amanhã às 11h", text);
+        Assert.DoesNotContain("Sputnik", text);
+        Assert.Contains("vai ao ar quando você toca ✅ Publicar", text);
+        Assert.Contains("1. Magna Carta (pausado)", CloudFlow.StatusMessage(new BotSettings { Paused = true }, [], queue, now));
+        Assert.Equal("sexta às 07h", CloudFlow.When(new DateTimeOffset(2026, 10, 30, 10, 0, 0, TimeSpan.Zero), now));
     }
 
     [Fact]

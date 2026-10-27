@@ -16,6 +16,38 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:",
         TopPrefix = "qt:", RemovePrefix = "qd:";
 
+    /// <summary>The scheduled renders in UTC hours; keep in step with the cron lines in .github/workflows/render.yml.</summary>
+    public static readonly int[] ScheduleUtcHours = [10, 14, 18, 22];
+
+    private static readonly TimeSpan Brasilia = TimeSpan.FromHours(-3);
+
+    /// <summary>The next <paramref name="count"/> scheduled render times after <paramref name="now"/>.</summary>
+    public static IReadOnlyList<DateTimeOffset> NextSlots(DateTimeOffset now, int count)
+    {
+        var slots = new List<DateTimeOffset>();
+        for (var day = now.UtcDateTime.Date; slots.Count < count; day = day.AddDays(1))
+            foreach (var hour in ScheduleUtcHours)
+            {
+                var slot = new DateTimeOffset(day.AddHours(hour), TimeSpan.Zero);
+                if (slot > now && slots.Count < count) slots.Add(slot);
+            }
+        return slots;
+    }
+
+    /// <summary>"hoje às 15h", "amanhã às 07h", "sexta às 11h", in Brasília time.</summary>
+    public static string When(DateTimeOffset slot, DateTimeOffset now)
+    {
+        var local = slot.ToOffset(Brasilia);
+        var days = (local.Date - now.ToOffset(Brasilia).Date).Days;
+        var day = days switch
+        {
+            0 => "hoje",
+            1 => "amanhã",
+            _ => local.ToString("dddd", System.Globalization.CultureInfo.GetCultureInfo("pt-BR")).Replace("-feira", ""),
+        };
+        return $"{day} às {local:HH}h";
+    }
+
     /// <summary>/status: the switches, what is being made or waiting for the owner, the last results and the next topics.</summary>
     public static string StatusMessage(BotSettings settings, IReadOnlyList<RunRecord> runs, IReadOnlyList<QueueEntry> queue, DateTimeOffset now)
     {
@@ -33,10 +65,23 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var recent = runs.Where(r => now - r.UpdatedAt < TimeSpan.FromDays(3)).OrderByDescending(r => r.UpdatedAt).ToList();
         Group("⚙️ Fazendo agora:", recent.Where(r => r.Status is RunStatus.Rendering or RunStatus.Publishing && now - r.UpdatedAt < TimeSpan.FromHours(1)));
         Group("📝 Roteiros esperando você:", recent.Where(r => r.Status == RunStatus.Script));
-        Group("🎬 Vídeos esperando revisão:", recent.Where(r => r.Status == RunStatus.Review));
+        Group("🎬 Prontos, esperando você tocar ✅ Publicar no vídeo (nada vai ao ar sem isso):", recent.Where(r => r.Status == RunStatus.Review));
         Group("✅ Publicados (3 dias):", recent.Where(r => r.Status == RunStatus.Published));
         Group("⚠️ Falharam (3 dias):", recent.Where(r => r.Status == RunStatus.Failed));
-        text.AppendLine().AppendLine("📋 Próximos: " + (queue.Count == 0 ? "fila vazia" : string.Join(" · ", queue.Take(3).Select(e => e.Topic.PortugueseArticle ?? e.Topic.Article))));
+        // The next topics with the scheduled render that will take each one; the video reaches Telegram about 15
+        // minutes later (the script first, in review mode) and goes out when the owner taps Publicar.
+        text.AppendLine().AppendLine("📋 Próximos vídeos:");
+        if (queue.Count == 0) text.AppendLine("Fila vazia: mande um tema.");
+        var slots = NextSlots(now, 3);
+        for (var i = 0; i < Math.Min(3, queue.Count); i++)
+        {
+            var title = queue[i].Topic.PortugueseArticle ?? queue[i].Topic.Article;
+            text.AppendLine(settings.Paused ? $"{i + 1}. {title} (pausado)" : $"{i + 1}. {title}: {When(slots[i], now)}");
+        }
+        if (!settings.Paused && queue.Count > 0)
+            text.AppendLine(settings.Review
+                ? "O roteiro chega na hora marcada; o vídeo, uns 15 min depois de você aprovar."
+                : "Cada vídeo chega aqui uns 15 min depois da hora marcada e vai ao ar quando você toca ✅ Publicar.");
         return text.ToString().TrimEnd();
     }
 
