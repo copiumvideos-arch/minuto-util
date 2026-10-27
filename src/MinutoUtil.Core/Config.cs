@@ -15,6 +15,7 @@ public sealed record AppConfig
     public VideoOptions Video { get; init; } = new();
     public YouTubeOptions YouTube { get; init; } = new();
     public TikTokOptions TikTok { get; init; } = new();
+    public Publishing.TelegramOptions Telegram { get; init; } = new();
 
     /// <summary>
     /// Quota files of other apps that use the same API keys, read only. The Gemini key is shared with the live

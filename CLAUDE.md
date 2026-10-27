@@ -20,6 +20,8 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   Login Kit and inbox upload, token stores (DPAPI file, or environment variable on a runner), `Publisher` (published.json).
 - `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients; `PublishingCommands.cs`: `youtube-login`,
   `tiktok-login`, `publish`.
+- `site/`: privacy policy and terms for the TikTok app, published by the owner under
+  https://copiumvideos-arch.github.io/minuto-util/ (repo `copiumvideos-arch/copiumvideos-arch.github.io`).
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
   (the round watermark cut from the emblem).

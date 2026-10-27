@@ -93,7 +93,8 @@ internal static class PublishingCommands
                     if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
                     return new TikTokUploader(uploadHttp, auth.GetAccessTokenAsync);
                 },
-                TimeProvider.System);
+                TimeProvider.System,
+                Telegram(config.Telegram, key, apiHttp) is { } telegram ? telegram.SendTextAsync : null);
             Console.WriteLine(await publisher.PublishAsync(folder, platforms, dryRun, force, cts.Token));
             return 0;
         }
@@ -129,6 +130,14 @@ internal static class PublishingCommands
         key(options.ClientIdEnvVar) is { } id && key(options.ClientSecretEnvVar) is { } secret
             ? new OAuthClient(id, secret)
             : OAuthClient.Load(TokenStores.ExpandPath(options.ClientSecretFile));
+
+    /// <summary>The owner's Telegram bot, or null (with a note) when its two variables are not set.</summary>
+    private static TelegramNotifier? Telegram(TelegramOptions options, Func<string, string?> key, HttpClient http)
+    {
+        if (key(options.BotTokenEnvVar) is { } token && key(options.ChatIdEnvVar) is { } chat) return new TelegramNotifier(http, token, chat);
+        Log.Info($"Telegram is off ({options.BotTokenEnvVar} or {options.ChatIdEnvVar} not set); the TikTok caption stays in its file");
+        return null;
+    }
 
     private static TikTokClient TikTokClientFrom(TikTokOptions options, Func<string, string?> key) =>
         key(options.ClientKeyEnvVar) is { } clientKey && key(options.ClientSecretEnvVar) is { } secret

@@ -30,12 +30,15 @@ public enum Platforms
 /// Sends a finished run folder (video.mp4 + metadata.json) to YouTube as a public Short and to the owner's TikTok inbox
 /// as a draft. The platform clients are made only when needed, so a dry run builds none and touches no network.
 /// </summary>
+/// <param name="sendText">Sends a message to the owner (Telegram), or null. TikTok's inbox upload has no caption field,
+/// so the caption goes there after each draft, ready to copy.</param>
 public sealed class Publisher(
     YouTubeOptions youtube,
     TikTokOptions tiktok,
     Func<YouTubeUploader> youtubeUploader,
     Func<TikTokUploader> tiktokUploader,
-    TimeProvider time)
+    TimeProvider time,
+    Func<string, CancellationToken, Task>? sendText = null)
 {
     public const string RecordFile = "published.json";
     public const string CaptionFile = "tiktok-caption.txt";
@@ -88,8 +91,28 @@ public sealed class Publisher(
             SaveRecord(folder, record);
             Log.Info($"TikTok: draft {upload.PublishId} is {upload.Status.Status}");
             summary.AppendLine($"TikTok: draft sent ({upload.Status.Status}). Open the inbox notification in the TikTok app to finish the post; caption in {CaptionFile}.");
+            if (sendText is not null) summary.AppendLine(await SendCaptionAsync(caption, ct));
         }
         return summary.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Two messages: a short notice, then the caption alone so a long press copies exactly that. The draft is already
+    /// in the inbox, so a Telegram failure is only a warning.
+    /// </summary>
+    private async Task<string> SendCaptionAsync(string caption, CancellationToken ct)
+    {
+        try
+        {
+            await sendText!("Rascunho no TikTok pronto: abra a notificação no app. Legenda para copiar na próxima mensagem.", ct);
+            await sendText(caption, ct);
+            return "Telegram: caption sent.";
+        }
+        catch (Exception ex) when ((ex is HttpRequestException or TaskCanceledException) && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"the TikTok caption could not be sent to Telegram: {ex.Message}");
+            return $"Telegram: caption not sent ({ex.Message}); it is in {CaptionFile}.";
+        }
     }
 
     private static string Plan(Platforms platforms, VideoDetails details, string caption, long videoBytes, List<string> already)

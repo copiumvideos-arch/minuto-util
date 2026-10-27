@@ -66,7 +66,8 @@ public static class OAuthRedirect
             return (null, $"{service} sign-in failed: {TextUtil.Truncate(error, 100)}", "Sign-in was cancelled. You can close this tab.");
         if (string.IsNullOrEmpty(query["code"]))
             return (null, $"{service} sent no authorization code.", "No authorization code. Close this tab and try again.");
-        return (query["code"], null, $"Minuto Útil is signed in to {service}. You can close this tab.");
+        // Not "signed in" yet: the app still checks the account (the YouTube channel id) and may throw this sign-in away.
+        return (query["code"], null, $"{service} accepted the sign-in. Close this tab and check the terminal: Minuto Útil saves it only if it is the channel's account.");
     }
 
     private static async Task RespondAsync(HttpListenerContext context, string message)

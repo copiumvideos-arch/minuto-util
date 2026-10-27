@@ -154,8 +154,10 @@ dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-
   chunks with the remainder on the last one), then the status is polled every 5 s until TikTok says
   `SEND_TO_USER_INBOX` (up to `tiktok.statusWaitSeconds`). The owner opens the inbox notification in the TikTok app and
   finishes the post (caption, sound, visibility). The inbox flow has no caption field, so the caption (title plus
-  hashtags, at most 2200 characters) is written to `tiktok-caption.txt` to paste. TikTok allows 5 drafts waiting in
-  the inbox per 24 hours.
+  hashtags, at most 2200 characters) is written to `tiktok-caption.txt` and, when `MINUTO_TELEGRAM_BOT_TOKEN` and
+  `MINUTO_TELEGRAM_CHAT_ID` are set, sent to the owner's Telegram as its own message to copy
+  (`Publishing/TelegramNotifier.cs`; a Telegram failure is only a warning). TikTok allows 5 drafts waiting in the
+  inbox per 24 hours. The drafts appear only in the phone app: Inbox, System notifications.
 - Results go to `published.json` in the run folder (YouTube video id, URL, channel, privacy, time; TikTok publish_id,
   status, time), written after each platform succeeds. A folder already published to a platform is refused for that
   platform unless `--force` is given.
@@ -170,7 +172,8 @@ The sign-in itself is Minuto Útil's own and is stored apart from Flopômetro's.
    `%LOCALAPPDATA%\Flopometro\client_secret.json`).
 2. `dotnet run --project src/MinutoUtil.Cli -- youtube-login`. The consent page opens (the link is printed too; add
    `--no-browser` to open it yourself in the right browser profile). Pick the Google account, then the **Minuto Útil**
-   channel in the channel chooser. Access asked: upload videos, and read-only access to see which channel it is.
+   channel in the channel chooser. Google shows no channel chooser for this account: the Minuto Útil channel
+   belongs to the Google account "Grim Reaper", so pick that account (copium is Flopômetro). Access asked: upload videos, and read-only access to see which channel it is.
 3. The app checks the channel id; a sign-in for any other channel is thrown away. The refresh token is saved
    DPAPI-encrypted for the Windows user in `%LOCALAPPDATA%\MinutoUtil\youtube-token.bin`.
 

@@ -850,6 +850,47 @@ public sealed class PublisherTests
     }
 
     [Fact]
+    public async Task A_tiktok_draft_sends_its_caption_to_telegram_as_its_own_message()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        var telegram = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.OK, """{"ok":true}"""));
+        var notifier = new TelegramNotifier(new HttpClient(telegram), "123:secret", "42");
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => throw new InvalidOperationException("YouTube must not be reached"),
+            () => new TikTokUploader(new HttpClient(new TikTokTests.FakeTikTok()), _ => Task.FromResult("t"), TimeSpan.Zero, TimeSpan.Zero),
+            new FakeTimeProvider(PublishData.Now), notifier.SendTextAsync);
+
+        var summary = await publisher.PublishAsync(folder, Platforms.TikTok, false, false, CancellationToken.None);
+
+        Assert.Equal(2, telegram.Requests.Count);
+        Assert.All(telegram.Requests, r => Assert.Equal("https://api.telegram.org/bot123:secret/sendMessage", r.Request.RequestUri!.AbsoluteUri));
+        var last = JsonDocument.Parse(telegram.Requests[1].Body).RootElement;
+        Assert.Equal("42", last.GetProperty("chat_id").GetString());
+        Assert.Equal(File.ReadAllText(Path.Combine(folder, Publisher.CaptionFile)), last.GetProperty("text").GetString());
+        Assert.Contains("Telegram: caption sent.", summary);
+    }
+
+    [Fact]
+    public async Task A_telegram_failure_keeps_the_draft_and_never_shows_the_bot_token()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        var telegram = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.BadRequest, """{"ok":false,"description":"Bad Request: chat not found"}"""));
+        var notifier = new TelegramNotifier(new HttpClient(telegram), "123:secret", "42");
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => throw new InvalidOperationException("YouTube must not be reached"),
+            () => new TikTokUploader(new HttpClient(new TikTokTests.FakeTikTok()), _ => Task.FromResult("t"), TimeSpan.Zero, TimeSpan.Zero),
+            new FakeTimeProvider(PublishData.Now), notifier.SendTextAsync);
+
+        var summary = await publisher.PublishAsync(folder, Platforms.TikTok, false, false, CancellationToken.None);
+
+        Assert.Equal("v_inbox_file~v2.123", Publisher.LoadRecord(folder).TikTok!.PublishId);
+        Assert.Contains("chat not found", summary);
+        Assert.DoesNotContain("secret", summary);
+    }
+
+    [Fact]
     public async Task Nothing_is_uploaded_to_another_channel()
     {
         using var temp = new TempFolder();
