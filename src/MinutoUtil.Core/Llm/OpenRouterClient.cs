@@ -7,23 +7,31 @@ using System.Text.Json.Nodes;
 namespace MinutoUtil.Core.Llm;
 
 /// <summary>
-/// OpenRouter's OpenAI-compatible chat API with its free (":free") models, the spare writer when Gemini is out of
-/// quota. Adapted from Flopômetro without retries: each model is asked once. The daily cap on free models
+/// An OpenAI-compatible chat API: OpenRouter's free (":free") models, or GitHub Models (<see cref="ForGitHubModels"/>),
+/// the spare writers when Gemini is out of quota. Adapted from Flopômetro without retries: each model is asked once. The daily cap on free models
 /// (account-wide, reset at 00:00 UTC) is recorded in <paramref name="quota"/>, and every free model is then skipped
 /// without a request until it resets. The key goes in the Authorization header, never the URL.
 /// </summary>
-public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null)
-    : ILlmClient
+public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null,
+    string provider = "openrouter", Uri? endpoint = null) : ILlmClient
 {
     internal static readonly Uri Endpoint = new("https://openrouter.ai/api/v1/chat/completions");
+    internal static readonly Uri GitHubModelsEndpoint = new("https://models.github.ai/inference/chat/completions");
+
+    /// <summary>
+    /// GitHub Models: free with any GitHub account, called with the Actions job's own token (permission models: read),
+    /// so it needs no sign-up and no key of its own. Daily caps per model are small but far above a few requests a day.
+    /// </summary>
+    public static OpenRouterClient ForGitHubModels(HttpClient http, string token, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null) =>
+        new(http, token, models, usage, quota, "github", GitHubModelsEndpoint);
     private readonly QuotaTracker _quota = quota ?? new QuotaTracker();
 
     /// <summary>The key of the account-wide daily cap on ":free" models.</summary>
     internal const string FreeModelsKey = "openrouter:free-models";
 
-    internal static string QuotaKey(string model) => $"openrouter:{model}";
+    internal string QuotaKey(string model) => $"{provider}:{model}";
 
-    public string Name => $"openrouter:{models[0]}";
+    public string Name => $"{provider}:{models[0]}";
 
     private DateTimeOffset? ExhaustedUntil(string model) =>
         _quota.ExhaustedUntil(QuotaKey(model))
@@ -32,12 +40,12 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
     public async Task<T> CompleteJsonAsync<T>(string system, string user, CancellationToken ct)
     {
         var schema = Json.SchemaFor<T>();
-        var lastError = "no OpenRouter model configured";
+        var lastError = $"no {provider} model configured";
         foreach (var model in models)
         {
             if (ExhaustedUntil(model) is { } until)
             {
-                lastError = $"openrouter:{model} is out of its daily quota until {until.ToUniversalTime():yyyy-MM-dd HH:mm} UTC";
+                lastError = $"{provider}:{model} is out of its daily quota until {until.ToUniversalTime():yyyy-MM-dd HH:mm} UTC";
                 continue;
             }
             var body = new JsonObject
@@ -59,8 +67,11 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
                 },
             };
 
-            usage.TakeModelRequest("openrouter");
-            using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
+            // GitHub's OpenAI models reject a strict schema that is not fully closed; the schema in the prompt and
+            // json_object do the same job there.
+            if (provider == "github") body["response_format"] = new JsonObject { ["type"] = "json_object" };
+            usage.TakeModelRequest(provider);
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint ?? Endpoint)
             {
                 Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
             };
@@ -76,7 +87,7 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
             }
             catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException && !ct.IsCancellationRequested)
             {
-                lastError = $"openrouter:{model} failed: {ex.Message}";
+                lastError = $"{provider}:{model} failed: {ex.Message}";
                 Log.Warn(lastError);
                 continue;
             }
@@ -84,20 +95,20 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
 
             if (response.IsSuccessStatusCode && ExtractContent(text) is { } content)
             {
-                Log.Info($"openrouter:{model} answered");
+                Log.Info($"{provider}:{model} answered");
                 try
                 {
                     return LlmJson.Deserialize<T>(content);
                 }
                 catch (JsonException ex)
                 {
-                    lastError = $"openrouter:{model} returned malformed JSON: {ex.Message}";
+                    lastError = $"{provider}:{model} returned malformed JSON: {ex.Message}";
                     Log.Warn(lastError);
                     continue;
                 }
             }
 
-            lastError = $"openrouter:{model} returned {(int)response.StatusCode}: {TextUtil.Truncate(text, 300)}";
+            lastError = $"{provider}:{model} returned {(int)response.StatusCode}: {TextUtil.Truncate(text, 300)}";
             Log.Warn(lastError);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.PaymentRequired)
                 throw new LlmException(lastError);
@@ -107,7 +118,7 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
                 _quota.MarkExhausted(accountWide ? FreeModelsKey : QuotaKey(model), QuotaTracker.NextUtcMidnight(_quota.Now), text);
             }
         }
-        throw new LlmException($"No OpenRouter model answered. Last error: {lastError}");
+        throw new LlmException($"No {provider} model answered. Last error: {lastError}");
     }
 
     /// <summary>The assistant message text, or null when the response carries an error or no content.</summary>

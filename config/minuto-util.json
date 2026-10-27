@@ -15,7 +15,7 @@
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
-  "writer": { "maxRequests": 3, "minWords": 130, "maxWords": 170, "minSections": 4, "maxSections": 6 },
+  "writer": { "maxRequests": 5, "minWords": 130, "maxWords": 170, "minSections": 4, "maxSections": 6 },
   "voice": {
     "engine": "smallest",
     "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },

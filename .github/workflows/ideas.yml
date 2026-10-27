@@ -26,9 +26,15 @@ on:
         description: "add: the owner's idea, a subject or a question"
         required: false
         default: ""
+      again:
+        description: "list: send a new list even if today's was sent"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+  # GitHub Models, the free spare writer after Gemini, is called with the job's own token.
+  models: read
 
 jobs:
   ideas:
@@ -39,6 +45,7 @@ jobs:
       DATE: ${{ inputs.date }}
       INDEX: ${{ inputs.index }}
       IDEA: ${{ inputs.idea }}
+      AGAIN: ${{ inputs.again && '--again' || '' }}
       CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
     steps:
       - name: Check the input
@@ -67,9 +74,10 @@ jobs:
           MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_MODELS_TOKEN: ${{ github.token }}
         run: |
           case "$ACTION" in
-            list) $CLI cloud ideas --state state ;;
+            list) $CLI cloud ideas --state state $AGAIN ;;
             approve) $CLI cloud approve --state state --date "$DATE" --index "$INDEX" ;;
             add) $CLI cloud add-idea --state state --idea "$IDEA" ;;
           esac

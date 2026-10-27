@@ -8,6 +8,7 @@ public sealed record AppConfig
     public ChannelOptions Channel { get; init; } = new();
     public StoryOptions Story { get; init; } = new();
     public GeminiOptions Gemini { get; init; } = new();
+    public GitHubModelsOptions GitHubModels { get; init; } = new();
     public OpenRouterOptions OpenRouter { get; init; } = new();
     public WriterOptions Writer { get; init; } = new();
     public VoiceOptions Voice { get; init; } = new();
@@ -58,6 +59,16 @@ public sealed record GeminiOptions
     /// <summary>The same text models as the Flopômetro config, tried in order, one request each at most.</summary>
     public IReadOnlyList<string> Models { get; init; } = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"];
     public string ApiKeyEnvVar { get; init; } = "GEMINI_API_KEY";
+}
+
+/// <summary>
+/// GitHub Models, the first spare after Gemini: OpenAI models, free with the GitHub account. On the Actions runner the
+/// job's own token is the key (permission models: read); locally a GitHub token with the models scope works too.
+/// </summary>
+public sealed record GitHubModelsOptions
+{
+    public IReadOnlyList<string> Models { get; init; } = ["openai/gpt-4.1", "openai/gpt-4.1-mini"];
+    public string TokenEnvVar { get; init; } = "GITHUB_MODELS_TOKEN";
 }
 
 public sealed record OpenRouterOptions

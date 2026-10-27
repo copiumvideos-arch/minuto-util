@@ -374,7 +374,7 @@ public sealed class TrendTests
             new("2022 Brazilian general election", "", 2022, "Democracia", "eleições"),
             new("Battle of Marathon", "", -490, "Grécia", "x"),
             new("Proclamation of the Republic (Brazil)", "Urna Inventada", 1889, "História do Brasil", "presidentes do Brasil"));
-        var signals = new TrendSignals(["eleições: Segundo turno movimenta o país"], ["Lista de presidentes do Brasil"]);
+        var signals = new TrendSignals(["Xi Jinping parabeniza Lula por reeleição - G1"], ["eleições: Segundo turno movimenta o país"], ["Lista de presidentes do Brasil"]);
 
         var picks = await Picker(llm, Wikipedia()).PickAsync(signals, ["Storming of the Bastille"], CancellationToken.None);
 
@@ -386,7 +386,9 @@ public sealed class TrendTests
         var prompt = Assert.Single(llm.Prompts);
         Assert.Contains("Minuto Útil", prompt);
         Assert.Contains("Give 10 picks", prompt);
+        Assert.Contains("Top news in Brazil today (Google News headlines, the strongest signal):\n- Xi Jinping parabeniza Lula por reeleição - G1".ReplaceLineEndings(), prompt.ReplaceLineEndings());
         Assert.Contains("- eleições: Segundo turno movimenta o país", prompt);
+        Assert.Contains("skip those unless one has a real historical story", prompt);
         Assert.Contains("- Lista de presidentes do Brasil", prompt);
         Assert.Contains("Already made (do not pick):\n- Storming of the Bastille".ReplaceLineEndings(), prompt.ReplaceLineEndings());
         Assert.Contains("never a living politician", prompt);
@@ -421,15 +423,24 @@ public sealed class TrendTests
         const string top = """
             {"items":[{"articles":[{"article":"Wikipédia:Página_principal"},{"article":"Lista_de_presidentes_do_Brasil"},{"article":"Especial:Pesquisar"},{"article":"Proclamação_da_República_do_Brasil"}]}]}
             """;
-        var handler = new FakeHandler((request, _) => request.RequestUri == TrendSignals.GoogleTrendsFeed
-            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(rss) }
+        const string news = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0"><channel>
+              <item><title>Xi Jinping parabeniza Lula por reeleição - G1</title></item>
+              <item><title>Israel vai às urnas em referendo - Estadão</title></item>
+            </channel></rss>
+            """;
+        var handler = new FakeHandler((request, _) =>
+            request.RequestUri == TrendSignals.GoogleTrendsFeed ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(rss) }
+            : request.RequestUri == TrendSignals.GoogleNewsFeed ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(news) }
             : FakeHandler.Json(HttpStatusCode.OK, top));
 
         var signals = await TrendSignals.FetchAsync(new HttpClient(handler), new DateOnly(2026, 10, 26), CancellationToken.None);
 
+        Assert.Equal(["Xi Jinping parabeniza Lula por reeleição - G1", "Israel vai às urnas em referendo - Estadão"], signals.Headlines);
         Assert.Equal(["eleições: Segundo turno  b movimenta /b  o país", "menino"], signals.Searches);
         Assert.Equal(["Lista de presidentes do Brasil", "Proclamação da República do Brasil"], signals.WikipediaReads);
-        Assert.Equal("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/pt.wikipedia/all-access/2026/10/26", handler.Requests[1].Request.RequestUri!.AbsoluteUri);
+        Assert.Equal("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/pt.wikipedia/all-access/2026/10/26", handler.Requests[2].Request.RequestUri!.AbsoluteUri);
 
         // A feed with a DTD is refused (no entity expansion); Wikipedia still counts. A source that is down is skipped.
         var hostile = new FakeHandler((request, _) => request.RequestUri == TrendSignals.GoogleTrendsFeed
@@ -486,5 +497,31 @@ public sealed class TrendTests
         var run = new RunRecord { Tag = "20261027-1800", Article = "Magna Carta", Year = 1215, Topic = "Democracia", Trend = "eleições 2026",
             Status = RunStatus.Rendering, UpdatedAt = PublishData.Now };
         Assert.Contains("💡 Inspiração: eleições 2026", CloudFlow.ReviewCaption(run, PublishData.Metadata(), []));
+    }
+}
+
+public sealed class GitHubModelsTests
+{
+    [Fact]
+    public async Task The_spare_writer_calls_github_models_with_the_job_token_and_hands_over_on_a_daily_cap()
+    {
+        var handler = new FakeHandler((request, body) => body.Contains("\"openai/gpt-4.1\"")
+            ? FakeHandler.Json(HttpStatusCode.TooManyRequests, """{"error":{"code":"RateLimitReached","message":"Rate limit of 50 per 86400s exceeded for UserByModelByDay."}}""")
+            : FakeHandler.Json(HttpStatusCode.OK, """{"choices":[{"message":{"content":"{\"ideas\":[]}"}}]}"""));
+        var usage = new RunUsage(5);
+        var client = MinutoUtil.Core.Llm.OpenRouterClient.ForGitHubModels(new HttpClient(handler), "ghs_job_token", ["openai/gpt-4.1", "openai/gpt-4.1-mini"], usage);
+
+        var answer = await client.CompleteJsonAsync<TrendIdeas>("system", "user", CancellationToken.None);
+
+        Assert.Empty(answer.Ideas);
+        Assert.Equal("github:openai/gpt-4.1", client.Name);
+        Assert.All(handler.Requests, r =>
+        {
+            Assert.Equal("https://models.github.ai/inference/chat/completions", r.Request.RequestUri!.AbsoluteUri);
+            Assert.Equal("Bearer ghs_job_token", r.Request.Headers.Authorization!.ToString());
+            Assert.Contains("\"response_format\":{\"type\":\"json_object\"}", r.Body);
+        });
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Equal(2, usage.OpenRouterRequests);
     }
 }

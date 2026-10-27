@@ -7,27 +7,39 @@ using MinutoUtil.Core.Llm;
 
 namespace MinutoUtil.Core.Cloud;
 
-/// <summary>What people in Brazil search for and read today: Google Trends' daily searches and pt.wikipedia's most read pages.</summary>
-public sealed record TrendSignals(IReadOnlyList<string> Searches, IReadOnlyList<string> WikipediaReads)
+/// <summary>
+/// What Brazil talks about today: Google News Brazil's top headlines (the stories, the strongest signal), Google
+/// Trends' daily searches (often football fixtures) and pt.wikipedia's most read pages.
+/// </summary>
+public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList<string> Searches, IReadOnlyList<string> WikipediaReads)
 {
+    public static readonly Uri GoogleNewsFeed = new("https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419");
     public static readonly Uri GoogleTrendsFeed = new("https://trends.google.com/trending/rss?geo=BR");
 
     public static Uri WikipediaTop(DateOnly day) =>
         new($"https://wikimedia.org/api/rest_v1/metrics/pageviews/top/pt.wikipedia/all-access/{day:yyyy}/{day:MM}/{day:dd}");
 
-    public bool IsEmpty => Searches.Count == 0 && WikipediaReads.Count == 0;
+    public bool IsEmpty => Headlines.Count == 0 && Searches.Count == 0 && WikipediaReads.Count == 0;
 
     /// <summary>Both sources, each optional: one failing leaves the other. Everything is untrusted text, cut short.</summary>
     public static async Task<TrendSignals> FetchAsync(HttpClient http, DateOnly yesterday, CancellationToken ct)
     {
+        var headlines = new List<string>();
+        try
+        {
+            foreach (var item in (await ReadFeedAsync(http, GoogleNewsFeed, ct)).Descendants("item").Take(30))
+                if (Clean(item.Element("title")?.Value, 160) is { } title) headlines.Add(title);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or XmlException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"trends: Google News not read ({TextUtil.Truncate(ex.Message, 120)})");
+        }
+
         var searches = new List<string>();
         try
         {
-            var xml = await http.GetStringAsync(GoogleTrendsFeed, ct);
-            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
-            using var reader = XmlReader.Create(new StringReader(xml), settings);
             XNamespace ht = "https://trends.google.com/trending/rss";
-            foreach (var item in XDocument.Load(reader).Descendants("item").Take(20))
+            foreach (var item in (await ReadFeedAsync(http, GoogleTrendsFeed, ct)).Descendants("item").Take(20))
             {
                 var title = Clean(item.Element("title")?.Value, 60);
                 if (title is null) continue;
@@ -59,7 +71,16 @@ public sealed record TrendSignals(IReadOnlyList<string> Searches, IReadOnlyList<
         {
             Log.Warn($"trends: Wikipedia top reads not read ({TextUtil.Truncate(ex.Message, 120)})");
         }
-        return new TrendSignals(searches, reads);
+        return new TrendSignals(headlines, searches, reads);
+    }
+
+    /// <summary>An RSS feed as untrusted XML: no DTD, no external entities.</summary>
+    private static async Task<XDocument> ReadFeedAsync(HttpClient http, Uri feed, CancellationToken ct)
+    {
+        var xml = await http.GetStringAsync(feed, ct);
+        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
+        using var reader = XmlReader.Create(new StringReader(xml), settings);
+        return XDocument.Load(reader);
     }
 
     private static string? Clean(string? text, int max)
@@ -207,6 +228,9 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     internal static string UserPrompt(TrendSignals signals, IReadOnlyCollection<string> alreadyMade)
     {
         var text = new StringBuilder();
+        text.AppendLine("Top news in Brazil today (Google News headlines, the strongest signal):");
+        foreach (var h in signals.Headlines) text.AppendLine($"- {h}");
+        text.AppendLine();
         text.AppendLine("Searched in Brazil today (Google Trends, with a headline):");
         foreach (var s in signals.Searches) text.AppendLine($"- {s}");
         text.AppendLine();

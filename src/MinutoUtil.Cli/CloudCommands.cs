@@ -9,7 +9,7 @@ using MinutoUtil.Core.Publishing;
 /// <summary>
 /// The steps the GitHub Actions workflows (.github/workflows) run around `make` and `publish`, plus `cloud secrets`,
 /// which copies this PC's keys and sign-ins into the repository's Actions secrets without printing them.
-///   cloud ideas   --state <dir>                                     sends the day's 10 ideas (from the trends)
+///   cloud ideas   --state <dir> [--again]                           sends the day's 10 ideas (from the trends)
 ///   cloud approve --state <dir> --date <yyyyMMdd> --index <n>        the owner tapped idea n of that day's list
 ///   cloud add-idea --state <dir> --idea "<text>"                    the owner's own idea, first in line
 ///   cloud next    --state <dir> --tag <tag> [--article "<idea>"]    picks the topic, prints it as JSON
@@ -42,7 +42,7 @@ internal static class CloudCommands
             switch (step)
             {
                 case "ideas":
-                    return await IdeasAsync(state, config, root, key, telegram, cts.Token);
+                    return await IdeasAsync(state, config, root, key, telegram, args.Contains("--again"), cts.Token);
                 case "approve":
                     return Approve(state, Option(args, "--date") ?? "", int.TryParse(Option(args, "--index"), out var index) ? index : 0);
                 case "add-idea":
@@ -140,7 +140,7 @@ internal static class CloudCommands
     }
 
     /// <summary>
-    /// The trend picker on the writer models: busy Gemini models hand over to the next, then to OpenRouter. Five
+    /// The trend picker on the writer models: busy Gemini models hand over to the next, then GitHub Models, then OpenRouter. Five
     /// requests at most, so three Gemini models answering 429 or 503 still leave the OpenRouter spares a turn; a model
     /// out of its daily quota is remembered in the quota file on the state branch and skipped without a request.
     /// </summary>
@@ -150,6 +150,7 @@ internal static class CloudCommands
         var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
         var models = new List<ILlmClient>();
         if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));
+        if (key(config.GitHubModels.TokenEnvVar) is { } github) models.Add(OpenRouterClient.ForGitHubModels(llmHttp, github, config.GitHubModels.Models, usage, quota));
         if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
         return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(Path.Combine(root, "prompts", "trends.md")),
             config.Channel.Name, TimeProvider.System);
@@ -161,10 +162,10 @@ internal static class CloudCommands
     /// it to the owner with a button per idea. Any failure only warns: the renders go on with approved ideas and the backlog.
     /// </summary>
     private static async Task<int> IdeasAsync(CloudState state, AppConfig config, string root, Func<string, string?> key,
-        TelegramNotifier telegram, CancellationToken ct)
+        TelegramNotifier telegram, bool again, CancellationToken ct)
     {
         var date = IdeaList.DateFor(DateTimeOffset.UtcNow);
-        if (state.Ideas(date) is not null)
+        if (!again && state.Ideas(date) is not null)
         {
             Log.Info($"ideas: the list for {date} was already sent");
             return 0;
@@ -179,7 +180,7 @@ internal static class CloudCommands
                 Log.Warn("ideas: no trend source answered; no list today");
                 return 0;
             }
-            Log.Info($"ideas: {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
+            Log.Info($"ideas: {signals.Headlines.Count} headlines, {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
             var picks = await Picker(state, config, root, key, http, llmHttp).PickAsync(signals, state.TakenArticles(), ct);
             if (picks.Count == 0)
             {
