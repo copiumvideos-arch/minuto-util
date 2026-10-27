@@ -18,6 +18,12 @@ user_var() {
   printf '%s' "$value"
 }
 
+# Instead of `wrangler login`: a Cloudflare API token ("Edit Cloudflare Workers" template) in the user environment.
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] && command -v powershell >/dev/null; then
+  CLOUDFLARE_API_TOKEN=$(powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('CLOUDFLARE_API_TOKEN','User')" | tr -d '\r\n')
+  [ -n "$CLOUDFLARE_API_TOKEN" ] && export CLOUDFLARE_API_TOKEN || unset CLOUDFLARE_API_TOKEN
+fi
+
 BOT=$(user_var MINUTO_TELEGRAM_BOT_TOKEN)
 CHAT=$(user_var MINUTO_TELEGRAM_CHAT_ID)
 GH_PAT=$(user_var MINUTO_RELAY_GITHUB_TOKEN)
