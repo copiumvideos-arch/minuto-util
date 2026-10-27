@@ -201,14 +201,54 @@ printed account name is the channel's. The refresh token (365 days; TikTok may r
 new one is saved) goes DPAPI-encrypted to `%LOCALAPPDATA%\MinutoUtil\tiktok-token.bin`. If the local listener cannot
 start, `tiktok-login --paste` asks you to paste the address the browser ends on (with `?code=`) instead.
 
-### On a Linux runner later
+## Cloud runs (no PC needed)
 
-The DPAPI files only work for the Windows user who made them. When these environment variables are set they win over
-the files: `MINUTO_YOUTUBE_REFRESH_TOKEN`, `MINUTO_TIKTOK_REFRESH_TOKEN`, plus `MINUTO_GOOGLE_CLIENT_ID` and
-`MINUTO_GOOGLE_CLIENT_SECRET` (the Desktop client, instead of `client_secret.json`) and the two TikTok client
-variables. TikTok rotates refresh tokens: when a refresh returns a new one, an environment variable cannot be updated,
-so the run logs a warning (never the token) and the secret has to be refreshed by signing in again on Windows. There is
-no command that exports the tokens yet: putting them into GitHub secrets is a manual step to design with the runner.
+The private GitHub repository `copiumvideos-arch/minuto-util` renders and publishes on its own:
+
+```
+render.yml (08:30 and 15:30 Brasília, or "/novo" on Telegram)
+  -> next topic from config/topics.json -> make -> video kept as a GitHub release "run-<tag>"
+  -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
+tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
+  -> Publicar: YouTube public Short + TikTok inbox draft, caption and YouTube link on Telegram
+  -> Rejeitar: the release is deleted, the topic is not tried again
+```
+
+- **Topics**: `config/topics.json`, taken in order. An article that was rendered (in review, published or rejected) is
+  skipped; one that failed gets one more try, then leaves the queue. Telegram warns when 5 topics are left. On
+  Telegram, `/novo` renders the next topic now and `/novo <English Wikipedia article>` renders that article.
+- **State**: the `state` branch holds `runs/<tag>.json` (topic, status, title, links), `quota-state.json` (the Gemini
+  quota tracker, `make --quota-file`) and the sealed token files. Every job commits it with
+  `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.
+- **Tokens on the runner**: the refresh tokens start from the Actions secrets. When a platform hands back a new refresh
+  token (TikTok may on every refresh), it is written AES-256-GCM encrypted to `state/<platform>-token.enc` with the key
+  in the `MINUTO_STATE_KEY` secret, and that file wins from then on (`SealedFileTokenStore`). Signing in again locally
+  and running `cloud secrets` again makes a new key, so the runner starts over from the new sign-in.
+- **No double posts**: the relay removes the buttons after the first tap, publish runs for the same tag never overlap,
+  publish runs for different videos wait for each other (they share the TikTok token), and `published.json` is kept
+  with the release, so a retry (the "🔁 Tentar de novo" button after a failure) only sends what is missing.
+- **Minutes**: a private repository gets 2,000 free Actions minutes a month. A render is about 15-25 minutes on the
+  2-core runner, a publish about 2. Check the real numbers under Settings > Billing after the first days before adding
+  a third daily render in `render.yml`.
+
+### Setting it up, once
+
+1. `gh repo create copiumvideos-arch/minuto-util --private --source . --push`, then create the `state` branch
+   (an orphan branch with a README).
+2. `dotnet run --project src/MinutoUtil.Cli -- cloud secrets --repo copiumvideos-arch/minuto-util`: copies the keys
+   from this PC's environment, the Google client, both sign-ins (from the DPAPI files) and a new state key into the
+   repository's Actions secrets through `gh`'s standard input. Nothing is printed.
+3. The relay: in `relay/`, `npx wrangler@4 login` (a free Cloudflare account), `npx wrangler@4 deploy`, then the
+   secrets `TELEGRAM_BOT_TOKEN`, `OWNER_CHAT_ID` (the owner's chat id), `TELEGRAM_WEBHOOK_SECRET` (random) and
+   `GITHUB_TOKEN` with `npx wrangler@4 secret put <name>`. `GITHUB_TOKEN` is a fine-grained personal access token for
+   this repository only with "Actions: read and write"; nothing else.
+4. Point the bot at the relay: Telegram `setWebhook` with `url=https://<worker>/telegram`, the same `secret_token`
+   and `allowed_updates=["message","callback_query"]`. The relay answers only the owner's chat and checks Telegram's
+   secret header on every call.
+5. Start `render.yml` by hand once (Actions tab, or `/novo` on Telegram) and watch the first run.
+
+Tests: `cd relay && npm test` (node:test, GitHub and Telegram replaced by a fake fetch); `CloudTests.cs` for the topic
+queue, the sealed token store, the publish/retry/reject flow and the review video upload.
 
 ## Known limits
 

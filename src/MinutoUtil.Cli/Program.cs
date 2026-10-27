@@ -6,11 +6,13 @@ using MinutoUtil.Core.Sources;
 using MinutoUtil.Core.Video;
 using MinutoUtil.Core.Voice;
 
-// minuto-util make [--run <folder>] [--article "<English Wikipedia title>"]
+// minuto-util make [--run <folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>] [--quota-file <path>]
 //   Makes one video into output/<yyyy-MM-dd>/<HHmm>/, or finishes/re-renders an existing run folder, reusing
 //   everything already in it (sources, script, voice takes, media, shots). Nothing is uploaded.
 // minuto-util publish --run <folder> [--youtube] [--tiktok] [--dry-run] [--force]
 //   Sends a finished run to YouTube (public Short) and to the owner's TikTok inbox (draft); see PublishingCommands.cs.
+// minuto-util cloud next|review|publish|reject|failed|secrets ...
+//   The steps of the GitHub Actions runs; see CloudCommands.cs.
 
 var command = args.FirstOrDefault() ?? "help";
 if (command is "check-script" && Option("--run") is { } checkFolder)
@@ -28,32 +30,41 @@ if (command is "check-script" && Option("--run") is { } checkFolder)
         Console.WriteLine($"warning: {warning}");
     return 0;
 }
+if (command is "cloud")
+    return await CloudCommands.RunAsync(args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), FindRepositoryRoot(), Key);
 if (command is "youtube-login" or "tiktok-login" or "publish")
     return await PublishingCommands.RunAsync(command, args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), Key);
 if (command is not "make")
 {
     Console.WriteLine("""
-        Usage: minuto-util make [--run <run folder>] [--article "<English Wikipedia title>"]
+        Usage: minuto-util make [--run <run folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>]
                minuto-util check-script --run <run folder>
                minuto-util youtube-login [--no-browser]
                minuto-util tiktok-login [--no-browser] [--paste]
                minuto-util publish --run <run folder> [--youtube] [--tiktok] [--dry-run] [--force]
+               minuto-util cloud secrets --repo <owner/name>
 
           make          Writes, voices and renders one video into output/<yyyy-MM-dd>/<HHmm>/.
           --run         Re-render an existing run folder, reusing its script, voice takes and media (no new API calls).
           --article     The event's English Wikipedia article (default: story.englishArticle in config/minuto-util.json).
+          --year        The year of that event (pictures from it rank higher, and the year card shows it).
+          --topic       The series name given to the writer (default: story.topic).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
           youtube-login Signs in to YouTube once (browser); only the Minuto Útil channel is accepted.
           tiktok-login  Signs in to TikTok once (browser). --paste: paste the address the browser ends on instead.
           publish       Uploads a run's video.mp4: a public YouTube Short and a TikTok inbox draft (both unless one
                         is named). --dry-run prints what would be sent and calls nothing. --force posts a folder again.
+          cloud secrets Copies this PC's keys and sign-ins into the GitHub repository's Actions secrets (never printed).
         """);
     return command is "help" or "--help" or "-h" ? 0 : 1;
 }
 
 var root = FindRepositoryRoot();
 var config = AppConfig.Load(Path.Combine(root, "config", "minuto-util.json"));
-if (Option("--article") is { } article) config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "" } };
+// Another article is another event: its year comes with --year or not at all (the config's year is the default article's).
+if (Option("--article") is { } article)
+    config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year > 0 ? year : null } };
+if (Option("--topic") is { Length: > 0 } topic) config = config with { Story = config.Story with { Topic = topic } };
 
 var now = DateTime.Now;
 var folder = Option("--run") is { } run ? Path.GetFullPath(run) : Path.Combine(root, "output", now.ToString("yyyy-MM-dd"), now.ToString("HHmm"));
@@ -77,7 +88,8 @@ Console.CancelKeyPress += (_, e) =>
 var usage = new RunUsage(config.Writer.MaxRequests);
 using var http = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(60));
 using var apiHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
-var quota = new QuotaTracker(Path.Combine(root, "data", "quota-state.json"), sharedPaths: config.SharedQuotaFiles);
+// The cloud runs keep the quota file on the state branch (--quota-file), so it carries over between jobs.
+var quota = new QuotaTracker(Path.GetFullPath(Option("--quota-file") ?? Path.Combine(root, "data", "quota-state.json")), sharedPaths: config.SharedQuotaFiles);
 
 var writers = new List<ILlmClient>();
 if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota));

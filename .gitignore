@@ -15,3 +15,7 @@ assets/cache/
 tools/.venv/
 .pytest_cache/
 __pycache__/
+
+# Cloudflare Worker (relay/)
+relay/node_modules/
+relay/.wrangler/

@@ -1,0 +1,101 @@
+# Started by relay/ when the owner taps "Publicar" or "Rejeitar" under a review video on Telegram (or by hand from
+# the Actions tab). Publishes to YouTube (public Short) and the TikTok inbox (draft), or drops the video.
+name: publish
+run-name: ${{ inputs.action }} ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Run tag (yyyyMMdd-HHmm)"
+        required: true
+      action:
+        type: choice
+        options: [publish, reject]
+        default: publish
+
+# Two taps on the same video never run at the same time.
+concurrency:
+  group: publish-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TAG: ${{ inputs.tag }}
+      ACTION: ${{ inputs.action }}
+      GH_TOKEN: ${{ github.token }}
+      CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
+    steps:
+      - name: Check the input
+        run: |
+          [[ "$TAG" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad tag"; exit 1; }
+          [[ "$ACTION" == publish || "$ACTION" == reject ]] || { echo "bad action"; exit 1; }
+
+      # One publish at a time across videos: they share the TikTok token, which TikTok may replace on refresh.
+      - name: Wait for earlier publish runs
+        run: |
+          for i in $(seq 1 60); do
+            older=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/publish.yml/runs?status=in_progress" \
+              --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID)] | length")
+            [ "$older" = "0" ] && exit 0
+            sleep 20
+          done
+
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build src/MinutoUtil.Cli -c Release -v q
+
+      - name: Get the video
+        if: inputs.action == 'publish'
+        run: |
+          mkdir -p "output/$TAG"
+          gh release download "run-$TAG" -D "output/$TAG" -p video.mp4 -p metadata.json -p run.log
+          gh release download "run-$TAG" -D "output/$TAG" -p published.json || true
+
+      - name: Publish
+        if: inputs.action == 'publish'
+        env:
+          MINUTO_STATE_DIR: ${{ github.workspace }}/state
+          MINUTO_STATE_KEY: ${{ secrets.MINUTO_STATE_KEY }}
+          MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
+          MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+          MINUTO_GOOGLE_CLIENT_ID: ${{ secrets.MINUTO_GOOGLE_CLIENT_ID }}
+          MINUTO_GOOGLE_CLIENT_SECRET: ${{ secrets.MINUTO_GOOGLE_CLIENT_SECRET }}
+          MINUTO_YOUTUBE_REFRESH_TOKEN: ${{ secrets.MINUTO_YOUTUBE_REFRESH_TOKEN }}
+          MINUTO_TIKTOK_CLIENT_KEY: ${{ secrets.MINUTO_TIKTOK_CLIENT_KEY }}
+          MINUTO_TIKTOK_CLIENT_SECRET: ${{ secrets.MINUTO_TIKTOK_CLIENT_SECRET }}
+          MINUTO_TIKTOK_REFRESH_TOKEN: ${{ secrets.MINUTO_TIKTOK_REFRESH_TOKEN }}
+        run: $CLI cloud publish --state state --tag "$TAG" --run "output/$TAG"
+
+      # Whatever reached a platform is kept with the video, so a retry never posts it twice.
+      - name: Keep the publish record
+        if: always() && inputs.action == 'publish'
+        run: |
+          if [ -f "output/$TAG/published.json" ]; then gh release upload "run-$TAG" "output/$TAG/published.json" --clobber; fi
+
+      - name: Reject
+        if: inputs.action == 'reject'
+        env:
+          MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
+          MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+        run: |
+          $CLI cloud reject --state state --tag "$TAG"
+          gh release delete "run-$TAG" --cleanup-tag --yes
+
+      - name: Save the state
+        if: always()
+        run: bash .github/scripts/save-state.sh "$ACTION $TAG"

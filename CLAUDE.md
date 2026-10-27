@@ -3,7 +3,7 @@
 Prototype of a faceless Brazilian Portuguese history channel (YouTube Shorts + TikTok). A .NET 10 console app plus
 Python tools run with `uv run`, structured like Flopômetro in `D:\projects\canal-dark`. Renders one video locally;
 `publish` uploads a finished run (YouTube public Short, TikTok inbox draft). Everything must stay free and CPU-only
-(it should later run on GitHub Actions free runners, ubuntu, about 7 GB RAM), so keep it cross-platform.
+(it runs on GitHub Actions free runners, ubuntu, about 7 GB RAM), so keep it cross-platform.
 
 ## Read first
 
@@ -20,6 +20,10 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   Login Kit and inbox upload, token stores (DPAPI file, or environment variable on a runner), `Publisher` (published.json).
 - `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients; `PublishingCommands.cs`: `youtube-login`,
   `tiktok-login`, `publish`.
+- `src/MinutoUtil.Core/Cloud` and `src/MinutoUtil.Cli/CloudCommands.cs`: the cloud runs (topic queue from
+  `config/topics.json`, run records on the `state` branch, Telegram review with buttons, publish/reject/retry).
+  `.github/workflows/render.yml` and `publish.yml` run them; `relay/` is the Cloudflare Worker that turns the
+  Telegram button taps into `publish.yml` runs. README "Cloud runs" has the flow and the setup.
 - `site/`: privacy policy and terms for the TikTok app, published by the owner under
   https://copiumvideos-arch.github.io/minuto-util/ (repo `copiumvideos-arch/copiumvideos-arch.github.io`).
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
@@ -57,6 +61,6 @@ style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent th
 
 ## Running and testing
 
-- `dotnet build`, `dotnet test`, `cd tools && uv run pytest`.
+- `dotnet build`, `dotnet test`, `cd tools && uv run pytest`, `cd relay && npm test`.
 - Keys live in the Windows user environment; the app reads it directly when the shell does not have them.
 - Set `MINUTO_KEEP_TEST_OUTPUT=1` to keep a test's render folder and look at the frames.

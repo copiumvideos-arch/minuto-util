@@ -77,24 +77,8 @@ internal static class PublishingCommands
                 Log.Info($"publish {folder} to {platforms}{(force ? " (forced)" : "")}");
             }
 
-            // The clients are made only for a real upload: a dry run needs no sign-in and touches no network.
-            var publisher = new Publisher(config.YouTube, config.TikTok,
-                () =>
-                {
-                    var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key),
-                        TokenStores.For(config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
-                    if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
-                    return new YouTubeUploader(uploadHttp, auth.GetAccessTokenAsync);
-                },
-                () =>
-                {
-                    var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key),
-                        TokenStores.For(config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
-                    if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
-                    return new TikTokUploader(uploadHttp, auth.GetAccessTokenAsync);
-                },
-                TimeProvider.System,
-                Telegram(config.Telegram, key, apiHttp) is { } telegram ? telegram.SendTextAsync : null);
+            var telegram = Telegram(config.Telegram, key, apiHttp);
+            var publisher = BuildPublisher(config, key, apiHttp, uploadHttp, telegram is null ? null : telegram.SendTextAsync);
             Console.WriteLine(await publisher.PublishAsync(folder, platforms, dryRun, force, cts.Token));
             return 0;
         }
@@ -109,6 +93,30 @@ internal static class PublishingCommands
             logWriter?.Dispose();
         }
     }
+
+    /// <summary>
+    /// The publisher with its token stores (sealed state file on the cloud runner, environment variable, or DPAPI file).
+    /// The clients are made only for a real upload: a dry run needs no sign-in and touches no network.
+    /// </summary>
+    internal static Publisher BuildPublisher(AppConfig config, Func<string, string?> key, HttpClient apiHttp, HttpClient uploadHttp,
+        Func<string, CancellationToken, Task>? sendText) =>
+        new(config.YouTube, config.TikTok,
+            () =>
+            {
+                var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key),
+                    TokenStores.For(config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
+                if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
+                return new YouTubeUploader(uploadHttp, auth.GetAccessTokenAsync);
+            },
+            () =>
+            {
+                var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key),
+                    TokenStores.For(config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
+                if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
+                return new TikTokUploader(uploadHttp, auth.GetAccessTokenAsync);
+            },
+            TimeProvider.System,
+            sendText);
 
     // AbsoluteUri keeps the escaping: ToString() turns %20 back into spaces, which breaks the link when copied.
     private static void OpenSignIn(Uri url, string hint, bool noBrowser)
@@ -132,7 +140,7 @@ internal static class PublishingCommands
             : OAuthClient.Load(TokenStores.ExpandPath(options.ClientSecretFile));
 
     /// <summary>The owner's Telegram bot, or null (with a note) when its two variables are not set.</summary>
-    private static TelegramNotifier? Telegram(TelegramOptions options, Func<string, string?> key, HttpClient http)
+    internal static TelegramNotifier? Telegram(TelegramOptions options, Func<string, string?> key, HttpClient http)
     {
         if (key(options.BotTokenEnvVar) is { } token && key(options.ChatIdEnvVar) is { } chat) return new TelegramNotifier(http, token, chat);
         Log.Info($"Telegram is off ({options.BotTokenEnvVar} or {options.ChatIdEnvVar} not set); the TikTok caption stays in its file");

@@ -63,13 +63,86 @@ public sealed class EnvironmentTokenStore(string variable, string value) : IToke
     }
 }
 
+/// <summary>
+/// The cloud runner's store: the refresh token AES-256-GCM encrypted in a file on the repository's state branch, with
+/// a key held only as a GitHub secret. The first run starts from the environment variable (the secret); a token the
+/// platform replaces is written to the file, so TikTok's rotation and the 365-day renewal survive between jobs. A
+/// file the key cannot open (the key was replaced) falls back to the secret with a warning.
+/// </summary>
+public sealed class SealedFileTokenStore(string path, byte[] key, string purpose, string? seed) : ITokenStore
+{
+    public const string KeyEnvVar = "MINUTO_STATE_KEY";
+    public const string StateDirEnvVar = "MINUTO_STATE_DIR";
+    private const int NonceSize = 12, TagSize = 16;
+
+    public string Path { get; } = path;
+
+    public string? Load()
+    {
+        if (!File.Exists(Path)) return seed;
+        var data = File.ReadAllBytes(Path);
+        try
+        {
+            if (data.Length <= NonceSize + TagSize) throw new CryptographicException("too short");
+            var plain = new byte[data.Length - NonceSize - TagSize];
+            using var aes = new AesGcm(key, TagSize);
+            aes.Decrypt(data.AsSpan(0, NonceSize), data.AsSpan(NonceSize + TagSize), data.AsSpan(NonceSize, TagSize), plain, Aad);
+            return Encoding.UTF8.GetString(plain);
+        }
+        catch (CryptographicException)
+        {
+            Log.Warn($"{System.IO.Path.GetFileName(Path)} cannot be opened with {KeyEnvVar}; using the refresh token secret instead");
+            return seed;
+        }
+    }
+
+    public void Save(string refreshToken)
+    {
+        if (File.Exists(Path) && Load() == refreshToken) return;
+        var plain = Encoding.UTF8.GetBytes(refreshToken);
+        var data = new byte[NonceSize + TagSize + plain.Length];
+        RandomNumberGenerator.Fill(data.AsSpan(0, NonceSize));
+        using (var aes = new AesGcm(key, TagSize))
+            aes.Encrypt(data.AsSpan(0, NonceSize), plain, data.AsSpan(NonceSize + TagSize), data.AsSpan(NonceSize, TagSize), Aad);
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(Path))!);
+        File.WriteAllBytes(Path + ".tmp", data);
+        File.Move(Path + ".tmp", Path, overwrite: true);
+        Log.Info($"{purpose}: the new refresh token is saved encrypted in the state folder");
+    }
+
+    // Binds the file to its platform: a YouTube file renamed to tiktok-token.enc does not decrypt.
+    private byte[] Aad => Encoding.UTF8.GetBytes($"minuto-util-{purpose}-token");
+
+    /// <summary>The 32-byte key from its base64 environment variable, or null when it is not set.</summary>
+    public static byte[]? KeyFromEnvironment()
+    {
+        if (Environment.GetEnvironmentVariable(KeyEnvVar) is not { Length: > 0 } text) return null;
+        try
+        {
+            var key = Convert.FromBase64String(text.Trim());
+            if (key.Length == 32) return key;
+        }
+        catch (FormatException)
+        {
+        }
+        throw new PublishAuthException($"{KeyEnvVar} must be 32 random bytes in base64.");
+    }
+}
+
 public static class TokenStores
 {
-    /// <summary>The environment variable when it is set, otherwise the DPAPI file.</summary>
-    public static ITokenStore For(string envVar, string tokenFile, string purpose) =>
-        Environment.GetEnvironmentVariable(envVar) is { Length: > 0 } value
-            ? new EnvironmentTokenStore(envVar, value.Trim())
-            : new DpapiTokenStore(ExpandPath(tokenFile), purpose);
+    /// <summary>
+    /// On the cloud runner (state folder and key set) the sealed file seeded by the environment variable; otherwise
+    /// the environment variable when it is set, otherwise the DPAPI file.
+    /// </summary>
+    public static ITokenStore For(string envVar, string tokenFile, string purpose)
+    {
+        var seed = Environment.GetEnvironmentVariable(envVar) is { Length: > 0 } value ? value.Trim() : null;
+        if (Environment.GetEnvironmentVariable(SealedFileTokenStore.StateDirEnvVar) is { Length: > 0 } stateDir
+            && SealedFileTokenStore.KeyFromEnvironment() is { } key)
+            return new SealedFileTokenStore(System.IO.Path.Combine(stateDir, $"{purpose}-token.enc"), key, purpose, seed);
+        return seed is not null ? new EnvironmentTokenStore(envVar, seed) : new DpapiTokenStore(ExpandPath(tokenFile), purpose);
+    }
 
     /// <summary>%LOCALAPPDATA% and friends; forward slashes work on both systems.</summary>
     public static string ExpandPath(string path) => System.IO.Path.GetFullPath(Environment.ExpandEnvironmentVariables(path));

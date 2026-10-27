@@ -447,6 +447,7 @@ internal sealed class MemoryTokenStore : ITokenStore
     public void Save(string refreshToken) => Token = refreshToken;
 }
 
+[Collection("environment")]
 public sealed class TokenStoreTests
 {
     [Fact]

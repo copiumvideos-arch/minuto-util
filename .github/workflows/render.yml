@@ -1,0 +1,122 @@
+# Renders one video on a schedule and sends it to the owner's Telegram with "Publicar" and "Rejeitar" buttons.
+# The buttons reach relay/ (a Cloudflare Worker), which starts publish.yml. Nothing is posted from here.
+name: render
+
+on:
+  schedule:
+    # 08:30 and 15:30 in Brasília (UTC-3). GitHub may start scheduled runs some minutes late.
+    - cron: "30 11 * * *"
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+    inputs:
+      article:
+        description: "English Wikipedia article (empty: the next one in config/topics.json)"
+        required: false
+        default: ""
+
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    env:
+      CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
+      MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
+      MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+
+      - name: Run tag
+        id: tag
+        run: echo "tag=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: tools/uv.lock
+      - name: FFmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+      # Whisper small, Depth Anything V2 Small, Kokoro and the Natural Earth map data, downloaded once.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            assets/cache
+          key: models-v1
+
+      - name: Build
+        run: |
+          (cd tools && uv sync --frozen --no-dev)
+          dotnet build src/MinutoUtil.Cli -c Release -v q
+
+      - name: Pick the topic
+        id: next
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          ARTICLE: ${{ inputs.article }}
+        run: |
+          set +e
+          $CLI cloud next --state state --tag "$TAG" --article "$ARTICLE" > next.json
+          code=$?
+          set -e
+          if [ "$code" = "3" ]; then echo "empty=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$code" != "0" ]; then exit "$code"; fi
+          cat next.json
+
+      - name: Render
+        if: steps.next.outputs.empty != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          SMALLEST_API_KEY: ${{ secrets.SMALLEST_API_KEY }}
+        run: |
+          article=$(jq -r .article next.json)
+          year=$(jq -r .year next.json)
+          topic=$(jq -r .topic next.json)
+          $CLI make --run "output/$TAG" --article "$article" --year "$year" --topic "$topic" --quota-file state/quota-state.json
+
+      - name: Keep the video
+        if: steps.next.outputs.empty != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title=$(jq -r .title "output/$TAG/metadata.json")
+          gh release create "run-$TAG" --prerelease --title "$title" \
+            --notes "Rendered by run $GITHUB_RUN_ID; waiting for review on Telegram." \
+            "output/$TAG/video.mp4" "output/$TAG/metadata.json" "output/$TAG/run.log" "output/$TAG/contact-sheet.png"
+
+      - name: Send for review
+        if: steps.next.outputs.empty != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: $CLI cloud review --state state --tag "$TAG" --run "output/$TAG"
+
+      - name: Report the failure
+        if: failure() && steps.next.outcome == 'success'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          LOG_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          reason=$(grep -h " WARN " "output/$TAG/run.log" 2>/dev/null | tail -n 1 | cut -c 15- || true)
+          $CLI cloud failed --state state --tag "$TAG" --reason "${reason:-a etapa do GitHub Actions falhou}" --log-url "$LOG_URL"
+
+      - name: Save the state
+        if: always() && steps.tag.outcome == 'success'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: bash .github/scripts/save-state.sh "render $TAG"
