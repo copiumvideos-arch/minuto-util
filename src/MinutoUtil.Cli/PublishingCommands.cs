@@ -94,6 +94,15 @@ internal static class PublishingCommands
         }
     }
 
+    /// <summary>A YouTube access token from the stored sign-in (for /stats: videos.list with the read-only scope).</summary>
+    internal static Task<string> YouTubeAccessTokenAsync(AppConfig config, Func<string, string?> key, HttpClient apiHttp, CancellationToken ct)
+    {
+        var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key),
+            TokenStores.For(config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
+        if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
+        return auth.GetAccessTokenAsync(ct);
+    }
+
     /// <summary>
     /// The publisher with its token stores (sealed state file on the cloud runner, environment variable, or DPAPI file).
     /// The clients are made only for a real upload: a dry run needs no sign-in and touches no network.

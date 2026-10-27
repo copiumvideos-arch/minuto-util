@@ -6,7 +6,11 @@
 // Secrets (wrangler secret put): TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET (also given to Telegram's setWebhook),
 // OWNER_CHAT_ID, GITHUB_TOKEN (fine-grained, this repository only, "Actions: read and write"). Var: GITHUB_REPO.
 
-const CALLBACK = /^(pub|rej|redo):(\d{8}-\d{4})$/;
+const CALLBACK = /^(pub|rej|redo|sok|snew):(\d{8}-\d{4})$/;
+const RUN_TAG_IN_TEXT = /Execução (\d{8}-\d{4})/;
+const SCRIPT_MARKER = "📝 Roteiro para revisar";
+const SETTINGS = { "/pausar": "pause", "/pause": "pause", "/retomar": "resume", "/resume": "resume", "/revisar on": "review-on", "/revisar off": "review-off" };
+const INFO = { "/status": "status", "/stats": "stats" };
 const NEW_VIDEO = /^\/novo(?:@\w+)?(?:\s+(.+))?$/s;
 const IDEA_COMMAND = /^\/(?:ideia|adicionar|add)(?:@\w+)?(?:\s+(.+))?$/s;
 const QUEUE = /^\/(?:fila|queue)(?:@\w+)?$/;
@@ -16,7 +20,7 @@ const QUEUE_BUTTON = /^(qt|qd):([0-9a-z-]{1,40})$/;
 const IDEA = /^idea:(\d{8}):(\d{1,2})$/;
 const DONE = "done";
 const HELP = "Mande um tema ou uma pergunta (até 200 letras) para o próximo vídeo, ou /novo <tema> para fazer agora. " +
-  "/fila mostra os próximos vídeos; /mover 5 2 muda a ordem; /remover 3 tira da fila.";
+  "/fila mostra os próximos vídeos; /mover 5 2 muda a ordem; /remover 3 tira da fila; /status, /stats, /pausar, /retomar, /revisar on|off.";
 
 export function createWorker(fetchImpl = (...args) => fetch(...args)) {
   return {
@@ -100,19 +104,24 @@ export async function handleUpdate(update, env, fetchImpl) {
       await telegram(env, fetchImpl, "answerCallbackQuery", { callback_query_id: query.id, text: "Botão desconhecido." });
       return;
     }
-    const redo = match[1] === "redo";
-    const action = match[1] === "pub" ? "publish" : "reject";
-    const status = redo
-      ? await dispatch(env, fetchImpl, "render.yml", { article: "", remake: match[2] })
-      : await dispatch(env, fetchImpl, "publish.yml", { tag: match[2], action });
+    const kind = match[1];
+    const tag = match[2];
+    const status = kind === "redo" ? await dispatch(env, fetchImpl, "render.yml", { article: "", remake: tag })
+      : kind === "sok" ? await dispatch(env, fetchImpl, "render.yml", { continue: tag, script: "", rescript: "false" })
+      : kind === "snew" ? await dispatch(env, fetchImpl, "render.yml", { continue: tag, script: "", rescript: "true" })
+      : await dispatch(env, fetchImpl, "publish.yml", { tag, action: kind === "pub" ? "publish" : "reject" });
     if (status !== 204) {
       await answerFailure(env, fetchImpl, query, status);
       return;
     }
-    await telegram(env, fetchImpl, "answerCallbackQuery", {
-      callback_query_id: query.id,
-      text: redo ? "Refazendo: o novo vídeo chega em uns 15 minutos." : action === "publish" ? "Publicando..." : "Rejeitando...",
-    });
+    const answers = {
+      redo: "Refazendo: o novo vídeo chega em uns 15 minutos.",
+      sok: "Roteiro aprovado: o vídeo chega em uns 15 minutos.",
+      snew: "Escrevendo outro roteiro...",
+      pub: "Publicando...",
+      rej: "Rejeitando...",
+    };
+    await telegram(env, fetchImpl, "answerCallbackQuery", { callback_query_id: query.id, text: answers[kind] });
     // The buttons go away so the same video is not sent twice by a second tap.
     await telegram(env, fetchImpl, "editMessageReplyMarkup", {
       chat_id: query.message.chat.id, message_id: query.message.message_id, reply_markup: { inline_keyboard: [] },
@@ -125,6 +134,39 @@ export async function handleUpdate(update, env, fetchImpl) {
   const text = (message.text ?? "").trim();
   if (!text) return;
   const reply = (body) => telegram(env, fetchImpl, "sendMessage", { chat_id: message.chat.id, text: body });
+
+  // A reply to the bot's own message: to a script, the owner's edit; to a review video, its new title.
+  const replied = message.reply_to_message;
+  const repliedTag = replied?.from?.is_bot ? RUN_TAG_IN_TEXT.exec(replied.text ?? replied.caption ?? "")?.[1] : undefined;
+  if (repliedTag) {
+    if ((replied.text ?? "").startsWith(SCRIPT_MARKER)) {
+      if (text.length > 3500) {
+        await reply("O roteiro editado passou de 3500 letras; mande só as linhas que mudaram.");
+        return;
+      }
+      const status = await dispatch(env, fetchImpl, "render.yml", { continue: repliedTag, script: text, rescript: "false" });
+      await reply(status === 204 ? "✏️ Aplicando sua edição e fazendo o vídeo." : `Não consegui iniciar (GitHub ${status}).`);
+      return;
+    }
+    if (replied.video || replied.caption) {
+      if (text.length > 100 || /[\u0000-\u001f]/.test(text)) {
+        await reply("O título pode ter até 100 letras, em uma linha.");
+        return;
+      }
+      const status = await dispatch(env, fetchImpl, "ideas.yml", { action: "title", date: "", index: "", idea: text, item: repliedTag });
+      await reply(status === 204 ? "🏷️ Trocando o título..." : `Não consegui trocar o título (GitHub ${status}).`);
+      return;
+    }
+  }
+
+  // Switches and reports.
+  const command = text.toLowerCase().replace(/@\w+/, "").replace(/\s+/g, " ");
+  if (SETTINGS[command] || INFO[command]) {
+    const inputs = SETTINGS[command] ? { action: "settings", item: SETTINGS[command] } : { action: INFO[command], item: "" };
+    const status = await dispatch(env, fetchImpl, "ideas.yml", { ...inputs, date: "", index: "", idea: "" });
+    await reply(status === 204 ? "Um momento..." : `Não consegui (GitHub ${status}).`);
+    return;
+  }
 
   // The queue: show it, move an item (positions as /fila numbers them), remove one.
   const queueCommand = QUEUE.exec(text) ? { action: "queue", item: "", index: "" }

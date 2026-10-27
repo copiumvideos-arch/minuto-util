@@ -4,6 +4,8 @@ using System.Text.Json;
 using MinutoUtil.Core;
 using MinutoUtil.Core.Cloud;
 using MinutoUtil.Core.Llm;
+using MinutoUtil.Core.Scripts;
+using MinutoUtil.Core.Sources;
 using MinutoUtil.Core.Publishing;
 
 /// <summary>
@@ -13,6 +15,11 @@ using MinutoUtil.Core.Publishing;
 ///   cloud approve --state <dir> --date <yyyyMMdd> --index <n>        the owner tapped idea n of that day's list
 ///   cloud add-idea --state <dir> --idea "<text>"                    the owner's own idea, first in line
 ///   cloud queue   --state <dir> [--top <item> | --remove <item> | --move <item> --to <n>]   changes, then shows the queue
+///   cloud settings --state <dir> --set review-on|review-off|pause|resume
+///   cloud status  --state <dir>          cloud stats --state <dir>
+///   cloud script-review --state <dir> --tag <tag> --run <folder>     review mode: the script to Telegram
+///   cloud edit-script   --state <dir> --tag <tag> --run <folder> --text "<owner's reply>"
+///   cloud title   --state <dir> --tag <tag> --run <folder> --title "<new title>"
 ///   cloud next    --state <dir> --tag <tag> [--article "<idea>" | --remake <old tag>]   picks the topic, prints it as JSON
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
@@ -51,6 +58,19 @@ internal static class CloudCommands
                 case "queue":
                     return await QueueAsync(state, root, Option(args, "--top"), Option(args, "--remove"), Option(args, "--move"),
                         Option(args, "--to"), telegram, cts.Token);
+                case "settings":
+                    return await SettingsAsync(state, Option(args, "--set") ?? "", telegram, cts.Token);
+                case "status":
+                    await telegram.SendTextAsync(CloudFlow.StatusMessage(state.Settings(), state.Runs(),
+                        state.Queue(TopicBacklog.Load(Path.Combine(root, "config", "topics.json"))), DateTimeOffset.UtcNow), cts.Token);
+                    return 0;
+                case "stats":
+                {
+                    var token = await PublishingCommands.YouTubeAccessTokenAsync(config, key, apiHttp, cts.Token);
+                    var stats = await YouTubeStats.FetchAsync(apiHttp, token, YouTubeStats.Ids(state.Runs()), cts.Token);
+                    await telegram.SendTextAsync(YouTubeStats.Message(stats, DateTimeOffset.UtcNow), cts.Token);
+                    return 0;
+                }
             }
             var tag = RunTag.Validate(Option(args, "--tag"));
             var flow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System);
@@ -59,8 +79,60 @@ internal static class CloudCommands
             {
                 case "next":
                     if (Option(args, "--remake") is { Length: > 0 } remake)
-                        return Started(state, tag, flow.Remake(RunTag.Validate(remake)), left: -1);
+                        return Started(state, tag, flow.Remake(RunTag.Validate(remake)), left: -1, review: state.Settings().Review);
+                    if (Option(args, "--continue") is { Length: > 0 })
+                    {
+                        // The same run goes on after its script review: same tag, same topic.
+                        var run = state.Find(tag) ?? throw new ArgumentException($"Run {tag} is not in the state branch.");
+                        if (run.Status != RunStatus.Script) throw new ArgumentException($"Run {tag} is {run.Status.ToString().ToLowerInvariant()}, not waiting on its script.");
+                        return Started(state, tag, new BacklogTopic(run.Article, run.Year ?? 0, run.Topic, run.Trend, run.PortugueseArticle), left: -1,
+                            review: args.Contains("--rescript"));
+                    }
+                    if (args.Contains("--scheduled") && state.Settings().Paused)
+                    {
+                        Log.Info("next: the scheduled videos are paused (/retomar on Telegram)");
+                        return 3;
+                    }
                     return await NextAsync(state, tag, config, root, key, Option(args, "--article"), telegram, cts.Token);
+                case "script-review":
+                {
+                    var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud script-review needs --run <folder>."));
+                    var run = state.Find(tag) ?? throw new ArgumentException($"Run {tag} is not in the state branch.");
+                    var script = ReadJson<VideoScript>(Path.Combine(folder, "script.json"));
+                    await telegram.SendTextAsync(ScriptReview.Message(run, script), ScriptReview.Buttons(tag), cts.Token);
+                    state.Save(run with { Status = RunStatus.Script, Title = script.Title, UpdatedAt = DateTimeOffset.UtcNow });
+                    return 0;
+                }
+                case "edit-script":
+                {
+                    var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud edit-script needs --run <folder>."));
+                    var path = Path.Combine(folder, "script.json");
+                    var (edited, changed) = ScriptReview.Apply(ReadJson<VideoScript>(path), Option(args, "--text") ?? "");
+                    if (changed == 0)
+                    {
+                        await telegram.SendTextAsync("🤔 Não reconheci nenhuma linha. Responda ao roteiro com linhas que comecem com Título:, Gancho:, 1., 2. ou Pergunta:.", cts.Token);
+                        return 3;
+                    }
+                    // The owner's text goes through the same cleanup as a written script (dashes, digits for the voice).
+                    edited = ScriptWriter.Polish(edited, ReadJson<List<SourceArticle>>(Path.Combine(folder, "sources.json")));
+                    await File.WriteAllTextAsync(path, JsonSerializer.Serialize(edited, Json.Options), cts.Token);
+                    await telegram.SendTextAsync($"✏️ Roteiro atualizado ({changed} linha(s)). Fazendo o vídeo, chega em uns 15 minutos.", cts.Token);
+                    return 0;
+                }
+                case "title":
+                {
+                    var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud title needs --run <folder>."));
+                    var title = TextUtil.Truncate((Option(args, "--title") ?? "").Replace('\n', ' ').Trim(), 100);
+                    if (title.Length == 0) throw new ArgumentException("The new title is empty.");
+                    var run = state.Find(tag) ?? throw new ArgumentException($"Run {tag} is not in the state branch.");
+                    if (run.Status != RunStatus.Review) throw new ArgumentException($"Run {tag} is {run.Status.ToString().ToLowerInvariant()}; only a video waiting for review gets a new title.");
+                    var metadataPath = Path.Combine(folder, "metadata.json");
+                    var metadata = ReadJson<VideoMetadata>(metadataPath) with { Title = title };
+                    await File.WriteAllTextAsync(metadataPath, JsonSerializer.Serialize(metadata, Json.Options), cts.Token);
+                    state.Save(run with { Title = title, UpdatedAt = DateTimeOffset.UtcNow });
+                    await telegram.SendTextAsync($"🏷️ Novo título: {title}", cts.Token);
+                    return 0;
+                }
                 case "review":
                 {
                     var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud review needs --run <folder>."));
@@ -138,16 +210,39 @@ internal static class CloudCommands
         }
         if (string.IsNullOrWhiteSpace(article) && left <= 5)
             await telegram.SendTextAsync($"📋 Restam {left} temas na fila (config/topics.json).", ct);
-        return Started(state, tag, next, left);
+        return Started(state, tag, next, left, state.Settings().Review);
     }
 
-    /// <summary>Records the run as rendering and prints the topic as JSON for the workflow.</summary>
-    private static int Started(CloudState state, string tag, BacklogTopic next, int left)
+    /// <summary>
+    /// Records the run as rendering and prints the topic as JSON for the workflow; "review" tells it to stop after the
+    /// script (review mode is on, or the owner asked for another script).
+    /// </summary>
+    private static int Started(CloudState state, string tag, BacklogTopic next, int left, bool review)
     {
         state.Save(new RunRecord { Tag = tag, Article = next.Article, PortugueseArticle = next.PortugueseArticle, Year = next.Year > 0 ? next.Year : null,
             Topic = next.Topic, Trend = next.Trend, Status = RunStatus.Rendering, UpdatedAt = DateTimeOffset.UtcNow });
         Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, portugueseArticle = next.PortugueseArticle ?? "", year = next.Year,
-            topic = next.Topic, trend = next.Trend, left }));
+            topic = next.Topic, trend = next.Trend, left, review }));
+        return 0;
+    }
+
+    private static T ReadJson<T>(string path) =>
+        JsonSerializer.Deserialize<T>(File.ReadAllText(path), Json.Options) ?? throw new InvalidDataException($"{path} is empty.");
+
+    /// <summary>/revisar on|off, /pausar, /retomar.</summary>
+    private static async Task<int> SettingsAsync(CloudState state, string set, TelegramNotifier telegram, CancellationToken ct)
+    {
+        var settings = state.Settings();
+        (settings, var reply) = set switch
+        {
+            "review-on" => (settings with { Review = true }, "📝 Revisão de roteiro ligada: cada vídeo espera você aprovar ou editar o roteiro."),
+            "review-off" => (settings with { Review = false }, "📝 Revisão de roteiro desligada: os vídeos saem direto, como antes."),
+            "pause" => (settings with { Paused = true }, "⏸️ Vídeos agendados pausados. /novo ainda funciona; /retomar volta."),
+            "resume" => (settings with { Paused = false }, "▶️ Vídeos agendados de volta: 07h, 11h, 15h e 19h."),
+            _ => throw new ArgumentException($"Unknown setting \"{TextUtil.Truncate(set, 20)}\"."),
+        };
+        state.SaveSettings(settings);
+        await telegram.SendTextAsync(reply, ct);
         return 0;
     }
 

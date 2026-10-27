@@ -38,7 +38,9 @@ public sealed class Pipeline(
 {
     private string Tools => Path.Combine(repositoryRoot, "tools");
 
-    public async Task<RunResult> RunAsync(string folder, CancellationToken ct)
+    /// <param name="scriptOnly">Stop after the script (review mode): sources.json and script.json are saved and a later
+    /// run of the same folder goes on from there. Returns null then.</param>
+    public async Task<RunResult?> RunAsync(string folder, CancellationToken ct, bool scriptOnly = false)
     {
         Directory.CreateDirectory(folder);
         var video = config.Video;
@@ -46,6 +48,7 @@ public sealed class Pipeline(
         var sources = await SourcesAsync(folder, ct);
         var (script, writerName) = await ScriptAsync(folder, sources, ct);
         Log.Info($"script: \"{script.Title}\", {script.WordCount} words, {script.Sections.Count} sections");
+        if (scriptOnly) return null;
 
         var timings = await narrator.NarrateAsync(script, folder, ct);
         // Whole frames, so the shots, the captions and the audio all end on the same frame.

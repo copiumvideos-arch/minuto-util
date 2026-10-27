@@ -184,6 +184,56 @@ test("tapping an idea approves it through ideas.yml and turns only that number i
   assert.equal(githubCalls(forged.calls).length, 0);
 });
 
+test("script buttons continue the run: approve makes the video, the other asks for a new script", async () => {
+  for (const [data, rescript] of [["sok:20261028-1000", "false"], ["snew:20261028-1000", "true"]]) {
+    const { calls, worker } = fakeNetwork();
+    await worker.fetch(post(tap(data)), env);
+    assert.equal(calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/render.yml/dispatches");
+    assert.deepEqual(calls[0].body.inputs, { continue: "20261028-1000", script: "", rescript });
+  }
+});
+
+test("a reply to the script is the owner's edit; a reply to a review video is its new title", async () => {
+  const replyTo = (text, replied) => ({
+    update_id: 3,
+    message: { text, from: { id: 1000000001 }, chat: { id: 1000000001 }, reply_to_message: { from: { id: 99, is_bot: true }, ...replied } },
+  });
+  let net = fakeNetwork();
+  await net.worker.fetch(post(replyTo("Gancho: Por que só o Brasil?", { text: "📝 Roteiro para revisar · Democracia\n...\nExecução 20261028-1000" })), env);
+  assert.equal(net.calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/render.yml/dispatches");
+  assert.deepEqual(net.calls[0].body.inputs, { continue: "20261028-1000", script: "Gancho: Por que só o Brasil?", rescript: "false" });
+
+  net = fakeNetwork();
+  await net.worker.fetch(post(replyTo("A urna que mudou o Brasil", { video: { file_id: "v" }, caption: "🎬 Urna\n...Execução 20261028-1000." })), env);
+  assert.equal(net.calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
+  assert.deepEqual(net.calls[0].body.inputs, { action: "title", date: "", index: "", idea: "A urna que mudou o Brasil", item: "20261028-1000" });
+
+  // A reply to someone else's message is just an idea; a title over 100 letters is refused.
+  net = fakeNetwork();
+  await net.worker.fetch(post({ update_id: 4, message: { text: "Magna Carta", from: { id: 1000000001 }, chat: { id: 1000000001 },
+    reply_to_message: { from: { id: 1000000001, is_bot: false }, text: "Execução 20261028-1000" } } }), env);
+  assert.equal(githubCalls(net.calls)[0].body.inputs.action, "add");
+  net = fakeNetwork();
+  await net.worker.fetch(post(replyTo("x".repeat(101), { video: {}, caption: "Execução 20261028-1000" })), env);
+  assert.equal(githubCalls(net.calls).length, 0);
+});
+
+test("/status, /stats, /pausar, /retomar and /revisar run ideas.yml", async () => {
+  const cases = [
+    ["/status", { action: "status", item: "" }],
+    ["/stats", { action: "stats", item: "" }],
+    ["/pausar", { action: "settings", item: "pause" }],
+    ["/retomar", { action: "settings", item: "resume" }],
+    ["/revisar on", { action: "settings", item: "review-on" }],
+    ["/revisar OFF", { action: "settings", item: "review-off" }],
+  ];
+  for (const [text, expected] of cases) {
+    const net = fakeNetwork();
+    await net.worker.fetch(post(message(text)), env);
+    assert.deepEqual(githubCalls(net.calls)[0].body.inputs, { ...expected, date: "", index: "", idea: "" }, text);
+  }
+});
+
 test("the secret check compares whole strings", () => {
   assert.ok(sameSecret("abc", "abc"));
   assert.ok(!sameSecret("abd", "abc"));

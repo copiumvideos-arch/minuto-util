@@ -50,6 +50,7 @@ if (command is not "make")
           --portuguese-article  The Portuguese Wikipedia article to use with it (default: the English page's link).
           --year        The year of that event (pictures from it rank higher, and the year card shows it).
           --topic       The series name given to the writer (default: story.topic).
+          --script-only Stop after writing the script (a later make --run of the folder goes on from there).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
           youtube-login Signs in to YouTube once (browser); only the Minuto Útil channel is accepted.
           tiktok-login  Signs in to TikTok once (browser). --paste: paste the address the browser ends on instead.
@@ -119,7 +120,12 @@ var pipeline = new Pipeline(config, root, new WikipediaClient(http),
     () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer);
 try
 {
-    var result = await pipeline.RunAsync(folder, cts.Token);
+    var result = await pipeline.RunAsync(folder, cts.Token, scriptOnly: args.Contains("--script-only"));
+    if (result is null)
+    {
+        Log.Info($"script only: {Path.Combine(folder, "script.json")}");
+        return 0;
+    }
     Log.Info($"done: {result.VideoPath} ({result.Duration:0.0}s, voice {result.Voice}, {result.Lufs:0.0} LUFS)");
     Log.Info($"contact sheet: {result.ContactSheetPath}");
     return 0;

@@ -1,11 +1,13 @@
-# Renders one video on a schedule and sends it to the owner's Telegram with "Publicar" and "Rejeitar" buttons.
-# The buttons reach relay/ (a Cloudflare Worker), which starts publish.yml. Nothing is posted from here.
+# Renders one video on a schedule and sends it to the owner's Telegram with "Publicar", "Refazer" and "Rejeitar"
+# buttons. The buttons reach relay/ (a Cloudflare Worker), which starts publish.yml. Nothing is posted from here.
+# Review mode (/revisar on): the run stops after the script and sends it to Telegram; approving or editing it starts
+# this workflow again with `continue`, which picks the run up from its saved folder.
 name: render
 
 on:
   schedule:
     # 07:00, 11:00, 15:00 and 19:00 in Brasília (UTC-3). GitHub may start scheduled runs some minutes late.
-    # Four a day keeps one of TikTok's five daily inbox drafts spare.
+    # Four a day keeps one of TikTok's five daily inbox drafts spare. Skipped while paused (/pausar).
     - cron: "0 10 * * *"
     - cron: "0 14 * * *"
     - cron: "0 18 * * *"
@@ -13,13 +15,25 @@ on:
   workflow_dispatch:
     inputs:
       article:
-        description: "An idea or English Wikipedia article to make now (empty: approved ideas, then config/topics.json)"
+        description: "An idea or English Wikipedia article to make now (empty: the queue)"
         required: false
         default: ""
       remake:
         description: "A run tag (yyyyMMdd-HHmm) to make again with a new script, voice and pictures"
         required: false
         default: ""
+      continue:
+        description: "A run tag whose script was approved or edited: make its video"
+        required: false
+        default: ""
+      script:
+        description: "continue: the owner's edited script lines"
+        required: false
+        default: ""
+      rescript:
+        description: "continue: write another script for review instead of making the video"
+        type: boolean
+        default: false
 
 concurrency:
   group: render
@@ -34,6 +48,8 @@ jobs:
     timeout-minutes: 80
     env:
       CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
+      GH_TOKEN: ${{ github.token }}
+      CONTINUE: ${{ inputs.continue }}
       MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
       MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
     steps:
@@ -45,7 +61,13 @@ jobs:
 
       - name: Run tag
         id: tag
-        run: echo "tag=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -n "$CONTINUE" ]; then
+            [[ "$CONTINUE" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad run tag"; exit 1; }
+            echo "tag=$CONTINUE" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -64,7 +86,8 @@ jobs:
         run: |
           if [ ! -x ~/ffmpeg/bin/ffmpeg ]; then
             mkdir -p ~/ffmpeg
-            curl -fsSL --retry 3 https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz               | tar -xJ -C ~/ffmpeg --strip-components=1
+            curl -fsSL --retry 3 https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz \
+              | tar -xJ -C ~/ffmpeg --strip-components=1
           fi
           echo "$HOME/ffmpeg/bin" >> "$GITHUB_PATH"
           ~/ffmpeg/bin/ffmpeg -hide_banner -filters | grep -q " ass " || { echo "this FFmpeg has no libass"; exit 1; }
@@ -81,23 +104,50 @@ jobs:
           (cd tools && uv sync --frozen --no-dev)
           dotnet build src/MinutoUtil.Cli -c Release -v q
 
+      # continue: the run's folder (sources, script) saved after its script review, then the owner's edit if any.
+      - name: Restore the run
+        id: restore
+        if: inputs.continue != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          SCRIPT: ${{ inputs.script }}
+          RESCRIPT: ${{ inputs.rescript }}
+        run: |
+          mkdir -p "output/$TAG"
+          gh release download "run-$TAG" -p run.tar.gz -O - | tar -xz -C "output/$TAG"
+          if [ "$RESCRIPT" = "true" ]; then rm -f "output/$TAG/script.json" "output/$TAG/script-writer.json"; fi
+          if [ -n "$SCRIPT" ]; then
+            set +e
+            $CLI cloud edit-script --state state --tag "$TAG" --run "output/$TAG" --text "$SCRIPT"
+            code=$?
+            set -e
+            # Nothing recognized in the reply: the script stays waiting for the owner.
+            if [ "$code" = "3" ]; then echo "stop=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            if [ "$code" != "0" ]; then exit "$code"; fi
+          fi
+
       - name: Pick the topic
         id: next
+        if: steps.restore.outputs.stop != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
           ARTICLE: ${{ inputs.article }}
           REMAKE: ${{ inputs.remake }}
-          GH_TOKEN: ${{ github.token }}
+          RESCRIPT: ${{ inputs.rescript }}
+          SCHEDULED: ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set +e
-          if [ -n "$REMAKE" ]; then
+          if [ -n "$CONTINUE" ]; then
+            extra=""; [ "$RESCRIPT" = "true" ] && extra="--rescript"
+            $CLI cloud next --state state --tag "$TAG" --continue yes $extra > next.json
+          elif [ -n "$REMAKE" ]; then
             $CLI cloud next --state state --tag "$TAG" --remake "$REMAKE" > next.json
           else
-            $CLI cloud next --state state --tag "$TAG" --article "$ARTICLE" > next.json
+            $CLI cloud next --state state --tag "$TAG" --article "$ARTICLE" $SCHEDULED > next.json
           fi
           code=$?
           set -e
@@ -106,11 +156,13 @@ jobs:
           if [ "$code" = "3" ]; then echo "empty=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$code" != "0" ]; then exit "$code"; fi
           cat next.json
+          echo "review=$(jq -r .review next.json)" >> "$GITHUB_OUTPUT"
 
       - name: Render
-        if: steps.next.outputs.empty != 'true'
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          SCRIPT_ONLY: ${{ steps.next.outputs.review == 'true' && '--script-only' || '' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
@@ -122,21 +174,38 @@ jobs:
           topic=$(jq -r .topic next.json)
           portuguese=$(jq -r .portugueseArticle next.json)
           $CLI make --run "output/$TAG" --article "$article" --portuguese-article "$portuguese" --year "$year" --topic "$topic" \
-            --quota-file state/quota-state.json
+            --quota-file state/quota-state.json $SCRIPT_ONLY
 
-      - name: Keep the video
-        if: steps.next.outputs.empty != 'true'
+      # Review mode: the folder so far (sources, script, log) is kept with the run until the owner answers.
+      - name: Send the script for review
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review == 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          title=$(jq -r .title "output/$TAG/metadata.json")
-          gh release create "run-$TAG" --prerelease --title "$title" \
-            --notes "Rendered by run $GITHUB_RUN_ID; waiting for review on Telegram." \
-            "output/$TAG/video.mp4" "output/$TAG/metadata.json" "output/$TAG/run.log" "output/$TAG/contact-sheet.png"
+          tar -czf run.tar.gz -C "output/$TAG" .
+          if gh release view "run-$TAG" >/dev/null 2>&1; then
+            gh release upload "run-$TAG" run.tar.gz --clobber
+          else
+            gh release create "run-$TAG" --prerelease --title "Roteiro $TAG" --notes "Script waiting for review on Telegram." run.tar.gz
+          fi
+          $CLI cloud script-review --state state --tag "$TAG" --run "output/$TAG"
+
+      - name: Keep the video
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          files=("output/$TAG/video.mp4" "output/$TAG/metadata.json" "output/$TAG/run.log" "output/$TAG/contact-sheet.png")
+          if gh release view "run-$TAG" >/dev/null 2>&1; then
+            gh release upload "run-$TAG" "${files[@]}" --clobber
+            gh release edit "run-$TAG" --title "$(jq -r .title "output/$TAG/metadata.json")"
+          else
+            gh release create "run-$TAG" --prerelease --title "$(jq -r .title "output/$TAG/metadata.json")" \
+              --notes "Rendered by run $GITHUB_RUN_ID; waiting for review on Telegram." "${files[@]}"
+          fi
 
       - name: Send for review
-        if: steps.next.outputs.empty != 'true'
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: $CLI cloud review --state state --tag "$TAG" --run "output/$TAG"

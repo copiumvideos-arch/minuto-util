@@ -19,6 +19,8 @@ public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics)
 public enum RunStatus
 {
     Rendering,
+    /// <summary>The script waits for the owner's approval or edit (review mode).</summary>
+    Script,
     Review,
     Publishing,
     Published,
@@ -149,6 +151,13 @@ public sealed class CloudState(string folder)
         File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(record, Json.Options));
         File.Move(path + ".tmp", path, overwrite: true);
     }
+
+    private string SettingsFile => Path.Combine(Folder, "settings.json");
+
+    public BotSettings Settings() =>
+        File.Exists(SettingsFile) ? JsonSerializer.Deserialize<BotSettings>(File.ReadAllText(SettingsFile), Json.Options) ?? new() : new();
+
+    public void SaveSettings(BotSettings settings) => Write(SettingsFile, settings);
 
     private string OrderFile => Path.Combine(Folder, "order.json");
 

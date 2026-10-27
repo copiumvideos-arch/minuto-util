@@ -1,4 +1,4 @@
-# The owner's say in what gets made. Every morning: 10 ideas from the day's trends go to Telegram with a button each.
+# The bot's quick jobs (ideas, the queue, settings, status, stats, title edits). The owner's say in what gets made. Every morning: 10 ideas from the day's trends go to Telegram with a button each.
 # relay/ starts this workflow again when the owner taps an idea (approve) or sends a text idea (add); approved ideas
 # and text ideas go ahead of config/topics.json in render.yml.
 name: ideas
@@ -12,10 +12,10 @@ on:
     inputs:
       action:
         type: choice
-        options: [list, approve, add, queue, top, remove, move]
+        options: [list, approve, add, queue, top, remove, move, settings, status, stats, title]
         default: list
       item:
-        description: "top, remove, move: the queue item (a key from a button, or its position)"
+        description: "top, remove, move: the queue item (a key or its position); settings: review-on, review-off, pause, resume; title: the run tag"
         required: false
         default: ""
       date:
@@ -27,7 +27,7 @@ on:
         required: false
         default: ""
       idea:
-        description: "add: the owner's idea, a subject or a question"
+        description: "add: the owner's idea, a subject or a question; title: the new title"
         required: false
         default: ""
       again:
@@ -60,6 +60,9 @@ jobs:
             queue) ;;
             top|remove) [[ "$ITEM" =~ ^[0-9a-z-]{1,40}$ ]] || { echo "bad item"; exit 1; } ;;
             move) [[ "$ITEM" =~ ^[0-9a-z-]{1,40}$ && "$INDEX" =~ ^[0-9]{1,2}$ ]] || { echo "bad item or position"; exit 1; } ;;
+            settings) [[ "$ITEM" =~ ^(review-on|review-off|pause|resume)$ ]] || { echo "bad setting"; exit 1; } ;;
+            status|stats) ;;
+            title) [[ "$ITEM" =~ ^[0-9]{8}-[0-9]{4}$ ]] && [ -n "$IDEA" ] && [ "${#IDEA}" -le 100 ] || { echo "bad tag or title"; exit 1; } ;;
             *) echo "bad action"; exit 1 ;;
           esac
 
@@ -76,6 +79,12 @@ jobs:
 
       - name: Run
         env:
+          GH_TOKEN: ${{ github.token }}
+          MINUTO_STATE_DIR: ${{ github.workspace }}/state
+          MINUTO_STATE_KEY: ${{ secrets.MINUTO_STATE_KEY }}
+          MINUTO_GOOGLE_CLIENT_ID: ${{ secrets.MINUTO_GOOGLE_CLIENT_ID }}
+          MINUTO_GOOGLE_CLIENT_SECRET: ${{ secrets.MINUTO_GOOGLE_CLIENT_SECRET }}
+          MINUTO_YOUTUBE_REFRESH_TOKEN: ${{ secrets.MINUTO_YOUTUBE_REFRESH_TOKEN }}
           MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
           MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -91,6 +100,16 @@ jobs:
             top) $CLI cloud queue --state state --top "$ITEM" ;;
             remove) $CLI cloud queue --state state --remove "$ITEM" ;;
             move) $CLI cloud queue --state state --move "$ITEM" --to "$INDEX" ;;
+            settings) $CLI cloud settings --state state --set "$ITEM" ;;
+            status) $CLI cloud status --state state ;;
+            stats) $CLI cloud stats --state state ;;
+            title)
+              # The title publish.yml will use lives in the run's metadata.json, kept with its release.
+              mkdir -p "output/$ITEM"
+              gh release download "run-$ITEM" -D "output/$ITEM" -p metadata.json
+              $CLI cloud title --state state --tag "$ITEM" --run "output/$ITEM" --title "$IDEA"
+              gh release upload "run-$ITEM" "output/$ITEM/metadata.json" --clobber
+              gh release edit "run-$ITEM" --title "$IDEA" ;;
           esac
 
       - name: Save the state

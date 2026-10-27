@@ -625,3 +625,91 @@ public sealed class QueueTests
         Assert.Contains("A fila está vazia", CloudFlow.QueueMessage([]).Text);
     }
 }
+
+public sealed class BotFeatureTests
+{
+    private static readonly MinutoUtil.Core.Scripts.VideoScript Script = new("Como surgiu a urna", "Por que só o Brasil?", "1996", "Brasil",
+        [
+            new("Em mil novecentos e noventa e seis, o Brasil testou a urna.", ["voting machine 1996"], ["urna 1996"], "q1"),
+            new("Ela não se liga à internet.", ["voting machine offline"], ["urna offline"], "q2"),
+        ], "A urna chegou em 1996.", ["urna"]) { Question = "Você prefere urna ou papel?" };
+
+    private static readonly RunRecord Run = new() { Tag = "20261028-1000", Article = "Electronic voting in Brazil", Year = 1996, Topic = "Democracia",
+        Status = RunStatus.Script, UpdatedAt = PublishData.Now };
+
+    [Fact]
+    public void The_script_message_has_labeled_lines_and_the_run_tag_the_relay_reads()
+    {
+        var text = ScriptReview.Message(Run, Script).ReplaceLineEndings("\n");
+
+        Assert.StartsWith(ScriptReview.Marker, text);
+        Assert.Contains("\nTítulo: Como surgiu a urna\nGancho: Por que só o Brasil?\n1. Em mil novecentos", text);
+        Assert.Contains("\n2. Ela não se liga à internet.\nPergunta: Você prefere urna ou papel?", text);
+        Assert.EndsWith("Execução 20261028-1000", text);
+        Assert.Equal(["sok:20261028-1000", "snew:20261028-1000", "rej:20261028-1000"], ScriptReview.Buttons(Run.Tag).Select(b => b.Data));
+    }
+
+    [Fact]
+    public void The_owners_reply_replaces_only_the_lines_it_carries_and_keeps_the_picture_searches()
+    {
+        var (edited, changed) = ScriptReview.Apply(Script, "título: A urna que mudou o Brasil\r\n2) Ela funciona sem internet, de propósito.\nobrigado!\n7. linha que não existe\nPergunta:   ");
+
+        Assert.Equal(2, changed);
+        Assert.Equal("A urna que mudou o Brasil", edited.Title);
+        Assert.Equal("Por que só o Brasil?", edited.Hook);
+        Assert.Equal("Ela funciona sem internet, de propósito.", edited.Sections[1].Text);
+        Assert.Equal(["voting machine offline"], edited.Sections[1].SearchEn);
+        Assert.Equal(Script.Sections[0], edited.Sections[0]);
+        Assert.Equal("Você prefere urna ou papel?", edited.Question);
+        Assert.Equal(0, ScriptReview.Apply(Script, "ficou ótimo").Changed);
+    }
+
+    [Fact]
+    public void Settings_persist_and_status_reports_them_with_what_waits_for_the_owner()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(temp.Path);
+        Assert.Equal(new BotSettings(), state.Settings());
+        state.SaveSettings(new BotSettings { Review = true, Paused = true });
+        state.Save(Run with { Title = "Como surgiu a urna" });
+        state.Save(new RunRecord { Tag = "20261028-0700", Article = "Magna Carta", Title = "A Magna Carta", Status = RunStatus.Failed, Note = "no voice",
+            UpdatedAt = PublishData.Now });
+
+        var text = CloudFlow.StatusMessage(state.Settings(), state.Runs(), [], PublishData.Now.AddMinutes(10));
+
+        Assert.True(state.Settings().Paused);
+        Assert.Contains("pausados", text);
+        Assert.Contains("Revisão de roteiro ligada", text);
+        Assert.Contains("Roteiros esperando você:\n• Como surgiu a urna", text.ReplaceLineEndings("\n"));
+        Assert.Contains("A Magna Carta (27/10 15:00): no voice", text);
+        Assert.Contains("fila vazia", text);
+    }
+
+    [Fact]
+    public async Task Stats_read_the_published_shorts_from_youtube_and_rank_them_by_views()
+    {
+        var runs = new[]
+        {
+            new RunRecord { Tag = "20261027-1800", Article = "a", Status = RunStatus.Published, YouTubeUrl = "https://youtube.com/shorts/vid123", UpdatedAt = PublishData.Now },
+            new RunRecord { Tag = "20261027-1900", Article = "b", Status = RunStatus.Published, YouTubeUrl = "https://youtube.com/shorts/abc456", UpdatedAt = PublishData.Now },
+            new RunRecord { Tag = "20261027-2000", Article = "c", Status = RunStatus.Review, YouTubeUrl = "https://youtube.com/shorts/zzz789", UpdatedAt = PublishData.Now },
+        };
+        var handler = new FakeHandler((request, _) => FakeHandler.Json(HttpStatusCode.OK, """
+            {"items":[
+              {"id":"vid123","snippet":{"title":"Titanic","publishedAt":"2026-10-25T18:00:00Z"},"statistics":{"viewCount":"1200","likeCount":"80","commentCount":"9"}},
+              {"id":"abc456","snippet":{"title":"Urna","publishedAt":"2026-10-27T18:00:00Z"},"statistics":{"viewCount":"15300","likeCount":"900"}}
+            ]}
+            """));
+
+        var ids = YouTubeStats.Ids(runs);
+        var stats = await YouTubeStats.FetchAsync(new HttpClient(handler), "token", ids, CancellationToken.None);
+        var text = YouTubeStats.Message(stats, PublishData.Now);
+
+        Assert.Equal(["vid123", "abc456"], ids);
+        Assert.Contains("id=vid123%2Cabc456", handler.Requests[0].Request.RequestUri!.AbsoluteUri.Replace(",", "%2C"));
+        Assert.Equal("Bearer token", handler.Requests[0].Request.Headers.Authorization!.ToString());
+        Assert.StartsWith("📊 2 vídeo(s) · 16.500 visualizações · 980 curtidas · 9 comentários", text);
+        Assert.True(text.IndexOf("Urna", StringComparison.Ordinal) < text.IndexOf("Titanic", StringComparison.Ordinal));
+        Assert.Contains("Urna: 15.300 views", text);
+    }
+}

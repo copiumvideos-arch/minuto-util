@@ -16,6 +16,30 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:",
         TopPrefix = "qt:", RemovePrefix = "qd:";
 
+    /// <summary>/status: the switches, what is being made or waiting for the owner, the last results and the next topics.</summary>
+    public static string StatusMessage(BotSettings settings, IReadOnlyList<RunRecord> runs, IReadOnlyList<QueueEntry> queue, DateTimeOffset now)
+    {
+        var text = new StringBuilder("ℹ️ Minuto Útil\n");
+        text.AppendLine(settings.Paused ? "⏸️ Vídeos agendados pausados (/retomar volta)." : "▶️ Vídeos às 07h, 11h, 15h e 19h (/pausar para).");
+        text.AppendLine(settings.Review ? "📝 Revisão de roteiro ligada (/revisar off desliga)." : "📝 Revisão de roteiro desligada (/revisar on liga).");
+        string Line(RunRecord r) => $"• {r.Title ?? r.Article} ({r.UpdatedAt.ToOffset(TimeSpan.FromHours(-3)):dd/MM HH:mm})";
+        void Group(string heading, IEnumerable<RunRecord> items)
+        {
+            var list = items.ToList();
+            if (list.Count == 0) return;
+            text.AppendLine().AppendLine(heading);
+            foreach (var r in list.Take(5)) text.AppendLine(Line(r) + (r.Note is { Length: > 0 } note && r.Status == RunStatus.Failed ? $": {TextUtil.Truncate(note, 80)}" : ""));
+        }
+        var recent = runs.Where(r => now - r.UpdatedAt < TimeSpan.FromDays(3)).OrderByDescending(r => r.UpdatedAt).ToList();
+        Group("⚙️ Fazendo agora:", recent.Where(r => r.Status is RunStatus.Rendering or RunStatus.Publishing && now - r.UpdatedAt < TimeSpan.FromHours(1)));
+        Group("📝 Roteiros esperando você:", recent.Where(r => r.Status == RunStatus.Script));
+        Group("🎬 Vídeos esperando revisão:", recent.Where(r => r.Status == RunStatus.Review));
+        Group("✅ Publicados (3 dias):", recent.Where(r => r.Status == RunStatus.Published));
+        Group("⚠️ Falharam (3 dias):", recent.Where(r => r.Status == RunStatus.Failed));
+        text.AppendLine().AppendLine("📋 Próximos: " + (queue.Count == 0 ? "fila vazia" : string.Join(" · ", queue.Take(3).Select(e => e.Topic.PortugueseArticle ?? e.Topic.Article))));
+        return text.ToString().TrimEnd();
+    }
+
     /// <summary>Items shown by /fila; the rest is counted.</summary>
     public const int QueueShown = 10;
 

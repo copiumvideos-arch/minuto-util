@@ -236,6 +236,12 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   text) adds an idea, which becomes the next video. The owner's order is kept in `order.json` on the state branch
   (only the head is pinned, the default order fills the rest), removals in `removed/`. A review video's
   **🔁 Refazer** button makes the same topic again with a new script, voice and pictures.
+- **More bot commands**: `/revisar on|off` (review mode: each run stops after the script, `make --script-only`, keeps
+  its folder as `run.tar.gz` on the release and sends the script with ✅ Aprovar, 🔁 Outro roteiro, ❌ Rejeitar; a reply
+  with edited lines, labeled `Título:`, `Gancho:`, `1.`, `Pergunta:`, is applied and the video made from it, through
+  `render.yml` `continue`), `/pausar` and `/retomar` (scheduled renders skip while paused; `/novo` still works),
+  `/status` (switches, what waits for the owner, recent results, next topics), `/stats` (views, likes and comments of
+  the published Shorts, YouTube `videos.list`). A reply to a review video with a line of text becomes its title.
 - **State**: the `state` branch holds `runs/<tag>.json` (topic, status, title, links), `quota-state.json` (the Gemini
   quota tracker, `make --quota-file`), `ideas/<date>.json`, `approved/*.json` and the sealed token files. Every job commits it with
   `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.
