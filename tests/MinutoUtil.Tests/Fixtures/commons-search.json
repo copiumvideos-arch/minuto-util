@@ -1,0 +1,321 @@
+{
+ "batchcomplete": true,
+ "continue": {
+  "gsroffset": 6,
+  "continue": "gsroffset||"
+ },
+ "query": {
+  "pages": [
+   {
+    "pageid": 3374509,
+    "ns": 6,
+    "title": "File:Omaha Beach 1944 Second Assault.jpg",
+    "index": 4,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 175228,
+      "width": 1456,
+      "height": 786,
+      "thumburl": "https://upload.wikimedia.org/wikipedia/commons/4/43/Omaha_Beach_1944_Second_Assault.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "thumbwidth": 2400,
+      "thumbheight": 1296,
+      "thumbattribs": {
+       "src": "https://upload.wikimedia.org/wikipedia/commons/4/43/Omaha_Beach_1944_Second_Assault.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1296
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/43/Omaha_Beach_1944_Second_Assault.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Omaha_Beach_1944_Second_Assault.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=3374509",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "Omaha Beach 1944 Second Assault",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "1945-09-20",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<a rel=\"nofollow\" class=\"external text\" href=\"https://history.army.mil/books/wwii/100-11/100-11.HTM\"><i>Omaha Beachhead</i></a>, <a rel=\"nofollow\" class=\"external text\" href=\"http://www.army.mil/cmh/books/wwii/100-11/map06.jpg\">Map 6</a>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "US Army War Department Historical Division",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   {
+    "pageid": 8024249,
+    "ns": 6,
+    "title": "File:Omaha Beach Landing Craft.jpg",
+    "index": 5,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 4224065,
+      "width": 5735,
+      "height": 3798,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/Omaha_Beach_Landing_Craft.jpg/3840px-Omaha_Beach_Landing_Craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 2400,
+      "thumbheight": 1589,
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/Omaha_Beach_Landing_Craft.jpg/3840px-Omaha_Beach_Landing_Craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1589
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/d/d3/Omaha_Beach_Landing_Craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Omaha_Beach_Landing_Craft.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=8024249",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "Omaha Beach Landing Craft",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "1944-06-06",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "Official U.S. Army Signal Corps photo <a rel=\"nofollow\" class=\"external text\" href=\"http://www.history.navy.mil/our-collections/photography/wars-and-events/world-war-ii/d-day/SC-320902.html\">SC 320902</a> from the U.S. Navy <a rel=\"nofollow\" class=\"external text\" href=\"http://www.history.navy.mil\">Naval History and Heritage Command</a>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "U.S. Army Signal Corps",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   {
+    "pageid": 38254617,
+    "ns": 6,
+    "title": "File:Infantry landing craft approach Omaha Beach in June 1944.jpg",
+    "index": 2,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 5592847,
+      "width": 5636,
+      "height": 4171,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg/3840px-Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 2400,
+      "thumbheight": 1776,
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg/3840px-Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1776
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/73/Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Infantry_landing_craft_approach_Omaha_Beach_in_June_1944.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=38254617",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "Infantry landing craft approach Omaha Beach in June 1944",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "circa 6 June 1944<div style=\"display: none;\">date QS:P,+1944-06-06T00:00:00Z/11,P1480,Q5727902</div>",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "Official U.S. Army Signal Corps photo <a rel=\"nofollow\" class=\"external text\" href=\"http://www.history.navy.mil/our-collections/photography/wars-and-events/world-war-ii/d-day/SC-189987.html\">SC 189987</a> from the U.S. Navy <a rel=\"nofollow\" class=\"external text\" href=\"http://www.history.navy.mil\">Naval History and Heritage Command</a>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "Wall, U.S. Army Signal Corps",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   {
+    "pageid": 79498465,
+    "ns": 6,
+    "title": "File:Troops wade ashore at Omaha Beach from a LCVP landing craft.jpg",
+    "index": 6,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 312840,
+      "width": 1280,
+      "height": 868,
+      "thumburl": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Troops_wade_ashore_at_Omaha_Beach_from_a_LCVP_landing_craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "thumbwidth": 2400,
+      "thumbheight": 1628,
+      "thumbattribs": {
+       "src": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Troops_wade_ashore_at_Omaha_Beach_from_a_LCVP_landing_craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1628
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/7b/Troops_wade_ashore_at_Omaha_Beach_from_a_LCVP_landing_craft.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Troops_wade_ashore_at_Omaha_Beach_from_a_LCVP_landing_craft.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=79498465",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "Troops wade ashore at Omaha Beach from a LCVP landing craft",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "1944-06-06",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.history.navy.mil/our-collections/photography/wars-and-events/world-war-ii/d-day/SC-320902.html\">https://www.history.navy.mil/our-collections/photography/wars-and-events/world-war-ii/d-day/SC-320902.html</a>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "US Army Signal Corps Collection in the U.S. National Archives",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   {
+    "pageid": 175801447,
+    "ns": 6,
+    "title": "File:SOMECA 511 am Landungsstrand Omaha Beach in der Normandie.jpg",
+    "index": 1,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 26938541,
+      "width": 7884,
+      "height": 5219,
+      "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg/3840px-SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+      "thumbwidth": 2400,
+      "thumbheight": 1589,
+      "thumbattribs": {
+       "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg/3840px-SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1589
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/96/SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:SOMECA_511_am_Landungsstrand_Omaha_Beach_in_der_Normandie.jpg",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=175801447",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "SOMECA 511 am Landungsstrand Omaha Beach in der Normandie",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "2025-09-18 13:50:45",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<span class=\"int-own-work\" lang=\"en\">Own work</span>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<a href=\"//commons.wikimedia.org/wiki/User:Rolf_Kranz\" title=\"User:Rolf Kranz\">Rolf Kranz</a>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "CC BY-SA 4.0",
+        "source": "commons-desc-page",
+        "hidden": ""
+       },
+       "LicenseUrl": {
+        "value": "https://creativecommons.org/licenses/by-sa/4.0",
+        "source": "commons-desc-page"
+       }
+      },
+      "mime": "image/jpeg"
+     }
+    ]
+   },
+   {
+    "pageid": 181996390,
+    "ns": 6,
+    "title": "File:Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3.png",
+    "index": 3,
+    "imagerepository": "local",
+    "imageinfo": [
+     {
+      "size": 276709,
+      "width": 698,
+      "height": 458,
+      "thumburl": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+      "thumbwidth": 2400,
+      "thumbheight": 1575,
+      "thumbattribs": {
+       "src": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+       "decoding": "async",
+       "loading": "lazy",
+       "width": 2400,
+       "height": 1575
+      },
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3.png",
+      "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=181996390",
+      "extmetadata": {
+       "ObjectName": {
+        "value": "Normandy-June-6th-1944-US-troops-assault-Omaha-Beach-during-the-D-Day-landings-3",
+        "source": "mediawiki-metadata"
+       },
+       "DateTimeOriginal": {
+        "value": "Taken on\u00a06 June 1944",
+        "source": "commons-desc-page"
+       },
+       "Credit": {
+        "value": "<a rel=\"nofollow\" class=\"external free\" href=\"https://www.atlasgallery.com/exhibition/magnificent-11-robert-capa\">https://www.atlasgallery.com/exhibition/magnificent-11-robert-capa</a>",
+        "source": "commons-desc-page"
+       },
+       "Artist": {
+        "value": "<bdi><a href=\"https://en.wikipedia.org/wiki/en:Robert_Capa\" class=\"extiw\" title=\"w:en:Robert Capa\"><span title=\"American photographer (1913\u20131954)\">Robert Capa</span></a></bdi>",
+        "source": "commons-desc-page"
+       },
+       "LicenseShortName": {
+        "value": "Public domain",
+        "source": "commons-desc-page",
+        "hidden": ""
+       }
+      },
+      "mime": "image/png"
+     }
+    ]
+   }
+  ]
+ }
+}

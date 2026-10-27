@@ -1,0 +1,132 @@
+﻿using MinutoUtil.Core;
+using MinutoUtil.Core.Llm;
+using MinutoUtil.Core.Media;
+using MinutoUtil.Core.Scripts;
+using MinutoUtil.Core.Sources;
+using MinutoUtil.Core.Video;
+using MinutoUtil.Core.Voice;
+
+// minuto-util make [--run <folder>] [--article "<English Wikipedia title>"]
+//   Makes one video into output/<yyyy-MM-dd>/<HHmm>/, or finishes/re-renders an existing run folder, reusing
+//   everything already in it (sources, script, voice takes, media, shots). Nothing is uploaded.
+
+var command = args.FirstOrDefault() ?? "help";
+if (command is "check-script" && Option("--run") is { } checkFolder)
+{
+    // Shows what the local fixes (dashes, accents) and checks make of a run's saved script, without changing it or
+    // calling any service. Useful before deleting voice takes to re-voice a script.
+    var saved = MinutoUtil.Core.Json.Options;
+    var sourcesSaved = System.Text.Json.JsonSerializer.Deserialize<List<SourceArticle>>(File.ReadAllText(Path.Combine(checkFolder, "sources.json")), saved)!;
+    var scriptSaved = System.Text.Json.JsonSerializer.Deserialize<VideoScript>(File.ReadAllText(Path.Combine(checkFolder, "script.json")), saved)!;
+    var polishedScript = ScriptWriter.Polish(scriptSaved, sourcesSaved);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(polishedScript, saved));
+    var rootForCheck = FindRepositoryRoot();
+    var writerOptions = AppConfig.Load(Path.Combine(rootForCheck, "config", "minuto-util.json")).Writer;
+    foreach (var warning in new ScriptWriter(new ChainedLlmClient([]), "", writerOptions, "").Check(polishedScript, sourcesSaved))
+        Console.WriteLine($"warning: {warning}");
+    return 0;
+}
+if (command is not "make")
+{
+    Console.WriteLine("""
+        Usage: minuto-util make [--run <run folder>] [--article "<English Wikipedia title>"]
+               minuto-util check-script --run <run folder>
+
+          make          Writes, voices and renders one video into output/<yyyy-MM-dd>/<HHmm>/.
+          --run         Re-render an existing run folder, reusing its script, voice takes and media (no new API calls).
+          --article     The event's English Wikipedia article (default: story.englishArticle in config/minuto-util.json).
+          check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
+        """);
+    return command is "help" or "--help" or "-h" ? 0 : 1;
+}
+
+var root = FindRepositoryRoot();
+var config = AppConfig.Load(Path.Combine(root, "config", "minuto-util.json"));
+if (Option("--article") is { } article) config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "" } };
+
+var now = DateTime.Now;
+var folder = Option("--run") is { } run ? Path.GetFullPath(run) : Path.Combine(root, "output", now.ToString("yyyy-MM-dd"), now.ToString("HHmm"));
+Directory.CreateDirectory(folder);
+var logPath = Path.Combine(folder, "run.log");
+var logWriter = new StreamWriter(logPath, append: true) { AutoFlush = true };
+Log.Sink = line =>
+{
+    Console.Error.WriteLine(line);
+    logWriter.WriteLine(line);
+};
+Log.Info($"run {folder} started ({(Option("--run") is null ? "new" : "resumed")})");
+
+using var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    cts.Cancel();
+};
+
+var usage = new RunUsage(config.Writer.MaxRequests);
+using var http = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(60));
+using var apiHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
+var quota = new QuotaTracker(Path.Combine(root, "data", "quota-state.json"), sharedPaths: config.SharedQuotaFiles);
+
+var writers = new List<ILlmClient>();
+if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota));
+else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
+if (Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey) writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
+var prompt = File.ReadAllText(Path.Combine(root, "prompts", "writer.md"));
+
+var tools = Path.Combine(root, "tools");
+var smallest = Key(config.Voice.Smallest.ApiKeyEnvVar) is { } smallestKey ? new SmallestVoice(apiHttp, smallestKey, config.Voice.Smallest, usage) : null;
+var narrator = new Narrator(config.Voice, tools, smallest, new KokoroVoice(tools, config.Voice), usage);
+
+var ffmpeg = new Ffmpeg(config.Video);
+var imageSources = new List<IMediaSource>();
+if (config.Media.Commons) imageSources.Add(new CommonsSource(http, config.Media));
+if (config.Media.LibraryOfCongress) imageSources.Add(new LibraryOfCongressSource(http, config.Media));
+var videoSources = new List<IMediaSource>();
+if (config.Media.InternetArchive) videoSources.Add(new InternetArchiveSource(http, config.Media));
+if (config.Media.Commons) videoSources.Add(new CommonsSource(http, config.Media));
+var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader(http, ffmpeg, config.Media),
+    new ClipExtractor(ffmpeg, config.Video), config.Media, config.Story.EventYear);
+
+var pipeline = new Pipeline(config, root, new WikipediaClient(http),
+    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer);
+try
+{
+    var result = await pipeline.RunAsync(folder, cts.Token);
+    Log.Info($"done: {result.VideoPath} ({result.Duration:0.0}s, voice {result.Voice}, {result.Lufs:0.0} LUFS)");
+    Log.Info($"contact sheet: {result.ContactSheetPath}");
+    return 0;
+}
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    Log.Warn($"run failed: {ex.GetType().Name}: {ex.Message}");
+    return 1;
+}
+finally
+{
+    Log.Info(usage.Summary());
+    logWriter.Dispose();
+}
+
+string? Option(string name)
+{
+    var index = Array.IndexOf(args, name);
+    return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+}
+
+// A shell started before the keys were set does not see them; on Windows the user environment is read directly.
+static string? Key(string name)
+{
+    var value = Environment.GetEnvironmentVariable(name);
+    if (string.IsNullOrWhiteSpace(value) && OperatingSystem.IsWindows())
+        value = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
+    return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+static string FindRepositoryRoot()
+{
+    foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+        for (var dir = new DirectoryInfo(start); dir is not null; dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, "MinutoUtil.slnx"))) return dir.FullName;
+    throw new DirectoryNotFoundException("Run minuto-util from inside the minuto-util repository (MinutoUtil.slnx not found).");
+}

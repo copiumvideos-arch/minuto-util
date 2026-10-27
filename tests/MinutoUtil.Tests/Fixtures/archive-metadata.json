@@ -1,0 +1,72 @@
+{
+ "metadata": {
+  "identifier": "111-adc-1489",
+  "collection": [
+   "FedFlix",
+   "usgovfilms",
+   "newsandpublicaffairs"
+  ],
+  "creator": "National Archives",
+  "date": "Transcription Not Started",
+  "description": "INVASION, OMAHA BEACH, NORMANDY, FRANCE<p>Transcription Not Started</p><p></p><p>https://catalog.archives.gov/id/15296</p>",
+  "mediatype": "movies",
+  "scanner": "Internet Archive Python library 5.3.1",
+  "subject": "National Archives",
+  "title": "INVASION, OMAHA BEACH, NORMANDY, FRANCE",
+  "uploader": "skip@avgeeks.com",
+  "collection_added": [
+   "usgovfilms",
+   "newsandpublicaffairs"
+  ],
+  "publicdate": "2025-06-01 09:43:50",
+  "addeddate": "2025-06-01 09:43:50"
+ },
+ "files": [
+  {
+   "name": "111-adc-1489.mp4",
+   "source": "original",
+   "mtime": "1748771014",
+   "size": "201915782",
+   "md5": "d217b8bab46e070fa0a396be62738c93",
+   "crc32": "25b7915d",
+   "sha1": "383c09eae751f1c3a5b88ef1efd266eba3ffddbc",
+   "format": "MPEG4",
+   "length": "673.88",
+   "width": "1920",
+   "height": "1080"
+  },
+  {
+   "name": "111-adc-1489.thumbs/111-adc-1489_000001.jpg",
+   "source": "derivative",
+   "format": "Thumbnail",
+   "original": "111-adc-1489.mp4",
+   "mtime": "1748771119",
+   "size": "16746",
+   "md5": "87f5e8c50a93a78d81d8727240454ac0",
+   "crc32": "c887aaaf",
+   "sha1": "75c3381ccacbd465fd9db1b1b74e80cb5d5f2b7b"
+  },
+  {
+   "name": "111-adc-1489.thumbs/111-adc-1489_000058.jpg",
+   "source": "derivative",
+   "format": "Thumbnail",
+   "original": "111-adc-1489.mp4",
+   "mtime": "1748771122",
+   "size": "26987",
+   "md5": "5c176c9be2a85e1dcc6515363b1ebe2c",
+   "crc32": "8d9a719b",
+   "sha1": "df30225c83200dd6b2e06ebeeb7a5aefce17b384"
+  },
+  {
+   "name": "111-adc-1489.thumbs/111-adc-1489_000087.jpg",
+   "source": "derivative",
+   "format": "Thumbnail",
+   "original": "111-adc-1489.mp4",
+   "mtime": "1748771125",
+   "size": "16663",
+   "md5": "8a1379dd4cd6401b98f1296ac3aa83c2",
+   "crc32": "4be111f0",
+   "sha1": "abc7a914ab340c333b668dd5f475e2b116c37fd4"
+  }
+ ]
+}

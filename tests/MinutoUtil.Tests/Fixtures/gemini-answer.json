@@ -1,0 +1,16 @@
+{
+ "candidates": [
+  {
+   "content": {
+    "parts": [
+     {
+      "text": "{\n  \"title\": \"O dia em que o mau tempo quase cancelou o Dia D\",\n  \"hook\": \"E se a maior invasão da história dependesse da previsão do tempo?\",\n  \"eraStamp\": \"6 de junho de 1944\",\n  \"placeStamp\": \"Normandia, França\",\n  \"sections\": [\n    {\n      \"text\": \"Era junho de mil novecentos e quarenta e quatro. Os Aliados tinham tudo pronto para atravessar o Canal da Mancha.\",\n      \"searchEn\": [\"Normandy invasion fleet 1944\", \"English Channel landing craft 1944\"],\n      \"searchPt\": [\"desembarque Normandia 1944\"],\n      \"sourceQuote\": \"Planning for the operation began in 1943.\"\n    },\n    {\n      \"text\": \"Mas o tempo não ajudou \\u2014 e a operação teve de ser adiada por vinte e quatro horas.\",\n      \"searchEn\": [\"Eisenhower June 1944\", \"stormy sea English Channel 1944\"],\n      \"searchPt\": [\"Eisenhower 1944\"],\n      \"sourceQuote\": \"The weather on the day selected for D-Day was not ideal, and the operation had to be delayed 24 hours\"\n    },\n    {\n      \"text\": \"Um novo atraso empurraria tudo por pelo menos duas semanas, por causa da lua e das marés.\",\n      \"searchEn\": [\"moon tide Normandy beach 1944\", \"Allied planners 1944\"],\n      \"searchPt\": [\"maré Normandia\"],\n      \"sourceQuote\": \"a further postponement would have meant a delay of at least two weeks\"\n    },\n    {\n      \"text\": \"Então, na madrugada de 6 de junho, começou o ataque, com bombardeios pelo ar e pelo mar.\",\n      \"searchEn\": [\"Omaha Beach landing 1944\", \"paratroopers June 1944\"],\n      \"searchPt\": [\"Dia D praia de Omaha\"],\n      \"sourceQuote\": \"The invasion began shortly after midnight on the morning of 6 June with extensive aerial and naval bombardment\"\n    },\n    {\n      \"text\": \"Uma janela de poucos dias por mês decidiu o começo da libertação da França.\",\n      \"searchEn\": [\"liberation of France 1944\"],\n      \"searchPt\": [\"libertação da França 1944\"],\n      \"sourceQuote\": \"The operation began the liberation of France and the rest of Western Europe\"\n    }\n  ],\n  \"description\": \"Como a previsão do tempo quase mudou a data do Dia D. Uma história de planejamento, marés e coragem.\",\n  \"hashtags\": [\"#historia\", \"segundaguerra\", \"diad\", \"normandia\", \"shorts\"]\n}\n"
+     }
+    ],
+    "role": "model"
+   },
+   "finishReason": "STOP"
+  }
+ ],
+ "modelVersion": "gemini-3.7-flash"
+}

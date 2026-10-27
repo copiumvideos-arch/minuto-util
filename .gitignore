@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+
+# Runs, rendered videos, logs and the remembered quota state
+output/
+data/
+
+# Python tool environment
+tools/.venv/
+.pytest_cache/
+__pycache__/

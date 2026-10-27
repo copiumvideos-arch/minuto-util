@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MinutoUtil.Cli/MinutoUtil.Cli.csproj" />
+    <Project Path="src/MinutoUtil.Core/MinutoUtil.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MinutoUtil.Tests/MinutoUtil.Tests.csproj" />
+  </Folder>
+</Solution>

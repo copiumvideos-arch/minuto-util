@@ -1,0 +1,35 @@
+{
+  "channel": { "name": "Minuto Útil", "language": "pt" },
+  "story": {
+    "topic": "Segunda Guerra Mundial",
+    "englishArticle": "Normandy landings",
+    "eventYear": 1944,
+    "maxSourceChars": 16000
+  },
+  "gemini": {
+    "models": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"],
+    "apiKeyEnvVar": "GEMINI_API_KEY"
+  },
+  "openRouter": {
+    "writerModels": ["nvidia/nemotron-3.5-super-vl:free", "thinkingmachines/inkling:free"],
+    "apiKeyEnvVar": "OPENROUTER_API_KEY"
+  },
+  "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
+  "writer": { "maxRequests": 3, "minWords": 130, "maxWords": 170, "minSections": 4, "maxSections": 6 },
+  "voice": {
+    "engine": "smallest",
+    "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },
+    "kokoroVoice": "pm_santa",
+    "sectionPause": 0.4,
+    "maxPause": 0.55
+  },
+  "media": { "commons": true, "libraryOfCongress": true, "internetArchive": true, "clipSeconds": 4.5 },
+  "video": {
+    "fadeSeconds": 0.35,
+    "maxShotSeconds": 6.5,
+    "voiceLufs": -16,
+    "motionSupersample": 2.0,
+    "kenBurnsZoom": 0.10,
+    "parallaxTravel": 0.045
+  }
+}

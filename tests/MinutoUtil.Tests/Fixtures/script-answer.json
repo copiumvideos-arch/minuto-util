@@ -1,0 +1,40 @@
+{
+  "title": "O dia em que o mau tempo quase cancelou o Dia D",
+  "hook": "E se a maior invasão da história dependesse da previsão do tempo?",
+  "eraStamp": "6 de junho de 1944",
+  "placeStamp": "Normandia, França",
+  "sections": [
+    {
+      "text": "Era junho de mil novecentos e quarenta e quatro. Os Aliados tinham tudo pronto para atravessar o Canal da Mancha.",
+      "searchEn": ["Normandy invasion fleet 1944", "English Channel landing craft 1944"],
+      "searchPt": ["desembarque Normandia 1944"],
+      "sourceQuote": "Planning for the operation began in 1943."
+    },
+    {
+      "text": "Mas o tempo não ajudou \u2014 e a operação teve de ser adiada por vinte e quatro horas.",
+      "searchEn": ["Eisenhower June 1944", "stormy sea English Channel 1944"],
+      "searchPt": ["Eisenhower 1944"],
+      "sourceQuote": "The weather on the day selected for D-Day was not ideal, and the operation had to be delayed 24 hours"
+    },
+    {
+      "text": "Um novo atraso empurraria tudo por pelo menos duas semanas, por causa da lua e das marés.",
+      "searchEn": ["moon tide Normandy beach 1944", "Allied planners 1944"],
+      "searchPt": ["maré Normandia"],
+      "sourceQuote": "a further postponement would have meant a delay of at least two weeks"
+    },
+    {
+      "text": "Então, na madrugada de 6 de junho, começou o ataque, com bombardeios pelo ar e pelo mar.",
+      "searchEn": ["Omaha Beach landing 1944", "paratroopers June 1944"],
+      "searchPt": ["Dia D praia de Omaha"],
+      "sourceQuote": "The invasion began shortly after midnight on the morning of 6 June with extensive aerial and naval bombardment"
+    },
+    {
+      "text": "Uma janela de poucos dias por mês decidiu o começo da libertação da França.",
+      "searchEn": ["liberation of France 1944"],
+      "searchPt": ["libertação da França 1944"],
+      "sourceQuote": "The operation began the liberation of France and the rest of Western Europe"
+    }
+  ],
+  "description": "Como a previsão do tempo quase mudou a data do Dia D. Uma história de planejamento, marés e coragem.",
+  "hashtags": ["#historia", "segundaguerra", "diad", "normandia", "shorts"]
+}

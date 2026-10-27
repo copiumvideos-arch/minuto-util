@@ -1,0 +1,38 @@
+[project]
+name = "minuto-util-tools"
+version = "0.1.0"
+description = "CPU-only helpers for Minuto Util videos: Whisper word timings, Kokoro fallback voice, Ken Burns and 2.5D parallax motion"
+requires-python = "==3.12.*"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "soundfile>=0.13",
+    "faster-whisper>=1.1",
+    # Matches "1944" in the script to "mil novecentos e quarenta e quatro" from Whisper, and back.
+    "num2words>=0.5",
+    "opencv-python-headless>=4.10",
+    "pillow>=10",
+    # Depth Anything V2 Small for the parallax effect, on the CPU.
+    "torch>=2.6",
+    "transformers>=4.45",
+    # Fallback voice when Smallest.ai fails or runs out of credits: pm_santa, Brazilian Portuguese.
+    "kokoro>=0.9.4",
+    # Kokoro's English phonemizer would otherwise download this at the first run.
+    "en-core-web-sm==3.8.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+# The CPU build of torch: no CUDA wheels (several GB) on Linux runners without a GPU.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
