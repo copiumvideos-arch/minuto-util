@@ -1,6 +1,9 @@
 name = "minuto-util-relay"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
+# Only the stable workers.dev address; no per-version preview URLs.
+workers_dev = true
+preview_urls = false
 
 [vars]
 # The private repository that holds the workflows (owner/name).
