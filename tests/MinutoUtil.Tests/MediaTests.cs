@@ -207,6 +207,19 @@ public sealed class PlannerAndCaptionTests
     }
 
     [Fact]
+    public void TheMapShotOpensTheFirstSectionAfterTheHook()
+    {
+        var timings = Timings();
+        var shots = ShotPlanner.Plan(timings, timings.Duration + 0.6, new VideoOptions(), clipSeconds: 4.5, mapSeconds: 2.5);
+        var map = Assert.Single(shots, s => s.Effect == ShotEffect.Map);
+        Assert.Equal(1, map.Index);
+        Assert.Equal(1, map.Section);
+        Assert.InRange(map.Frames, 74, 76); // 2.5 s, give or take the rounding of each cut to a frame
+        Assert.Equal(ShotEffect.Parallax, shots[2].Effect);
+        Assert.Equal(1, shots[2].Section);
+    }
+
+    [Fact]
     public void WithoutAClipTheHookIsAStill()
     {
         var timings = Timings();
@@ -226,6 +239,48 @@ public sealed class PlannerAndCaptionTests
         Assert.All(chunks, c => Assert.Single(c.Words.Select(w => w.Section).Distinct()));
         for (var i = 1; i < chunks.Count; i++) Assert.True(chunks[i].Start >= chunks[i - 1].End - 0.001);
         Assert.Equal(timings.Words.Count, chunks.Sum(c => c.Words.Count));
+    }
+
+    [Fact]
+    public void StyleSwitchesTurnEachCaptionLayerOnAndOff()
+    {
+        var on = CaptionBuilder.Build(Timings(), 18, "Montserrat Black", "Montserrat ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5, new StyleOptions());
+        Assert.Contains("Minuto Útil", on);
+        Assert.Contains("NORMANDIA, FRANÇA", on);
+        Assert.Contains("}44", on);
+        Assert.Contains(@"\fscy125", on);
+        Assert.DoesNotContain(",Stamp,", on);
+
+        var off = CaptionBuilder.Build(Timings(), 18, "Montserrat Black", "Montserrat ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5,
+            new StyleOptions { YearCard = false, Watermark = false, WordPop = false, KeyWords = false });
+        Assert.DoesNotContain("Minuto Útil", off);
+        Assert.DoesNotContain(@"\fscy125", off);
+        Assert.Contains(",Stamp,", off);
+    }
+
+    [Fact]
+    public void KeyWordsAreNumbersMonthsAndNamesNotSentenceStarts()
+    {
+        SpokenWord W(string text, int i) => new(text, i, i + 0.5, 0);
+        var words = new[] { "Em", "seis", "de", "junho,", "Eisenhower", "decidiu", "com", "mil", "e", "quinhentos", "homens.", "Ele", "voltou", "em", "1944." }
+            .Select(W).ToList();
+        var keys = CaptionBuilder.KeyWords(words).Select(w => w.Text).ToList();
+        Assert.Equal(["seis", "junho,", "Eisenhower", "mil", "e", "quinhentos", "1944."], keys);
+    }
+
+    [Fact]
+    public void PictureChainFollowsTheSwitches()
+    {
+        var all = new FinalRenderer(new VideoOptions(), new Ffmpeg(new VideoOptions())).PictureChain(10);
+        Assert.Contains("unsharp=5:5:0.7", all);
+        Assert.Contains("vignette=angle=0.6", all);
+        Assert.Contains("noise=c0s=7", all);
+        Assert.Contains("eq=contrast=1.12:saturation=1.18", all);
+        // Sharpening comes before the grain, so the grain is not sharpened.
+        Assert.True(all.IndexOf("unsharp", StringComparison.Ordinal) < all.IndexOf("noise", StringComparison.Ordinal));
+
+        var none = new VideoOptions { Style = new StyleOptions { Vintage = false, Sharpen = 0, Denoise = false, Contrast = 1, Saturation = 1 } };
+        Assert.Equal("format=yuv420p", new FinalRenderer(none, new Ffmpeg(none)).PictureChain(10));
     }
 
     [Fact]

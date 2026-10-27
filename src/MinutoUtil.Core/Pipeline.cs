@@ -53,7 +53,10 @@ public sealed class Pipeline(
         Log.Info($"voice: {timings.Voice}, {timings.Duration:0.00}s spoken, alignment {string.Join(" ", timings.Checks.Select(c => c.Score.ToString("0.00")))}");
 
         var clipSeconds = config.Media.ClipSeconds;
-        var shots = ShotPlanner.Plan(timings, duration, video, clipSeconds);
+        // The map shot needs the place on the map; scripts written before the field existed simply go without.
+        var mapSeconds = video.Style.MapInsert && script.Location is not null ? video.Style.MapSeconds : 0;
+        if (video.Style.MapInsert && script.Location is null) Log.Warn("style: no location in the script, so no map shot");
+        var shots = ShotPlanner.Plan(timings, duration, video, clipSeconds, mapSeconds);
         var final = new FinalRenderer(video, new Ffmpeg(video));
         var fade = final.FadeFrames;
 
@@ -74,7 +77,7 @@ public sealed class Pipeline(
             Log.Info($"media: reused {manifest.Images.Count} picture(s){(manifest.Clip is null ? "" : " and the clip")} from {manifestPath}");
         }
         if (manifest.Clip is null && shots[0].Effect == ShotEffect.Clip)
-            shots = ShotPlanner.Plan(timings, duration, video, 0);
+            shots = ShotPlanner.Plan(timings, duration, video, 0, mapSeconds);
         if (manifest.Images.Count == 0) throw new InvalidOperationException("No usable pictures were found; nothing to render.");
 
         shots = AssignMedia(shots, manifest);
@@ -82,12 +85,18 @@ public sealed class Pipeline(
         var renderer = new ShotRenderer(video, Tools);
         var shotFiles = new List<string>();
         foreach (var shot in shots)
-            shotFiles.Add(await renderer.RenderAsync(shot, byId[shot.MediaId!], ShotPlanner.SegmentFrames(shots, shot.Index, fade), Path.Combine(folder, "shots"), ct));
+        {
+            var frames = ShotPlanner.SegmentFrames(shots, shot.Index, fade);
+            shotFiles.Add(shot.Effect == ShotEffect.Map
+                ? await renderer.RenderMapAsync(shot, script.Location!, frames, Path.Combine(repositoryRoot, video.FontFile),
+                    Path.Combine(repositoryRoot, video.Style.MapDataDirectory), Path.Combine(folder, "shots"), ct)
+                : await renderer.RenderAsync(shot, byId[shot.MediaId!], frames, Path.Combine(folder, "shots"), ct));
+        }
 
         CopyFonts(folder);
         var stampEnd = (double)shots[0].End / video.Fps;
         await File.WriteAllTextAsync(Path.Combine(folder, "captions.ass"),
-            CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, script.EraStamp, script.PlaceStamp, stampEnd), ct);
+            CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, script.EraStamp, script.PlaceStamp, stampEnd, video.Style), ct);
 
         var videoPath = Path.Combine(folder, "video.mp4");
         await final.RenderAsync(shots, shotFiles, Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct);
@@ -106,7 +115,8 @@ public sealed class Pipeline(
                 s.Effect.ToString().ToLowerInvariant(), s.MediaId!)).ToList());
         await File.WriteAllTextAsync(Path.Combine(folder, "timings.json"), JsonSerializer.Serialize(timingsFile, Json.Options), ct);
 
-        var used = shots.Select(s => byId[s.MediaId!]).DistinctBy(m => m.Id).ToList();
+        var used = shots.Where(s => s.Effect != ShotEffect.Map).Select(s => byId[s.MediaId!]).DistinctBy(m => m.Id).ToList();
+        if (shots.Any(s => s.Effect == ShotEffect.Map)) used.Add(NaturalEarth(Path.Combine(repositoryRoot, video.Style.MapDataDirectory)));
         var metadata = Metadata(script, sources, used, duration, timings.Voice, writerName, folder);
         await File.WriteAllTextAsync(Path.Combine(folder, "metadata.json"), JsonSerializer.Serialize(metadata, Json.Options), ct);
 
@@ -143,7 +153,8 @@ public sealed class Pipeline(
             if (polished != saved)
             {
                 // Fixes added after the script was written apply to it too; the original is kept beside it.
-                await File.WriteAllTextAsync(Path.Combine(folder, "script.original.json"), saved, ct);
+                var original = Path.Combine(folder, "script.original.json");
+                if (!File.Exists(original)) await File.WriteAllTextAsync(original, saved, ct);
                 await File.WriteAllTextAsync(path, polished, ct);
             }
             var name = File.Exists(writerPath) ? JsonDocument.Parse(await File.ReadAllTextAsync(writerPath, ct)).RootElement.GetProperty("writer").GetString() ?? "" : "";
@@ -166,6 +177,11 @@ public sealed class Pipeline(
         var result = new List<Shot>();
         foreach (var shot in shots)
         {
+            if (shot.Effect == ShotEffect.Map)
+            {
+                result.Add(shot);
+                continue;
+            }
             if (shot.Effect == ShotEffect.Clip && manifest.Clip is not null)
             {
                 result.Add(shot with { MediaId = manifest.Clip.Id });
@@ -183,6 +199,20 @@ public sealed class Pipeline(
         }
         return result;
     }
+
+    /// <summary>The map's data source, for the credits.</summary>
+    private static MediaItem NaturalEarth(string dataDirectory) => new()
+    {
+        Id = "naturalearth",
+        Kind = MediaKind.Image,
+        Source = "Natural Earth",
+        Title = "Admin 0 countries, 1:10m (map drawn by Minuto Útil)",
+        Author = "Natural Earth",
+        License = "Public domain",
+        SourceUrl = "https://www.naturalearthdata.com/",
+        DownloadUrl = "https://www.naturalearthdata.com/",
+        LocalPath = Path.Combine(dataDirectory, "ne_10m_admin_0_countries.geojson"),
+    };
 
     private void CopyFonts(string folder)
     {

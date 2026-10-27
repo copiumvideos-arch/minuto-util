@@ -2,7 +2,7 @@ using MinutoUtil.Core.Voice;
 
 namespace MinutoUtil.Core.Video;
 
-public enum ShotEffect { Clip, KenBurns, Parallax }
+public enum ShotEffect { Clip, KenBurns, Parallax, Map }
 
 /// <summary>
 /// One shot of the video: from cut frame <see cref="Start"/> to <see cref="End"/> (the cross-fade is centered on each
@@ -25,7 +25,8 @@ public sealed record Shot(int Index, int Section, int Start, int End, ShotEffect
 public static class ShotPlanner
 {
     /// <param name="clipSeconds">Length of the real footage clip for the first shot; 0 when there is none.</param>
-    public static IReadOnlyList<Shot> Plan(SpeechTimings timings, double duration, VideoOptions options, double clipSeconds)
+    /// <param name="mapSeconds">Length of the map shot that opens the first section after the hook; 0 for none.</param>
+    public static IReadOnlyList<Shot> Plan(SpeechTimings timings, double duration, VideoOptions options, double clipSeconds, double mapSeconds = 0)
     {
         var fps = options.Fps;
         var totalFrames = (int)Math.Round(duration * fps);
@@ -59,6 +60,22 @@ public static class ShotPlanner
             }
         }
 
+        // The map opens section 1 when that section is long enough to show a picture after it too; a split of the
+        // section that would fall inside the map, or leave a sliver after it, is dropped.
+        var mapIndex = -1;
+        if (mapSeconds > 0 && sections.Count > 1)
+        {
+            var first = cuts.FindIndex(c => c.Section == 1);
+            var sectionEnd = bounds[2];
+            var mapEnd = cuts[first].Time + mapSeconds;
+            if (sectionEnd - mapEnd >= 2.5)
+            {
+                cuts.RemoveAll(c => c.Section == 1 && c.Time > cuts[first].Time && c.Time < mapEnd + 2.0);
+                cuts.Insert(first + 1, (mapEnd, 1));
+                mapIndex = first;
+            }
+        }
+
         var shots = new List<Shot>();
         var stills = 0;
         for (var i = 0; i < cuts.Count; i++)
@@ -66,6 +83,11 @@ public static class ShotPlanner
             var start = (int)Math.Round(cuts[i].Time * fps);
             var end = i + 1 < cuts.Count ? (int)Math.Round(cuts[i + 1].Time * fps) : totalFrames;
             ShotEffect effect;
+            if (i == mapIndex)
+            {
+                shots.Add(new Shot(i, cuts[i].Section, start, end, ShotEffect.Map, 1, true) { MediaId = "map" });
+                continue;
+            }
             if (i == 0 && clipSeconds > 0) effect = ShotEffect.Clip;
             else effect = stills++ % 2 == 0 ? ShotEffect.Parallax : ShotEffect.KenBurns;
             // Directions alternate per still pair, so two parallax shots in a row of shots never slide the same way.

@@ -64,6 +64,31 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    2-4 words, the spoken word in yellow, centered in the lower third clear of the TikTok and Shorts buttons and
    caption area; the event's date and place sit on the first shot. H.264 + AAC, 1080x1920, 30 fps.
 
+## Channel style (the standard look)
+
+Every Minuto Útil video uses this style by default, unless the owner says otherwise. Each layer is a switch in
+`video.style` in `config/minuto-util.json` (defaults in `StyleOptions`, `src/MinutoUtil.Core/Config.cs`). Picture
+layers sit under the captions and the watermark; captions, year card and watermark are drawn last, untouched.
+
+| Layer | What it looks like | Switch (default) |
+|---|---|---|
+| Vintage grade | faded blacks and whites, a faint warm push in the mid tones (black-and-white footage stays nearly neutral), so 1944 footage and color photos read as one film | `vintage` (true), `warmth` (0.035) |
+| Vignette | darker edges, bright center, visible but not heavy | `vignette` (0.6, radians; 0 = off) |
+| Film grain | fine luma grain changing every frame, added last so it is never sharpened | `grain` (7; 0 = off) |
+| Flicker | a very light brightness flicker (part of `vintage`) | `vintage` |
+| Light leaks | a warm glow from one side over two cross-fades (about a third and two thirds in, never the clip or the map) | `lightLeaks` (true) |
+| Sharpening ("nítido") | a light denoise, then moderate unsharp on luma, before the grain, no halos | `denoise` (true), `sharpen` (0.7; 0 = off) |
+| Contrast and color | a bit more contrast and saturation | `contrast` (1.12), `saturation` (1.18) |
+| Year card | the year in big yellow Montserrat Black with a black outline, its last two digits rolling up like a counter from frame 0, then the place under it, over the opening footage; replaces the plain date stamp | `yearCard` (true), `yearCardSeconds` (1.8) |
+| Map insert | a 2-3 s shot right after the hook: an old-atlas map zooming from Europe into the place, with a yellow glow, a pin and the place name. Drawn by `tools/mapinsert.py` from Natural Earth (public domain, downloaded once into `assets/cache/naturalearth`, validated as untrusted data). Needs `location` (name, latitude, longitude) in the script | `mapInsert` (true), `mapSeconds` (2.6) |
+| Watermark | a small hourglass and "Minuto Útil", semi-transparent, top left (clear of the TikTok and Shorts buttons), drawn in code | `watermark` (true) |
+| Caption pop | each word appears as it is spoken and pops from 125% to 100% in 0.11 s; the line does not shift as it fills | `wordPop` (true) |
+| Yellow key words | names, places, dates, months and numbers in the channel's yellow, the rest white | `keyWords` (true) |
+| Looping ending | the writer ends on a line that leads back into the hook, so the Short loops (`prompts/writer.md`) | prompt rule |
+| No music, no sound effects | narration only; the owner finds music and effects distracting | none: there is no music path |
+
+The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideoKbps` (4500).
+
 ## Output
 
 `output/<yyyy-MM-dd>/<HHmm>/`:

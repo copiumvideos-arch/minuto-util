@@ -179,6 +179,60 @@ public sealed record VideoOptions
     public string FfprobePath { get; init; } = "ffprobe";
     public string Encoder { get; init; } = "libx264";
 
+    /// <summary>Style layers over the edit; each can be switched off.</summary>
+    public StyleOptions Style { get; init; } = new();
+
     /// <summary>Peak video bitrate. 4500 kbit/s keeps a 75 s video near 43 MB, under Telegram's 50 MB bot upload limit.</summary>
     public int MaxVideoKbps { get; init; } = 4500;
+}
+
+/// <summary>
+/// The look of a video, one switch per layer. No music and no sound effects: the owner finds them distracting.
+/// </summary>
+public sealed record StyleOptions
+{
+    /// <summary>Warm faded grade, soft vignette, fine grain and a faint flicker over the picture (not the captions).</summary>
+    public bool Vintage { get; init; } = true;
+
+    /// <summary>Grain strength (FFmpeg noise, luma only, changing every frame); 0 for none.</summary>
+    public int Grain { get; init; } = 7;
+
+    /// <summary>Vignette angle in radians (FFmpeg vignette): larger is darker edges. 0.6 is clearly visible, not heavy.</summary>
+    public double Vignette { get; init; } = 0.6;
+
+    /// <summary>Warmth of the mid tones (a small push to red, away from blue). Kept low so black-and-white stays neutral.</summary>
+    public double Warmth { get; init; } = 0.035;
+
+    /// <summary>Sharpening strength (FFmpeg unsharp luma amount); 0 for none. Applied before the grain, after a light denoise.</summary>
+    public double Sharpen { get; init; } = 0.7;
+
+    /// <summary>A light denoise before sharpening, so film grain and JPEG noise in old scans are not sharpened too.</summary>
+    public bool Denoise { get; init; } = true;
+
+    /// <summary>Contrast and saturation (1 = unchanged).</summary>
+    public double Contrast { get; init; } = 1.12;
+    public double Saturation { get; init; } = 1.18;
+
+    /// <summary>A short warm light leak on two cross-fades (needs <see cref="Vintage"/>).</summary>
+    public bool LightLeaks { get; init; } = true;
+
+    /// <summary>The year rolling up like a counter over the opening footage, with the place under it; replaces the date stamp.</summary>
+    public bool YearCard { get; init; } = true;
+    public double YearCardSeconds { get; init; } = 1.8;
+
+    /// <summary>A short map shot after the hook, zooming from Europe into the place (Natural Earth, public domain).</summary>
+    public bool MapInsert { get; init; } = true;
+    public double MapSeconds { get; init; } = 2.6;
+
+    /// <summary>Where the Natural Earth countries file is kept once downloaded (untrusted data, validated on load).</summary>
+    public string MapDataDirectory { get; init; } = "assets/cache/naturalearth";
+
+    /// <summary>Hourglass and "Minuto Útil", small and semi-transparent, top left.</summary>
+    public bool Watermark { get; init; } = true;
+
+    /// <summary>Caption words appear one by one as they are spoken, each with a quick pop.</summary>
+    public bool WordPop { get; init; } = true;
+
+    /// <summary>Names, dates, numbers and places in yellow; the rest white.</summary>
+    public bool KeyWords { get; init; } = true;
 }

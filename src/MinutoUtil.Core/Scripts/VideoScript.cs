@@ -30,6 +30,10 @@ public sealed record VideoScript(
     [property: Description("4-6 hashtags without the # sign, e.g. \"historia\", \"segundaguerra\".")]
     IReadOnlyList<string> Hashtags)
 {
+    /// <summary>Where the event happened, for the map shot. Optional: scripts written before 2026-10-27 lack it.</summary>
+    [Description("Where the event happened, for a map: the place name in Portuguese as shown on screen (\"Normandia\") and its latitude and longitude in decimal degrees (west and south negative).")]
+    public ScriptLocation? Location { get; init; }
+
     /// <summary>What the voice says, in order: the hook, then each section.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> SpokenSections => [Hook, .. Sections.Select(s => s.Text)];
@@ -37,3 +41,5 @@ public sealed record VideoScript(
     [JsonIgnore]
     public int WordCount => SpokenSections.Sum(TextUtil.CountWords);
 }
+
+public sealed record ScriptLocation(string Name, double Latitude, double Longitude);

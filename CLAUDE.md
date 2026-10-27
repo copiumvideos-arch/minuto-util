@@ -18,7 +18,16 @@ ubuntu, about 7 GB RAM), so keep it cross-platform.
   render); `Llm` (Gemini, OpenRouter, quota tracker); `Pipeline.cs` runs a whole video in a run folder.
 - `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients.
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
-  `motion.py` (Ken Burns, Depth Anything parallax).
+  `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot).
+
+## Channel style
+
+Every video uses the channel style by default unless the owner says otherwise: vintage grade, vignette, grain, faint
+flicker, two light leaks, light denoise and sharpening, more contrast and saturation, the rolling year card, the map
+insert after the hook, the hourglass watermark top left, captions that pop in word by word with names, places, dates
+and numbers in yellow, and a looping last line. No music and no sound effects. Each layer is a switch under
+`video.style` in `config/minuto-util.json`; the table with defaults is in README.md ("Channel style"). Keep files
+under 50 MB (`video.maxVideoKbps`), since videos are sent through a Telegram bot.
 
 ## Rules
 

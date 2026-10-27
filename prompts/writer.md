@@ -18,8 +18,11 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
 - `hook`: the first thing heard, at most 14 words. A question or a surprising fact that opens a loop, never a
   greeting, never the channel's name, never "Você sabia".
 - `sections`: {MIN_SECTIONS} to {MAX_SECTIONS} sections after the hook. Each is 1 to 3 short sentences that move the
-  story forward: setting, the problem, the turn, what it changed. The last section closes the loop the hook opened in
-  one calm sentence. No call to action, no "inscreva-se", no "comente".
+  story forward: setting, the problem, the turn, what it changed. No call to action, no "inscreva-se", no "comente".
+- The video loops on Shorts and TikTok, so the ending leads back into the start: the last section answers the hook's
+  question in one calm sentence and its final words flow naturally into the hook when it plays again (for example a
+  last line that ends on the subject the hook asks about, so "...e tudo dependia de uma coisa:" runs straight into
+  the hook). Never say "assista de novo" or mention the loop.
 - Hook plus sections: {MIN_WORDS} to {MAX_WORDS} words in total (about 45 to 70 seconds spoken). Count them.
 
 ## Voice
@@ -44,6 +47,8 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
 ## Upload copy
 
 - `title`: under 70 characters, Portuguese, makes people curious, no clickbait lies, no emoji.
+- `location`: the place on a map, `name` in Portuguese as a viewer knows it ("Normandia"), `latitude` and
+  `longitude` in decimal degrees (south and west negative), from the source text or general geography.
 - `eraStamp` and `placeStamp`: the date and the place of the event as shown on screen ("6 de junho de 1944",
   "Normandia, França"). Digits are fine here.
 - `description`: 2 or 3 sentences in Portuguese that sum up the story. No hashtags, no credits.

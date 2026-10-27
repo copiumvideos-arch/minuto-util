@@ -30,6 +30,26 @@
     "voiceLufs": -16,
     "motionSupersample": 2.0,
     "kenBurnsZoom": 0.10,
-    "parallaxTravel": 0.045
+    "parallaxTravel": 0.045,
+    "maxVideoKbps": 4500,
+    "style": {
+      "vintage": true,
+      "grain": 7,
+      "vignette": 0.6,
+      "warmth": 0.035,
+      "sharpen": 0.7,
+      "denoise": true,
+      "contrast": 1.12,
+      "saturation": 1.18,
+      "lightLeaks": true,
+      "yearCard": true,
+      "yearCardSeconds": 1.8,
+      "mapInsert": true,
+      "mapSeconds": 2.6,
+      "mapDataDirectory": "assets/cache/naturalearth",
+      "watermark": true,
+      "wordPop": true,
+      "keyWords": true
+    }
   }
 }

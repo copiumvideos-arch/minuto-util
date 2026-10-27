@@ -27,7 +27,18 @@ public sealed class RenderEndToEndTests
 
         // Sources and script as a previous run saved them: no writer request is made.
         var script = ScriptWriter.Clean(JsonSerializer.Deserialize<VideoScript>(
-            await File.ReadAllTextAsync(TestPaths.Fixture("script-answer.json")), Json.Options)!);
+            await File.ReadAllTextAsync(TestPaths.Fixture("script-answer.json")), Json.Options)!) with
+        {
+            Location = new ScriptLocation("Normandia", 49.4, -0.9),
+        };
+        // A tiny stand-in for Natural Earth: two squares around the place, so the map tool needs no download.
+        var mapData = Path.Combine(temp.Path, "naturalearth");
+        Directory.CreateDirectory(mapData);
+        await File.WriteAllTextAsync(Path.Combine(mapData, "ne_10m_admin_0_countries.geojson"), """
+            {"type":"FeatureCollection","features":[
+              {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[-5,43],[8,43],[8,51],[-5,51],[-5,43]]]}},
+              {"type":"Feature","properties":{},"geometry":{"type":"MultiPolygon","coordinates":[[[[-6,50.5],[2,50.5],[2,58],[-6,58],[-6,50.5]]]]}}]}
+            """);
         await File.WriteAllTextAsync(Path.Combine(run, "script.json"), JsonSerializer.Serialize(script, Json.Options));
         SourceArticle[] sources = [new("pt", "Desembarques na Normandia", "https://pt.wikipedia.org/wiki/Desembarques_na_Normandia", "texto", 1)];
         await File.WriteAllTextAsync(Path.Combine(run, "sources.json"), JsonSerializer.Serialize(sources, Json.Options));
@@ -39,7 +50,7 @@ public sealed class RenderEndToEndTests
         {
             var text = JsonDocument.Parse(body).RootElement.GetProperty("text").GetString()!;
             var tone = Path.Combine(toneFolder, $"{Guid.NewGuid():N}.wav");
-            Generated.ToneAsync(tone, Math.Clamp(text.Length / 45.0, 1.2, 3.2), 300 + text.Length).GetAwaiter().GetResult();
+            Generated.ToneAsync(tone, Math.Clamp(text.Length / 25.0, 1.2, 5.0), 300 + text.Length).GetAwaiter().GetResult();
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(File.ReadAllBytes(tone)) };
         });
         var usage = new RunUsage();
@@ -65,7 +76,12 @@ public sealed class RenderEndToEndTests
         var manifest = new MediaManifest(images, Item("clip", MediaKind.Video, clipPath, 0) with { Width = 1920, Height = 1080 });
         await manifest.SaveAsync(Path.Combine(media, "manifest.json"), CancellationToken.None);
 
-        var config = new AppConfig { Video = new VideoOptions { MotionSupersample = 1.0 }, Voice = voiceOptions };
+        // Every style layer on (the defaults), with the map reading the stand-in data.
+        var config = new AppConfig
+        {
+            Video = new VideoOptions { MotionSupersample = 1.0, Style = new StyleOptions { MapDataDirectory = mapData, MapSeconds = 1.5 } },
+            Voice = voiceOptions,
+        };
         var pipeline = new Pipeline(config, root, new WikipediaClient(new HttpClient(new FakeHandler((_, _) => throw new InvalidOperationException("no network")))),
             () => throw new InvalidOperationException("the cached script must be used"), narrator, NoGatherer());
 
@@ -95,13 +111,23 @@ public sealed class RenderEndToEndTests
         Assert.Equal("clip", timings.Shots[0].Effect);
         Assert.Contains(timings.Shots, s => s.Effect == "parallax");
         Assert.Contains(timings.Shots, s => s.Effect == "kenburns");
+        // The map opens the first section after the hook, for the configured length.
+        var map = Assert.Single(timings.Shots, s => s.Effect == "map");
+        Assert.Equal(1, map.Section);
+        Assert.Equal(1.5, map.End - map.Start, 1);
         Assert.Equal(timings.Shots.Count, timings.Shots.Select(s => s.Media).Distinct().Count());
+        var ass = await File.ReadAllTextAsync(Path.Combine(run, "captions.ass"));
+        Assert.Contains("Minuto Útil", ass);
+        Assert.Contains("}44", ass); // the year card's last value
+        Assert.DoesNotContain(",Stamp,", ass); // the card replaces the plain date stamp
+        Assert.Contains(@"\alpha&HFF&", ass); // words not yet spoken are hidden
         Assert.Equal(result.Duration, timings.Shots[^1].End, 2);
 
         var metadata = JsonSerializer.Deserialize<VideoMetadata>(await File.ReadAllTextAsync(Path.Combine(run, "metadata.json")), Json.Options)!;
         Assert.Contains("Créditos:", metadata.Description);
         Assert.Contains("Fonte: Wikipedia", metadata.Description);
         Assert.Equal(timings.Shots.Count, metadata.Media.Count);
+        Assert.Contains(metadata.Media, m => m.Source == "Natural Earth");
         Assert.DoesNotContain("#", string.Join("", metadata.Hashtags));
 
         // A second run of the same folder reuses everything: no new voice request.

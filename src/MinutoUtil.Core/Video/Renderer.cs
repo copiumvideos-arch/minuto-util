@@ -13,24 +13,49 @@ public sealed class ShotRenderer(VideoOptions options, string toolsDirectory)
     /// <summary>Bump when the look of a shot changes, so cached shots are made again.</summary>
     private const string RenderVersion = "6";
 
+    /// <summary>
+    /// Renders a shot, or reuses an earlier render of exactly the same inputs. Files are named by a hash of their
+    /// inputs, so a shot that only moved in the order (a map shot inserted before it) is still reused.
+    /// </summary>
     public async Task<string> RenderAsync(Shot shot, MediaItem media, int frames, string folder, CancellationToken ct)
     {
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, $"shot-{shot.Index:00}.mp4");
-        var stamp = path + ".key";
-        var key = $"{RenderVersion}|{shot.Effect}|{shot.Direction}|{shot.ZoomIn}|{frames}|{media.LocalPath}|{new FileInfo(media.LocalPath!).Length}|" +
+        var key = $"{RenderVersion}|{shot.Effect}|{shot.Direction}|{shot.ZoomIn}|{frames}|{Path.GetFileName(media.LocalPath)}|{new FileInfo(media.LocalPath!).Length}|" +
                   $"{options.Width}x{options.Height}@{options.Fps}|{options.MotionSupersample}|{options.KenBurnsZoom}|{options.ParallaxTravel}";
-        if (File.Exists(path) && File.Exists(stamp) && await File.ReadAllTextAsync(stamp, ct) == key)
+        return await CachedAsync(shot, key, folder, $"{shot.Effect} of {Path.GetFileName(media.LocalPath)}, {frames} frames", path =>
+            shot.Effect == ShotEffect.Clip ? RenderClipAsync(media, frames, path, ct) : RenderStillAsync(shot, media, frames, path, ct), ct);
+    }
+
+    /// <summary>The map shot: tools/mapinsert.py zooms from Europe into the place and pins it.</summary>
+    public async Task<string> RenderMapAsync(Shot shot, Scripts.ScriptLocation location, int frames, string fontPath, string dataDirectory,
+        string folder, CancellationToken ct)
+    {
+        var key = $"{RenderVersion}|map2|{location.Name}|{location.Latitude}|{location.Longitude}|{frames}|{options.Width}x{options.Height}@{options.Fps}";
+        return await CachedAsync(shot, key, folder, $"map of {location.Name}, {frames} frames", path =>
+            ProcessRunner.RunCheckedAsync("uv",
+            [
+                "run", "--quiet", "mapinsert.py", "--out", Path.GetFullPath(path), "--name", location.Name,
+                "--lat", Num(location.Latitude), "--lon", Num(location.Longitude), "--frames", frames.ToString(CultureInfo.InvariantCulture),
+                "--font", Path.GetFullPath(fontPath), "--data-dir", Path.GetFullPath(dataDirectory),
+                "--fps", options.Fps.ToString(CultureInfo.InvariantCulture), "--width", options.Width.ToString(CultureInfo.InvariantCulture),
+                "--height", options.Height.ToString(CultureInfo.InvariantCulture), "--ffmpeg", options.FfmpegPath,
+            ], toolsDirectory, TimeSpan.FromMinutes(10), ct), ct);
+    }
+
+    private static async Task<string> CachedAsync(Shot shot, string key, string folder, string what, Func<string, Task> render, CancellationToken ct)
+    {
+        Directory.CreateDirectory(folder);
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(key)))[..12].ToLowerInvariant();
+        var path = Path.Combine(folder, $"shot-{hash}.mp4");
+        if (File.Exists(path))
         {
-            Log.Info($"shot {shot.Index}: reused ({shot.Effect})");
+            Log.Info($"shot {shot.Index}: reused ({what})");
             return path;
         }
-
         var started = DateTime.UtcNow;
-        if (shot.Effect == ShotEffect.Clip) await RenderClipAsync(media, frames, path, ct);
-        else await RenderStillAsync(shot, media, frames, path, ct);
-        await File.WriteAllTextAsync(stamp, key, ct);
-        Log.Info($"shot {shot.Index}: {shot.Effect} of {Path.GetFileName(media.LocalPath)}, {frames} frames, {(DateTime.UtcNow - started).TotalSeconds:0}s");
+        var temp = Path.Combine(folder, $"shot-{hash}.partial.mp4");
+        await render(temp);
+        File.Move(temp, path, overwrite: true);
+        Log.Info($"shot {shot.Index}: {what}, {(DateTime.UtcNow - started).TotalSeconds:0}s");
         return path;
     }
 
@@ -95,6 +120,8 @@ public sealed class ShotRenderer(VideoOptions options, string toolsDirectory)
 /// <summary>Joins the shots with cross-fades, burns in the captions and mixes the voice at the target loudness.</summary>
 public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
 {
+    private StyleOptions Style => options.Style;
+
     public int FadeFrames => Math.Max(2, (int)Math.Round(options.FadeSeconds * options.Fps / 2) * 2);
 
     /// <param name="workFolder">Holds captions.ass and fonts/: FFmpeg runs there so the filter graph needs no Windows paths.</param>
@@ -125,6 +152,45 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
         return args;
     }
 
+    /// <summary>
+    /// The picture's look, under the captions: light denoise, sharpening (before the grain, so the grain is not
+    /// sharpened), contrast and saturation with a faint brightness flicker, a slight warm push in the mid tones, faded
+    /// blacks and whites, a vignette, then grain. Every step is a switch in <see cref="StyleOptions"/>.
+    /// </summary>
+    internal string PictureChain(double duration)
+    {
+        var steps = new List<string>();
+        if (Style.Denoise) steps.Add("hqdn3d=1.5:1.2:3:3");
+        if (Style.Sharpen > 0) steps.Add($"unsharp=5:5:{ShotRenderer.Num(Style.Sharpen)}:5:5:0");
+        var flicker = Style.Vintage ? ":brightness='0.009*sin(2*PI*t*5.3)+0.006*sin(2*PI*t*13.1)':eval=frame" : "";
+        if (Style.Contrast != 1 || Style.Saturation != 1 || flicker.Length > 0)
+            steps.Add($"eq=contrast={ShotRenderer.Num(Style.Contrast)}:saturation={ShotRenderer.Num(Style.Saturation)}{flicker}");
+        if (Style.Vintage)
+        {
+            var w = ShotRenderer.Num(Style.Warmth);
+            // Mid tones only: gray footage gets the faintest warmth, not a sepia tint.
+            steps.Add($"colorbalance=rm={w}:gm={ShotRenderer.Num(Style.Warmth / 3)}:bm=-{w}");
+            steps.Add("curves=all='0/0.035 0.5/0.5 1/0.965'");
+            if (Style.Vignette > 0) steps.Add($"vignette=angle={ShotRenderer.Num(Style.Vignette)}");
+            steps.Add("format=yuv420p");
+            if (Style.Grain > 0) steps.Add($"noise=c0s={Style.Grain}:c0f=t");
+        }
+        steps.Add("format=yuv420p");
+        return string.Join(',', steps);
+    }
+
+    /// <summary>The two cuts that get a light leak: about a third and two thirds in, never the clip or the map.</summary>
+    internal IReadOnlyList<double> LeakTimes(IReadOnlyList<Shot> shots)
+    {
+        if (!Style.Vintage || !Style.LightLeaks || shots.Count < 4) return [];
+        var half = FadeFrames / 2;
+        return new[] { shots.Count / 3, shots.Count * 2 / 3 }
+            .Distinct()
+            .Where(i => i > 0 && shots[i].Effect is not (ShotEffect.Map or ShotEffect.Clip) && shots[i - 1].Effect is not ShotEffect.Map)
+            .Select(i => Math.Max(0, (double)(shots[i].Start - half) / options.Fps - 0.3))
+            .ToList();
+    }
+
     internal string FilterGraph(IReadOnlyList<Shot> shots, double duration, double gainDb)
     {
         var fps = options.Fps;
@@ -141,7 +207,17 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
             graph.Append($"[{last}][s{k}]xfade=transition=fade:duration={ShotRenderer.Num(2.0 * half / fps)}:offset={ShotRenderer.Num(offset)}[x{k}];");
             last = $"x{k}";
         }
-        graph.Append($"[{last}]ass=captions.ass:fontsdir=fonts,format=yuv420p[vout];");
+        graph.Append($"[{last}]{PictureChain(duration)}");
+        foreach (var (start, k) in LeakTimes(shots).Select((t, k) => (t, k)))
+        {
+            // A warm glow from one side over a cross-fade, rising and falling over 0.9 s. Generated only for those
+            // frames, then shifted to the cut.
+            var side = k % 2 == 0 ? "0.85" : "0.15";
+            graph.Append($"[pic{k}];color=c=black:s={options.Width}x{options.Height}:r={fps}:d=0.9,format=rgba,")
+                .Append($"geq=r=255:g=138:b=48:a='255*0.42*sin(PI*T/0.9)*exp(-(pow((X-{side}*W)/(0.55*W),2)+pow((Y-0.3*H)/(0.55*H),2)))',")
+                .Append($"setpts=PTS+{ShotRenderer.Num(start)}/TB[leak{k}];[pic{k}][leak{k}]overlay=eof_action=pass:format=auto");
+        }
+        graph.Append(",ass=captions.ass:fontsdir=fonts,format=yuv420p[vout];");
 
         // The measured gain brings the narration to the target loudness exactly; a limiter only catches peaks above
         // -1.5 dBFS. (A single-pass loudnorm landed about 0.8 LU low and reshaped the dynamics.)

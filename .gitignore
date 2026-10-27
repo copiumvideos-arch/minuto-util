@@ -8,6 +8,9 @@ TestResults/
 output/
 data/
 
+# Downloaded once at run time (Natural Earth map data)
+assets/cache/
+
 # Python tool environment
 tools/.venv/
 .pytest_cache/

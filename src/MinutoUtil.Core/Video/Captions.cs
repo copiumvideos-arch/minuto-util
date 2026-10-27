@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using MinutoUtil.Core.Voice;
 
 namespace MinutoUtil.Core.Video;
@@ -9,8 +10,9 @@ public sealed record CaptionChunk(IReadOnlyList<SpokenWord> Words, double Start,
 
 /// <summary>
 /// Where text may go on a 1080x1920 Short. TikTok and YouTube Shorts cover the bottom ~420 px (caption, music, channel
-/// name) and a column of buttons on the right from about y=900 down; the top ~200 px hold the search bar and tabs.
-/// Captions sit in the lower third above the bottom overlay and stay narrow enough to clear the button column.
+/// name) and a column of buttons on the right from about y=900 down; the top ~150 px hold the status bar and tabs
+/// (centered) and the search or camera buttons (right). Captions sit in the lower third above the bottom overlay and
+/// stay narrow enough to clear the button column; the watermark sits top left, below the status bar.
 /// </summary>
 public static class Layout
 {
@@ -21,15 +23,22 @@ public static class Layout
     /// <summary>Widest a caption line may be: centered, this keeps it left of the right-hand buttons (x > ~960).</summary>
     public const int CaptionMaxWidth = 820;
     public const int StampY = 300;
+    public const int YearCardY = 760;
+    public const int WatermarkLeft = 54;
+    public const int WatermarkTop = 196;
 }
 
-/// <summary>Builds the ASS subtitles FFmpeg burns in: word-by-word captions and the date stamp on the first shot.</summary>
-public static class CaptionBuilder
+/// <summary>
+/// Builds the ASS subtitles FFmpeg burns in over the graded picture: word-by-word captions, the opening year card (or
+/// the plain date stamp when the card is off) and the watermark.
+/// </summary>
+public static partial class CaptionBuilder
 {
     private const int MaxWordsPerChunk = 4;
     private const int MinWordsPerChunk = 2;
     private const int MaxCharsPerChunk = 18;
     private const int CaptionFontSize = 104;
+    private const int YearFontSize = 230;
 
     /// <summary>
     /// Average advance of an uppercase Montserrat Black letter or space as libass draws it, as a share of the font size
@@ -40,13 +49,15 @@ public static class CaptionBuilder
     /// <summary>A chunk stays on screen through a pause shorter than this, so captions do not flicker.</summary>
     private const double MaxHoldGap = 0.6;
 
-    // ASS colors are &HAABBGGRR.
+    // ASS colors are &HAABBGGRR. Highlight is the channel's yellow (#FFD700).
     private const string Highlight = "&H0000D7FF&";
     private const string White = "&H00FFFFFF&";
 
+    /// <param name="style">The style switches; null turns every layer off (the plain look of version 1).</param>
     public static string Build(SpeechTimings timings, double duration, string fontName, string stampFontName,
-        string eraStamp, string placeStamp, double stampEnd)
+        string eraStamp, string placeStamp, double stampEnd, StyleOptions? style = null)
     {
+        style ??= new StyleOptions { YearCard = false, Watermark = false, WordPop = false, KeyWords = false };
         var sb = new StringBuilder()
             .AppendLine("[Script Info]")
             .AppendLine("ScriptType: v4.00+")
@@ -60,21 +71,125 @@ public static class CaptionBuilder
             .AppendLine($"Style: Caption,{fontName},{CaptionFontSize},{White},{White},&H00000000,&H90000000,0,0,0,0,100,100,1,0,1,8,4,5,110,110,0,1")
             .AppendLine($"Style: Stamp,{stampFontName},58,{White},{White},&H00000000,&H78000000,0,0,0,0,100,100,4,0,3,18,0,8,80,80,0,1")
             .AppendLine($"Style: Place,{stampFontName},40,&H00E8E8E8&,{White},&H00000000,&H78000000,0,0,0,0,100,100,3,0,3,14,0,8,80,80,0,1")
+            .AppendLine($"Style: Year,{fontName},{YearFontSize},{Highlight},{Highlight},&H00000000,&H64000000,0,0,0,0,100,100,2,0,1,12,6,5,0,0,0,1")
+            .AppendLine($"Style: YearPlace,{fontName},66,{White},{White},&H00000000,&H64000000,0,0,0,0,100,100,6,0,1,7,4,8,60,60,0,1")
+            .AppendLine($"Style: Mark,{stampFontName},34,{White},{White},&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,2,0,4,0,0,0,1")
+            .AppendLine($"Style: Shape,{fontName},20,{White},{White},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1")
             .AppendLine()
             .AppendLine("[Events]")
             .AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
 
-        if (Clean(eraStamp).Length > 0 && stampEnd > 0.8)
+        var year = YearOf(eraStamp);
+        if (style.YearCard && year is not null)
+        {
+            AppendYearCard(sb, year.Value, Clean(placeStamp), Math.Min(style.YearCardSeconds, duration));
+        }
+        else if (Clean(eraStamp).Length > 0 && stampEnd > 0.8)
         {
             var end = Math.Min(stampEnd, duration);
             Event(sb, 1, 0.15, end, "Stamp", $"{{\\an8\\pos({Layout.Width / 2},{Layout.StampY})\\fad(300,300)}}{Clean(eraStamp).ToUpperInvariant()}");
             if (Clean(placeStamp).Length > 0)
                 Event(sb, 1, 0.35, end, "Place", $"{{\\an8\\pos({Layout.Width / 2},{Layout.StampY + 108})\\fad(300,300)}}{Clean(placeStamp).ToUpperInvariant()}");
         }
+        if (style.Watermark) AppendWatermark(sb, duration);
 
+        var keys = style.KeyWords ? KeyWords(timings.Words) : [];
         foreach (var chunk in Chunk(timings.Words))
-            AppendChunk(sb, chunk);
+        {
+            if (style.WordPop) AppendRevealChunk(sb, chunk, keys);
+            else AppendChunk(sb, chunk, keys);
+        }
         return sb.ToString();
+    }
+
+    [GeneratedRegex(@"(?<!\d)\d{3,4}(?!\d)")]
+    private static partial Regex YearNumber();
+
+    /// <summary>The last three- or four-digit number in a date stamp ("6 de junho de 1944" gives 1944), or null.</summary>
+    internal static int? YearOf(string? text)
+    {
+        var matches = YearNumber().Matches(text ?? "");
+        return matches.Count == 0 ? null : int.Parse(matches[^1].Value, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// The opening year card, over the first footage from frame 0: a soft dark band, the year whose last two digits roll
+    /// up like a counter (fast at first, then settling, with a small pop on the final value), then the place under it.
+    /// Everything fades out at <paramref name="end"/>.
+    /// </summary>
+    private static void AppendYearCard(StringBuilder sb, int year, string place, double end)
+    {
+        const double rollEnd = 0.75;
+        const int steps = 24;
+        var x = Layout.Width / 2 + 4;
+        var y = Layout.YearCardY;
+        Event(sb, 3, 0, end, "Shape",
+            $"{{\\pos(0,{y - 230})\\c&H000000&\\alpha&H70&\\blur18\\fad(0,250)\\p1}}m 0 0 l {Layout.Width} 0 {Layout.Width} 460 0 460{{\\p0}}");
+
+        // The century stays put right of center's left half; the last two digits count up from 24 years earlier.
+        Event(sb, 4, 0, end, "Year", $"{{\\an6\\pos({x},{y})\\fad(0,250)}}{year / 100}");
+        var times = Enumerable.Range(0, steps + 1).Select(i => rollEnd * (1 - Math.Pow(1 - (double)i / steps, 2.2))).ToList();
+        var clip = $"\\clip(0,{y - 150},{Layout.Width},{y + 150})";
+        for (var i = 0; i <= steps; i++)
+        {
+            var value = ((year % 100 - steps + i) % 100 + 100) % 100;
+            var start = times[i];
+            var stop = i < steps ? times[i + 1] : end;
+            if (stop - start < 0.01) continue;
+            var motion = i < steps
+                ? $"\\move({x},{y + 90},{x},{y},0,{Math.Max(15, (int)((stop - start) * 800))})"
+                : $"\\pos({x},{y})\\fscx112\\fscy112\\t(0,140,\\fscx100\\fscy100)\\fad(0,250)";
+            Event(sb, 4, start, stop, "Year", $"{{\\an4{motion}{clip}}}{value:00}");
+        }
+        if (place.Length > 0)
+            Event(sb, 4, rollEnd + 0.05, end, "YearPlace", $"{{\\an8\\pos({Layout.Width / 2},{y + 130})\\fad(180,250)}}{place.ToUpperInvariant()}");
+    }
+
+    /// <summary>
+    /// A small semi-transparent hourglass and "Minuto Útil" in the top-left corner, below the status bar and clear of
+    /// TikTok's and Shorts' top buttons (top center and top right). Drawn as ASS vectors: no logo file.
+    /// </summary>
+    private static void AppendWatermark(StringBuilder sb, double duration)
+    {
+        var (left, top) = (Layout.WatermarkLeft, Layout.WatermarkTop);
+        // Cap, upper glass narrowing to the waist, lower glass widening to the base.
+        Event(sb, 5, 0, duration, "Shape",
+            $"{{\\pos({left},{top})\\c{Highlight}\\alpha&H58&\\p1}}m 0 0 l 30 0 30 4 0 4 m 3 6 l 27 6 15 21 m 15 23 l 27 38 3 38 m 0 40 l 30 40 30 44 0 44{{\\p0}}");
+        Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + 42},{top + 22})\\alpha&H58&}}Minuto Útil");
+    }
+
+    private static readonly HashSet<string> NumberWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dois", "duas", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "catorze",
+        "quinze", "dezesseis", "dezessete", "dezoito", "dezenove", "vinte", "trinta", "quarenta", "cinquenta", "sessenta",
+        "setenta", "oitenta", "noventa", "cem", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos",
+        "setecentos", "oitocentos", "novecentos", "mil", "milhão", "milhões", "bilhão", "bilhões",
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    };
+
+    private static string Bare(SpokenWord word) => word.Text.Trim('.', ',', '!', '?', ':', ';', '"', '\'');
+
+    private static bool IsNumber(SpokenWord word) => Bare(word).Any(char.IsAsciiDigit) || NumberWords.Contains(Bare(word));
+
+    /// <summary>
+    /// Words shown in yellow: numbers (in digits or words, with the "e" inside "quarenta e quatro"), months, and
+    /// capitalized words that do not start a sentence (names and places).
+    /// </summary>
+    internal static HashSet<SpokenWord> KeyWords(IReadOnlyList<SpokenWord> words)
+    {
+        var keys = new HashSet<SpokenWord>();
+        for (var i = 0; i < words.Count; i++)
+        {
+            var bare = Bare(words[i]);
+            if (bare.Length == 0) continue;
+            var sentenceStart = i == 0 || words[i - 1].Section != words[i].Section || ".!?".Contains(words[i - 1].Text[^1]);
+            if (IsNumber(words[i]) || char.IsUpper(bare[0]) && !sentenceStart && bare.Length > 1)
+                keys.Add(words[i]);
+            else if (bare == "e" && i > 0 && i + 1 < words.Count && IsNumber(words[i - 1]) && IsNumber(words[i + 1])
+                     && !",.".Contains(words[i - 1].Text[^1]))
+                keys.Add(words[i]);
+        }
+        return keys;
     }
 
     /// <summary>
@@ -137,12 +252,18 @@ public static class CaptionBuilder
 
     private static int Length(List<SpokenWord> words) => words.Sum(w => w.Text.Length) + words.Count - 1;
 
-    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk)
+    /// <summary>Long chunks are squeezed horizontally to stay clear of the right-hand buttons.</summary>
+    private static int Squeeze(CaptionChunk chunk)
     {
         var text = string.Join(' ', chunk.Words.Select(w => Clean(w.Text).ToUpperInvariant()));
-        // Long chunks are squeezed horizontally to stay clear of the right-hand buttons.
         var estimated = text.Length * CaptionFontSize * CharWidth;
-        var squeeze = estimated > Layout.CaptionMaxWidth ? (int)Math.Floor(100 * Layout.CaptionMaxWidth / estimated) : 100;
+        return estimated > Layout.CaptionMaxWidth ? (int)Math.Floor(100 * Layout.CaptionMaxWidth / estimated) : 100;
+    }
+
+    /// <summary>Version 1's captions: the whole chunk shown, the spoken word in yellow (key words in yellow too).</summary>
+    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys)
+    {
+        var squeeze = Squeeze(chunk);
         for (var i = 0; i < chunk.Words.Count; i++)
         {
             var start = i == 0 ? chunk.Start : chunk.Words[i].Start;
@@ -151,12 +272,41 @@ public static class CaptionBuilder
 
             var line = new StringBuilder($"{{\\an5\\pos({Layout.Width / 2},{Layout.CaptionY})\\q2\\fscx{squeeze}");
             // The chunk pops in slightly when it first appears.
-            line.Append(i == 0 ? $"\\fscy88\\t(0,90,\\fscy100)}}" : "}");
+            line.Append(i == 0 ? "\\fscy88\\t(0,90,\\fscy100)}" : "}");
             for (var w = 0; w < chunk.Words.Count; w++)
             {
                 if (w > 0) line.Append(' ');
                 var word = Clean(chunk.Words[w].Text).ToUpperInvariant();
-                line.Append(w == i ? $"{{\\c{Highlight}}}{word}{{\\c{White}}}" : word);
+                var color = w == i || keys.Contains(chunk.Words[w]) ? Highlight : White;
+                line.Append($"{{\\c{color}}}{word}");
+            }
+            Event(sb, 2, start, end, "Caption", line.ToString());
+        }
+    }
+
+    /// <summary>
+    /// The chunk builds up word by word as it is spoken and the newest word pops in (125% to 100% in 110 ms). Words not
+    /// yet spoken are already in the line but invisible, so the line does not jump sideways as it fills. Key words
+    /// are yellow, the rest white.
+    /// </summary>
+    private static void AppendRevealChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys)
+    {
+        var squeeze = Squeeze(chunk);
+        var pop = squeeze * 125 / 100;
+        for (var i = 0; i < chunk.Words.Count; i++)
+        {
+            var start = i == 0 ? chunk.Start : chunk.Words[i].Start;
+            var end = i + 1 < chunk.Words.Count ? chunk.Words[i + 1].Start : chunk.End;
+            if (end <= start) continue;
+            var line = new StringBuilder($"{{\\an5\\pos({Layout.Width / 2},{Layout.CaptionY})\\q2\\fscx{squeeze}}}");
+            for (var w = 0; w < chunk.Words.Count; w++)
+            {
+                if (w > 0) line.Append(' ');
+                var word = Clean(chunk.Words[w].Text).ToUpperInvariant();
+                var color = keys.Contains(chunk.Words[w]) ? Highlight : White;
+                if (w < i) line.Append($"{{\\alpha&H00&\\c{color}}}{word}");
+                else if (w == i) line.Append($"{{\\alpha&H00&\\c{color}\\fscx{pop}\\fscy125\\t(0,110,\\fscx{squeeze}\\fscy100)}}{word}{{\\fscx{squeeze}\\fscy100}}");
+                else line.Append($"{{\\alpha&HFF&}}{word}");
             }
             Event(sb, 2, start, end, "Caption", line.ToString());
         }
