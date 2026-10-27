@@ -23,6 +23,11 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
   question in one calm sentence and its final words flow naturally into the hook when it plays again (for example a
   last line that ends on the subject the hook asks about, so "...e tudo dependia de uma coisa:" runs straight into
   the hook). Never say "assista de novo" or mention the loop.
+- Assume the viewer knows nothing about the event. The first time a specific name appears (a ship, a person, a
+  place, a group, an operation, a law), say in a few words what or who it is: "o Carpathia, um navio que estava a
+  quilômetros dali", "Eisenhower, o comandante dos Aliados", "a Lei Áurea, que acabou com a escravidão". Famous
+  names everyone knows (Brasil, Napoleão, a Segunda Guerra) need no explanation. Use as few unexplained names as the
+  story allows; a role ("o capitão", "os vigias") is often better than a name.
 - Hook plus sections: {MIN_WORDS} to {MAX_WORDS} words in total (about 45 to 70 seconds spoken). Count them.
 
 ## Voice
