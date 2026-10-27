@@ -88,6 +88,7 @@ public static partial class AccentRestorer
             PlaceStamp = Fix(script.PlaceStamp),
             EraStamp = Fix(script.EraStamp),
             Description = Fix(script.Description),
+            Question = Fix(script.Question ?? ""),
             Sections = script.Sections.Select(s => s with { Text = Fix(s.Text), SearchPt = s.SearchPt.Select(Fix).ToList() }).ToList(),
         };
         changed = total;

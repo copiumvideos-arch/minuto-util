@@ -242,7 +242,9 @@ public sealed class Pipeline(
     internal static VideoMetadata Metadata(VideoScript script, IReadOnlyList<SourceArticle> sources, IReadOnlyList<MediaItem> media,
         double duration, string voice, string writer, string folder)
     {
+        // The question closes the first paragraph, which is also the TikTok caption's text: the comments start there.
         var description = new StringBuilder(script.Description.Trim());
+        if (!string.IsNullOrWhiteSpace(script.Question)) description.Append($" {script.Question.Trim()}");
         description.AppendLine().AppendLine();
         description.AppendLine($"Fonte: Wikipedia ({string.Join("; ", sources.Select(s => $"{s.Title}, {s.Url}"))}). Texto sob CC BY-SA 4.0.");
         description.AppendLine();

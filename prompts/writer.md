@@ -18,7 +18,7 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
 - `hook`: the first thing heard, at most 14 words. A question or a surprising fact that opens a loop, never a
   greeting, never the channel's name, never "Você sabia".
 - `sections`: {MIN_SECTIONS} to {MAX_SECTIONS} sections after the hook. Each is 1 to 3 short sentences that move the
-  story forward: setting, the problem, the turn, what it changed. No call to action, no "inscreva-se", no "comente".
+  story forward: setting, the problem, the turn, what it changed. No "inscreva-se", no "curta", no "comente aqui embaixo".
 - The video loops on Shorts and TikTok, so the ending leads back into the start: the last section answers the hook's
   question in one calm sentence and its final words flow naturally into the hook when it plays again (for example a
   last line that ends on the subject the hook asks about, so "...e tudo dependia de uma coisa:" runs straight into
@@ -28,6 +28,14 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
   quilômetros dali", "Eisenhower, o comandante dos Aliados", "a Lei Áurea, que acabou com a escravidão". Famous
   names everyone knows (Brasil, Napoleão, a Segunda Guerra) need no explanation. Use as few unexplained names as the
   story allows; a role ("o capitão", "os vigias") is often better than a name.
+- `question`: one short, open question to the viewer (at most 14 words) that people will want to answer in the
+  comments, a choice or an opinion about this story: "Você prefere a urna eletrônica ou o voto em papel?", "E você,
+  teria confiado no plano?". It must be neutral: never suggest fraud, a conspiracy or a cover-up, never say or hint
+  that one side is right, never name a current politician, party or candidate. Asking what the viewer prefers or would
+  do is good; asking whether something "is really trustworthy" or "was rigged" is not.
+- When the subject divides opinions (elections and voting, laws, rights, wars, religion, a disputed decision), the last
+  section ends by asking the viewer that same question out loud, instead of the line that loops into the hook. Other
+  subjects keep the looping ending and the question only goes into the caption.
 - Hook plus sections: {MIN_WORDS} to {MAX_WORDS} words in total (about 45 to 70 seconds spoken). Count them.
 
 ## Voice

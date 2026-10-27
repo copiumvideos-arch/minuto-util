@@ -11,6 +11,26 @@ public sealed class ScriptAndLlmTests
 {
     private static readonly string[] Models = ["gemini-a", "gemini-b", "gemini-c"];
 
+    [Fact]
+    public void The_comment_question_is_cleaned_and_closes_the_descriptions_first_paragraph()
+    {
+        var section = new ScriptSection("Em 1996 o Brasil adotou a urna eletrônica.", ["voting machine"], ["urna"], "q");
+        var script = new VideoScript("Urna", "Por que só o Brasil?", "1996", "Brasil", [section], "A urna chegou em 1996.", ["urna"])
+        {
+            Question = "Você prefere a urna eletrônica — ou o voto em papel?",
+        };
+        var sources = new List<SourceArticle> { new("pt", "Urna eletrônica (Brasil)", "https://pt.wikipedia.org/wiki/Urna", "texto", 1) };
+
+        var polished = ScriptWriter.Polish(script, sources);
+        Assert.DoesNotContain("—", polished.Question);
+        Assert.Contains("ou o voto em papel?", polished.Question);
+
+        var metadata = Pipeline.Metadata(polished, sources, [], 50, "voz", "gemini", Path.GetTempPath());
+        Assert.StartsWith($"A urna chegou em 1996. {polished.Question}", metadata.Description);
+        // The TikTok caption takes that first paragraph, so the question reaches TikTok too.
+        Assert.Contains(polished.Question, MinutoUtil.Core.Publishing.PublishCopy.TikTokCaption(metadata, new TikTokOptions()));
+    }
+
     private static string GeminiAnswer => File.ReadAllText(TestPaths.Fixture("gemini-answer.json"));
 
     private static IReadOnlyList<SourceArticle> Sources()

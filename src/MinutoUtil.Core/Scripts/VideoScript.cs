@@ -30,6 +30,13 @@ public sealed record VideoScript(
     [property: Description("4-6 hashtags without the # sign, e.g. \"historia\", \"segundaguerra\".")]
     IReadOnlyList<string> Hashtags)
 {
+    /// <summary>
+    /// The question to the viewer that opens the comments, added to the caption and description (and spoken at the end
+    /// on subjects that divide opinions). Optional: scripts written before 2026-10-28 lack it.
+    /// </summary>
+    [Description("One short, open question to the viewer in Portuguese, at most 14 words, about this story, that people will want to answer in the comments: a choice or an opinion. Neutral: never suggests fraud or a conspiracy, never says one side is right, never names a current politician, party or candidate.")]
+    public string Question { get; init; } = "";
+
     /// <summary>Where the event happened, for the map shot. Optional: scripts written before 2026-10-27 lack it.</summary>
     [Description("Where the event happened, for a map: the place name in Portuguese as shown on screen (\"Normandia\") and its latitude and longitude in decimal degrees (west and south negative).")]
     public ScriptLocation? Location { get; init; }
