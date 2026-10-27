@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       article:
-        description: "English Wikipedia article (empty: the next one in config/topics.json)"
+        description: "An idea or English Wikipedia article to make now (empty: approved ideas, then config/topics.json)"
         required: false
         default: ""
 
@@ -77,20 +77,13 @@ jobs:
           (cd tools && uv sync --frozen --no-dev)
           dotnet build src/MinutoUtil.Cli -c Release -v q
 
-      # Once a day: historical events tied to what Brazil searches today go ahead of the backlog. Never blocks the run.
-      - name: Look at today's trends
-        if: inputs.article == ''
-        continue-on-error: true
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: $CLI cloud trends --state state
-
       - name: Pick the topic
         id: next
         env:
           TAG: ${{ steps.tag.outputs.tag }}
           ARTICLE: ${{ inputs.article }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set +e
           $CLI cloud next --state state --tag "$TAG" --article "$ARTICLE" > next.json
@@ -111,7 +104,9 @@ jobs:
           article=$(jq -r .article next.json)
           year=$(jq -r .year next.json)
           topic=$(jq -r .topic next.json)
-          $CLI make --run "output/$TAG" --article "$article" --year "$year" --topic "$topic" --quota-file state/quota-state.json
+          portuguese=$(jq -r .portugueseArticle next.json)
+          $CLI make --run "output/$TAG" --article "$article" --portuguese-article "$portuguese" --year "$year" --topic "$topic" \
+            --quota-file state/quota-state.json
 
       - name: Keep the video
         if: steps.next.outputs.empty != 'true'

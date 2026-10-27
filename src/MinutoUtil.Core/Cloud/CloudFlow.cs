@@ -13,7 +13,24 @@ public delegate Task SendMessage(string text, IReadOnlyList<TelegramButton> butt
 /// </summary>
 public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider time)
 {
-    public const string PublishPrefix = "pub:", RejectPrefix = "rej:";
+    public const string PublishPrefix = "pub:", RejectPrefix = "rej:", IdeaPrefix = "idea:";
+
+    /// <summary>
+    /// The daily list: numbered ideas (Portuguese title when there is one, year, series, what inspired it) and a button
+    /// per idea. A tap approves that idea for the next videos; a text message from the owner is an idea of its own.
+    /// </summary>
+    public static (string Text, IReadOnlyList<TelegramButton> Buttons) IdeaListMessage(IdeaList list)
+    {
+        var text = new StringBuilder("💡 Ideias para os próximos vídeos. Toque nos números que você quer; ou mande uma mensagem com o tema ou a pergunta que preferir.\n");
+        for (var i = 0; i < list.Ideas.Count; i++)
+        {
+            var idea = list.Ideas[i];
+            text.Append($"\n{i + 1}. {idea.PortugueseArticle ?? idea.Article} ({idea.Year}) · {idea.Topic}");
+            if (idea.Trend is { Length: > 0 } trend) text.Append($" · por: {trend}");
+        }
+        var buttons = list.Ideas.Select((_, i) => new TelegramButton($"{i + 1}", $"{IdeaPrefix}{list.Date}:{i + 1}")).ToList();
+        return (TextUtil.Truncate(text.ToString(), 4000), buttons);
+    }
 
     public static IReadOnlyList<TelegramButton> ReviewButtons(string tag) =>
         [new("✅ Publicar", PublishPrefix + RunTag.Validate(tag)), new("❌ Rejeitar", RejectPrefix + tag)];
@@ -24,7 +41,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var text = new StringBuilder();
         text.AppendLine($"🎬 {metadata.Title}");
         text.AppendLine($"{run.Topic} · {run.Article} ({run.Year})");
-        if (run.Trend is { Length: > 0 } trend) text.AppendLine($"📈 Ligado ao que está em alta: {trend}");
+        if (run.Trend is { Length: > 0 } trend) text.AppendLine($"💡 Inspiração: {trend}");
         text.AppendLine($"{metadata.DurationSeconds:0} s · voz {metadata.Voice} · roteiro {metadata.Writer}");
         // The log's warnings are what a reviewer should look or listen for (a section Whisper heard poorly, a reused picture).
         var warnings = logLines.Select(l => l.IndexOf(" WARN ", StringComparison.Ordinal) is var i and >= 0 ? l[(i + 6)..] : null)

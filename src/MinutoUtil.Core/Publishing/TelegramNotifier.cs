@@ -53,8 +53,9 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
 
     private string Url(string method) => $"https://api.telegram.org/bot{botToken}/{method}";
 
+    /// <summary>One row of buttons, or rows of 5 when there are more (the daily idea list's 1 to 10).</summary>
     private static object Keyboard(IReadOnlyList<TelegramButton> buttons) =>
-        new { inline_keyboard = new[] { buttons.Select(b => new { text = b.Text, callback_data = b.Data }).ToArray() } };
+        new { inline_keyboard = buttons.Chunk(5).Select(row => row.Select(b => new { text = b.Text, callback_data = b.Data }).ToArray()).ToArray() };
 
     private static async Task EnsureOkAsync(HttpResponseMessage response, string method, CancellationToken ct)
     {

@@ -77,8 +77,10 @@ test("anyone but the owner, a forged button or a wrong secret starts nothing", a
   assert.equal((await worker.fetch(post(tap("pub:20261027-1800"), "wrong-secret"), env)).status, 403);
 });
 
-test("/novo starts render.yml, with an article when one is given", async () => {
-  const message = (text, from = 1000000001) => ({ update_id: 2, message: { text, from: { id: from }, chat: { id: from } } });
+const message = (text, from = 1000000001) => ({ update_id: 2, message: { text, from: { id: from }, chat: { id: from } } });
+const githubCalls = (calls) => calls.filter((c) => c.url.startsWith("https://api.github.com/"));
+
+test("/novo starts render.yml now, with the idea when one is given", async () => {
   let net = fakeNetwork();
   await net.worker.fetch(post(message("/novo")), env);
   assert.equal(net.calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/render.yml/dispatches");
@@ -86,17 +88,57 @@ test("/novo starts render.yml, with an article when one is given", async () => {
   assert.ok(net.calls[1].body.text.includes("próximo tema"));
 
   net = fakeNetwork();
-  await net.worker.fetch(post(message("/novo Battle of Hastings")), env);
-  assert.deepEqual(net.calls[0].body.inputs, { article: "Battle of Hastings" });
+  await net.worker.fetch(post(message("/novo por que só o Brasil usa urna eletrônica?")), env);
+  assert.deepEqual(net.calls[0].body.inputs, { article: "por que só o Brasil usa urna eletrônica?" });
 
-  for (const text of ["oi", `/novo ${"x".repeat(300)}`]) {
-    net = fakeNetwork();
-    await net.worker.fetch(post(message(text)), env);
-    assert.ok(!net.calls.some((c) => c.url.startsWith("https://api.github.com/")));
-  }
   net = fakeNetwork();
-  await net.worker.fetch(post(message("/novo", 5555)), env);
+  await net.worker.fetch(post(message(`/novo ${"x".repeat(300)}`)), env);
+  assert.equal(githubCalls(net.calls).length, 0);
+});
+
+test("a plain text or /ideia queues the idea for the next video through ideas.yml", async () => {
+  for (const text of ["por que só o Brasil usa urna eletrônica?", "/ideia por que só o Brasil usa urna eletrônica?"]) {
+    const net = fakeNetwork();
+    await net.worker.fetch(post(message(text)), env);
+    const [github] = githubCalls(net.calls);
+    assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
+    assert.deepEqual(github.body.inputs, { action: "add", date: "", index: "", idea: "por que só o Brasil usa urna eletrônica?" });
+    assert.ok(net.calls.at(-1).body.text.startsWith("Procurando um tema"));
+  }
+  for (const text of ["/ideia", "/start", `${"x".repeat(201)}`]) {
+    const net = fakeNetwork();
+    await net.worker.fetch(post(message(text)), env);
+    assert.equal(githubCalls(net.calls).length, 0, text);
+    assert.ok(net.calls.at(-1).body.text.startsWith("Mande um tema"));
+  }
+  const net = fakeNetwork();
+  await net.worker.fetch(post(message("por que só o Brasil usa urna eletrônica?", 5555)), env);
   assert.equal(net.calls.length, 0);
+});
+
+test("tapping an idea approves it through ideas.yml and turns only that number into a check mark", async () => {
+  const keyboard = [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]].map((row) => row.map((n) => ({ text: `${n}`, callback_data: `idea:20261028:${n}` })));
+  const update = tap("idea:20261028:7");
+  update.callback_query.message.reply_markup = { inline_keyboard: keyboard };
+  const { calls, worker } = fakeNetwork();
+
+  await worker.fetch(post(update), env);
+
+  const [github] = githubCalls(calls);
+  assert.equal(github.url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/ideas.yml/dispatches");
+  assert.deepEqual(github.body.inputs, { action: "approve", date: "20261028", index: "7", idea: "" });
+  const edit = calls.find((c) => c.url.endsWith("/editMessageReplyMarkup")).body.reply_markup.inline_keyboard;
+  assert.deepEqual(edit[1][1], { text: "✅ 7", callback_data: "done" });
+  assert.deepEqual(edit[0][0], { text: "1", callback_data: "idea:20261028:1" });
+
+  const again = fakeNetwork();
+  await again.worker.fetch(post(tap("done")), env);
+  assert.equal(githubCalls(again.calls).length, 0);
+  assert.ok(again.calls[0].body.text.includes("já está aprovada"));
+
+  const forged = fakeNetwork();
+  await forged.worker.fetch(post(tap("idea:2026-10-28:7")), env);
+  assert.equal(githubCalls(forged.calls).length, 0);
 });
 
 test("the secret check compares whole strings", () => {

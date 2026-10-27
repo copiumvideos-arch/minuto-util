@@ -47,6 +47,7 @@ if (command is not "make")
           make          Writes, voices and renders one video into output/<yyyy-MM-dd>/<HHmm>/.
           --run         Re-render an existing run folder, reusing its script, voice takes and media (no new API calls).
           --article     The event's English Wikipedia article (default: story.englishArticle in config/minuto-util.json).
+          --portuguese-article  The Portuguese Wikipedia article to use with it (default: the English page's link).
           --year        The year of that event (pictures from it rank higher, and the year card shows it).
           --topic       The series name given to the writer (default: story.topic).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
@@ -64,6 +65,7 @@ var config = AppConfig.Load(Path.Combine(root, "config", "minuto-util.json"));
 // Another article is another event: its year comes with --year or not at all (the config's year is the default article's).
 if (Option("--article") is { } article)
     config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year > 0 ? year : null } };
+if (Option("--portuguese-article") is { Length: > 0 } portuguese) config = config with { Story = config.Story with { PortugueseArticle = portuguese } };
 if (Option("--topic") is { Length: > 0 } topic) config = config with { Story = config.Story with { Topic = topic } };
 
 var now = DateTime.Now;

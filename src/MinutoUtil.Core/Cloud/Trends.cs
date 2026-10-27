@@ -75,58 +75,94 @@ public sealed record TrendIdeas(IReadOnlyList<TrendIdea> Ideas);
 public sealed record TrendIdea(
     [property: Description("The event's English Wikipedia article title, exactly as on Wikipedia, e.g. \"Magna Carta\".")]
     string Article,
+    [property: Description("The Portuguese Wikipedia article on the same subject, exact title, when you know it (it can differ from the English page's language link, e.g. \"Urna eletrônica (Brasil)\"); otherwise an empty string.")]
+    string PortugueseArticle,
     [property: Description("The year the event happened, 1 or later.")]
     int Year,
     [property: Description("Short series name in Portuguese, e.g. \"Democracia\", \"Monarquias\", \"Grandes descobertas\".")]
     string Topic,
-    [property: Description("The search or article from today's lists that inspired it, in Portuguese, a few words.")]
+    [property: Description("The search, article or idea from the lists that inspired it, in Portuguese, a few words.")]
     string Trend);
 
-/// <summary>Today's trend picks waiting to be rendered, kept as trending.json on the state branch.</summary>
-public sealed record TrendQueue(DateTimeOffset UpdatedAt, IReadOnlyList<BacklogTopic> Topics)
+/// <summary>The day's idea list sent to the owner on Telegram, kept as ideas/&lt;yyyyMMdd&gt;.json on the state branch.</summary>
+public sealed record IdeaList(string Date, DateTimeOffset SentAt, IReadOnlyList<BacklogTopic> Ideas)
 {
-    /// <summary>A trend is old news after this; its picks give way to the backlog.</summary>
-    public static readonly TimeSpan Lifetime = TimeSpan.FromDays(3);
-
-    /// <summary>A new scan at most this often: one model request a day.</summary>
-    public static readonly TimeSpan ScanEvery = TimeSpan.FromHours(20);
+    public static string DateFor(DateTimeOffset utc) => utc.UtcDateTime.ToString("yyyyMMdd");
 }
 
 /// <summary>
-/// Turns today's trends into historical topics: one model request, then every pick is checked on Wikipedia (the
-/// article exists, is not a disambiguation page, has a Portuguese twin) and against the channel's history and rules.
+/// An idea the owner wants made: one tapped in the day's list, or one sent as text (<see cref="FromText"/>), which goes
+/// ahead of the tapped ones. Kept as approved/&lt;id&gt;.json, one file each, so taps at the same time never conflict.
+/// </summary>
+public sealed record ApprovedIdea(string Id, BacklogTopic Topic, bool FromText, DateTimeOffset ApprovedAt);
+
+/// <summary>
+/// Turns today's trends (or the owner's idea) into historical topics: one model request, then every pick is checked on
+/// Wikipedia (the English article exists and is not a disambiguation page; the Portuguese article named by the model,
+/// or else the English page's link, becomes the second source) and against the channel's history and rules.
 /// The model's answer is only a suggestion; nothing it says is used without these checks.
 /// </summary>
 public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTemplate, string channelName, TimeProvider time)
 {
-    public const int Count = 4;
+    /// <summary>Ideas in the daily list sent to the owner.</summary>
+    public const int Count = 10;
     public const int MinYearsAgo = 25;
 
-    public async Task<IReadOnlyList<BacklogTopic>> PickAsync(TrendSignals signals, IReadOnlyCollection<string> alreadyMade, CancellationToken ct)
+    public Task<IReadOnlyList<BacklogTopic>> PickAsync(TrendSignals signals, IReadOnlyCollection<string> alreadyMade, CancellationToken ct) =>
+        PickFromAsync(UserPrompt(signals, alreadyMade), alreadyMade, null, ct);
+
+    /// <summary>
+    /// The owner's own idea, sent with /novo on Telegram: a subject or a question ("por que só o Brasil usa urna
+    /// eletrônica?") turned into the event or history that answers it, checked like the trend picks.
+    /// </summary>
+    public Task<IReadOnlyList<BacklogTopic>> PickForIdeaAsync(string idea, IReadOnlyCollection<string> alreadyMade, CancellationToken ct) =>
+        PickFromAsync(IdeaPrompt(idea, alreadyMade), alreadyMade, $"sua ideia: {TextUtil.Truncate(idea.Trim(), 70)}", ct);
+
+    private async Task<IReadOnlyList<BacklogTopic>> PickFromAsync(string user, IReadOnlyCollection<string> alreadyMade, string? trend, CancellationToken ct)
     {
         var system = promptTemplate.Replace("{CHANNEL}", channelName).Replace("{COUNT}", Count.ToString());
-        var answer = await llm.CompleteJsonAsync<TrendIdeas>(system, UserPrompt(signals, alreadyMade), ct);
+        var answer = await llm.CompleteJsonAsync<TrendIdeas>(system, user, ct);
         var latestYear = time.GetUtcNow().Year - MinYearsAgo;
         var ideas = answer.Ideas
-            .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Article.Length <= 120 && i.Year >= 1 && i.Year <= latestYear)
+            .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Article.Length <= 120 && (i.PortugueseArticle ?? "").Length <= 120
+                        && i.Year >= 1 && i.Year <= latestYear)
             .Take(Count * 2).ToList();
         foreach (var dropped in answer.Ideas.Except(ideas)) Log.Warn($"trends: dropped \"{TextUtil.Truncate(dropped.Article, 80)}\" ({dropped.Year}): outside the rules");
         if (ideas.Count == 0) return [];
 
-        var resolved = await ResolveAsync(ideas.Select(i => i.Article.Trim()).ToList(), ct);
+        var english = await ResolveAsync("en", ideas.Select(i => i.Article.Trim()).ToList(), "pt", ct);
+        var askedPt = ideas.Select(i => (i.PortugueseArticle ?? "").Trim()).Where(t => t.Length > 0).Distinct().ToList();
+        var portuguese = askedPt.Count > 0 ? await ResolveAsync("pt", askedPt, null, ct) : [];
         var picks = new List<BacklogTopic>();
         foreach (var idea in ideas)
         {
-            if (!resolved.TryGetValue(idea.Article.Trim(), out var title))
+            if (!english.TryGetValue(idea.Article.Trim(), out var page))
             {
-                Log.Warn($"trends: dropped \"{TextUtil.Truncate(idea.Article, 80)}\": no English article with a Portuguese twin");
+                Log.Warn($"trends: dropped \"{TextUtil.Truncate(idea.Article, 80)}\": no such English article");
                 continue;
             }
-            if (alreadyMade.Contains(title, StringComparer.OrdinalIgnoreCase) || picks.Any(p => p.Article == title)) continue;
-            picks.Add(new BacklogTopic(title, idea.Year, TextUtil.Truncate(idea.Topic.Trim(), 40), TextUtil.Truncate(idea.Trend.Trim(), 80)));
-            Log.Info($"trends: {title} ({idea.Year}), from \"{idea.Trend}\"");
+            // The Portuguese article the model named wins over the English page's language link: the link is often
+            // missing or points at a broader subject. Without either the writer gets the English text only.
+            var pt = portuguese.TryGetValue((idea.PortugueseArticle ?? "").Trim(), out var named) ? named.Title : page.Linked;
+            if (alreadyMade.Contains(page.Title, StringComparer.OrdinalIgnoreCase) || picks.Any(p => p.Article == page.Title)) continue;
+            picks.Add(new BacklogTopic(page.Title, idea.Year, TextUtil.Truncate(idea.Topic.Trim(), 40),
+                trend ?? TextUtil.Truncate(idea.Trend.Trim(), 80), pt));
+            Log.Info($"trends: {page.Title} ({idea.Year}), pt {pt ?? "none"}, from \"{trend ?? idea.Trend}\"");
         }
         return picks.Take(Count).ToList();
+    }
+
+    internal static string IdeaPrompt(string idea, IReadOnlyCollection<string> alreadyMade)
+    {
+        var text = new StringBuilder();
+        text.AppendLine("No trend lists this time: the channel owner sent this idea. Find the events or history that best answer or");
+        text.AppendLine("explain it, following every rule; the first pick should fit the idea most closely.");
+        text.AppendLine();
+        text.AppendLine($"Idea: {idea.Trim()}");
+        text.AppendLine();
+        text.AppendLine("Already made (do not pick):");
+        foreach (var a in alreadyMade) text.AppendLine($"- {a}");
+        return text.ToString();
     }
 
     internal static string UserPrompt(TrendSignals signals, IReadOnlyCollection<string> alreadyMade)
@@ -143,16 +179,23 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
         return text.ToString();
     }
 
-    /// <summary>Maps each asked title to the canonical English title when the article exists, is not a disambiguation page and has a Portuguese twin.</summary>
-    internal async Task<Dictionary<string, string>> ResolveAsync(IReadOnlyList<string> titles, CancellationToken ct)
+    /// <summary>
+    /// Maps each asked title to its canonical page in <paramref name="language"/> Wikipedia when the article exists and
+    /// is not a disambiguation page, with its <paramref name="linkLanguage"/> twin's title when it has one.
+    /// </summary>
+    internal async Task<Dictionary<string, (string Title, string? Linked)>> ResolveAsync(string language, IReadOnlyList<string> titles,
+        string? linkLanguage, CancellationToken ct)
     {
-        var query = Publishing.OAuthRedirect.Query([
+        var parameters = new List<KeyValuePair<string, string>>
+        {
             new("action", "query"), new("format", "json"), new("formatversion", "2"), new("redirects", "1"),
-            new("prop", "langlinks|pageprops"), new("lllang", "pt"), new("ppprop", "disambiguation"), new("titles", string.Join('|', titles)),
-        ]);
-        using var doc = JsonDocument.Parse(await http.GetStringAsync($"https://en.wikipedia.org/w/api.php?{query}", ct));
+            new("prop", linkLanguage is null ? "pageprops" : "langlinks|pageprops"), new("ppprop", "disambiguation"),
+            new("titles", string.Join('|', titles)),
+        };
+        if (linkLanguage is not null) parameters.Add(new("lllang", linkLanguage));
+        using var doc = JsonDocument.Parse(await http.GetStringAsync($"https://{language}.wikipedia.org/w/api.php?{Publishing.OAuthRedirect.Query(parameters)}", ct));
         var q = doc.RootElement.GetProperty("query");
-        var map = titles.ToDictionary(t => t, t => t);
+        var map = titles.Distinct().ToDictionary(t => t, t => t);
         foreach (var key in new[] { "normalized", "redirects" })
             if (q.TryGetProperty(key, out var steps))
                 foreach (var step in steps.EnumerateArray())
@@ -160,14 +203,14 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
                     string from = step.GetProperty("from").GetString()!, to = step.GetProperty("to").GetString()!;
                     foreach (var asked in map.Where(m => m.Value == from).Select(m => m.Key).ToList()) map[asked] = to;
                 }
-        var good = new HashSet<string>(StringComparer.Ordinal);
+        var good = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var page in q.GetProperty("pages").EnumerateArray())
         {
             if (page.TryGetProperty("missing", out _) || page.TryGetProperty("invalid", out _)) continue;
             if (page.TryGetProperty("pageprops", out var props) && props.TryGetProperty("disambiguation", out _)) continue;
-            if (!page.TryGetProperty("langlinks", out var links) || links.GetArrayLength() == 0) continue;
-            good.Add(page.GetProperty("title").GetString()!);
+            var linked = page.TryGetProperty("langlinks", out var links) && links.GetArrayLength() > 0 ? links[0].GetProperty("title").GetString() : null;
+            good[page.GetProperty("title").GetString()!] = linked;
         }
-        return map.Where(m => good.Contains(m.Value)).ToDictionary(m => m.Key, m => m.Value);
+        return map.Where(m => good.ContainsKey(m.Value)).ToDictionary(m => m.Key, m => (m.Value, good[m.Value]));
     }
 }

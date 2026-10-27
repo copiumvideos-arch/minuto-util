@@ -1,0 +1,79 @@
+# The owner's say in what gets made. Every morning: 10 ideas from the day's trends go to Telegram with a button each.
+# relay/ starts this workflow again when the owner taps an idea (approve) or sends a text idea (add); approved ideas
+# and text ideas go ahead of config/topics.json in render.yml.
+name: ideas
+run-name: ideas ${{ inputs.action || 'list' }}
+
+on:
+  schedule:
+    # 06:00 in Brasília (UTC-3), before the first render at 07:00.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [list, approve, add]
+        default: list
+      date:
+        description: "approve: the list's date (yyyyMMdd)"
+        required: false
+        default: ""
+      index:
+        description: "approve: the idea's number in that list"
+        required: false
+        default: ""
+      idea:
+        description: "add: the owner's idea, a subject or a question"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  ideas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ACTION: ${{ inputs.action || 'list' }}
+      DATE: ${{ inputs.date }}
+      INDEX: ${{ inputs.index }}
+      IDEA: ${{ inputs.idea }}
+      CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
+    steps:
+      - name: Check the input
+        run: |
+          case "$ACTION" in
+            list) ;;
+            approve) [[ "$DATE" =~ ^[0-9]{8}$ && "$INDEX" =~ ^[0-9]{1,2}$ ]] || { echo "bad date or index"; exit 1; } ;;
+            add) [ -n "$IDEA" ] && [ "${#IDEA}" -le 200 ] || { echo "bad idea"; exit 1; } ;;
+            *) echo "bad action"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: state
+          path: state
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build src/MinutoUtil.Cli -c Release -v q
+
+      - name: Run
+        env:
+          MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
+          MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          case "$ACTION" in
+            list) $CLI cloud ideas --state state ;;
+            approve) $CLI cloud approve --state state --date "$DATE" --index "$INDEX" ;;
+            add) $CLI cloud add-idea --state state --idea "$IDEA" ;;
+          esac
+
+      - name: Save the state
+        if: always()
+        run: bash .github/scripts/save-state.sh "ideas $ACTION"

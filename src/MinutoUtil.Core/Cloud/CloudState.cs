@@ -5,9 +5,10 @@ namespace MinutoUtil.Core.Cloud;
 
 /// <summary>
 /// One event to render: the English article, the year it happened and the series name, from config/topics.json or
-/// from today's trends (<see cref="Trend"/> says which search inspired it).
+/// from today's trends or the owner's idea (<see cref="Trend"/> says what inspired it). <see cref="PortugueseArticle"/>
+/// is the second source when it is not the English page's language link.
 /// </summary>
-public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null);
+public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null, string? PortugueseArticle = null);
 
 public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics)
 {
@@ -36,6 +37,7 @@ public sealed record RunRecord
     public int? Year { get; init; }
     public string Topic { get; init; } = "";
     public string? Trend { get; init; }
+    public string? PortugueseArticle { get; init; }
     public required RunStatus Status { get; init; }
     public string? Title { get; init; }
     public string? YouTubeUrl { get; init; }
@@ -67,20 +69,54 @@ public sealed class CloudState(string folder)
 
     public string QuotaFile => Path.Combine(Folder, "quota-state.json");
 
-    private string TrendFile => Path.Combine(Folder, "trending.json");
+    private string IdeasFolder => Path.Combine(Folder, "ideas");
 
-    public TrendQueue? Trending() =>
-        File.Exists(TrendFile) ? JsonSerializer.Deserialize<TrendQueue>(File.ReadAllText(TrendFile), Json.Options) : null;
+    private string ApprovedFolder => Path.Combine(Folder, "approved");
 
-    public void SaveTrending(TrendQueue queue)
+    public IdeaList? Ideas(string date)
     {
-        Directory.CreateDirectory(Folder);
-        File.WriteAllText(TrendFile + ".tmp", JsonSerializer.Serialize(queue, Json.Options));
-        File.Move(TrendFile + ".tmp", TrendFile, overwrite: true);
+        var path = Path.Combine(IdeasFolder, $"{IdeaDate(date)}.json");
+        return File.Exists(path) ? JsonSerializer.Deserialize<IdeaList>(File.ReadAllText(path), Json.Options) : null;
     }
 
-    /// <summary>Every article rendered so far, whatever happened to it: the trend picker must not suggest them again.</summary>
+    public void SaveIdeas(IdeaList list) => Write(Path.Combine(IdeasFolder, $"{IdeaDate(list.Date)}.json"), list);
+
+    public IReadOnlyList<ApprovedIdea> Approved() =>
+        Directory.Exists(ApprovedFolder)
+            ? Directory.GetFiles(ApprovedFolder, "*.json").Select(f => JsonSerializer.Deserialize<ApprovedIdea>(File.ReadAllText(f), Json.Options)!).ToList()
+            : [];
+
+    public void SaveApproved(ApprovedIdea idea)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(idea.Id, @"^[0-9a-z-]{1,40}$")) throw new ArgumentException($"\"{idea.Id}\" is not an idea id.");
+        Write(Path.Combine(ApprovedFolder, $"{idea.Id}.json"), idea);
+    }
+
+    private static string IdeaDate(string date) =>
+        System.Text.RegularExpressions.Regex.IsMatch(date, @"^\d{8}$") ? date : throw new ArgumentException($"\"{TextUtil.Truncate(date, 20)}\" is not a date (yyyyMMdd).");
+
+    private static void Write<T>(string path, T value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(value, Json.Options));
+        File.Move(path + ".tmp", path, overwrite: true);
+    }
+
+    /// <summary>Every article rendered so far, whatever happened to it.</summary>
     public IReadOnlyList<string> MadeArticles() => Runs().Select(r => r.Article).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>
+    /// What the picker must not suggest again: articles rendered, approved and waiting, or offered in the last three
+    /// daily lists (a fresh list each day rather than the same ideas the owner passed on).
+    /// </summary>
+    public IReadOnlyList<string> TakenArticles()
+    {
+        var offered = Directory.Exists(IdeasFolder)
+            ? Directory.GetFiles(IdeasFolder, "*.json").Order(StringComparer.Ordinal).TakeLast(3)
+                .SelectMany(f => JsonSerializer.Deserialize<IdeaList>(File.ReadAllText(f), Json.Options)!.Ideas.Select(i => i.Article))
+            : [];
+        return MadeArticles().Concat(Approved().Select(a => a.Topic.Article)).Concat(offered).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
 
     private string RunsFolder => Path.Combine(Folder, "runs");
 
@@ -105,11 +141,11 @@ public sealed class CloudState(string folder)
     }
 
     /// <summary>
-    /// The next topic not rendered yet: today's trend picks first (while younger than <see cref="TrendQueue.Lifetime"/>),
-    /// then the backlog in order. Any run that is not a failure uses its article up (a rejected video is not tried
-    /// again), and an article that failed <see cref="MaxFailures"/> times is skipped. <c>Left</c> counts the backlog only.
+    /// The next topic not rendered yet: the owner's text ideas first, then the ideas tapped in the daily lists (oldest
+    /// first), then the backlog in order. Any run that is not a failure uses its article up (a rejected video is not
+    /// tried again), and an article that failed <see cref="MaxFailures"/> times is skipped. <c>Left</c> counts the backlog only.
     /// </summary>
-    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog, DateTimeOffset now)
+    public (BacklogTopic? Next, int Left) NextTopic(TopicBacklog backlog)
     {
         var runs = Runs();
         bool Open(BacklogTopic t)
@@ -118,7 +154,7 @@ public sealed class CloudState(string folder)
             return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures;
         }
         var left = backlog.Topics.Where(Open).ToList();
-        var trend = Trending() is { } queue && now - queue.UpdatedAt < TrendQueue.Lifetime ? queue.Topics.FirstOrDefault(Open) : null;
-        return (trend ?? left.FirstOrDefault(), left.Count);
+        var approved = Approved().OrderByDescending(a => a.FromText).ThenBy(a => a.ApprovedAt).Select(a => a.Topic).FirstOrDefault(Open);
+        return (approved ?? left.FirstOrDefault(), left.Count);
     }
 }
