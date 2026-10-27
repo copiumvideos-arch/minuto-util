@@ -233,19 +233,18 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
 
 ### Setting it up, once
 
-1. `gh repo create copiumvideos-arch/minuto-util --private --source . --push`, then create the `state` branch
-   (an orphan branch with a README).
-2. `dotnet run --project src/MinutoUtil.Cli -- cloud secrets --repo copiumvideos-arch/minuto-util`: copies the keys
-   from this PC's environment, the Google client, both sign-ins (from the DPAPI files) and a new state key into the
-   repository's Actions secrets through `gh`'s standard input. Nothing is printed.
-3. The relay: in `relay/`, `npx wrangler@4 login` (a free Cloudflare account), `npx wrangler@4 deploy`, then the
-   secrets `TELEGRAM_BOT_TOKEN`, `OWNER_CHAT_ID` (the owner's chat id), `TELEGRAM_WEBHOOK_SECRET` (random) and
-   `GITHUB_TOKEN` with `npx wrangler@4 secret put <name>`. `GITHUB_TOKEN` is a fine-grained personal access token for
-   this repository only with "Actions: read and write"; nothing else.
-4. Point the bot at the relay: Telegram `setWebhook` with `url=https://<worker>/telegram`, the same `secret_token`
-   and `allowed_updates=["message","callback_query"]`. The relay answers only the owner's chat and checks Telegram's
-   secret header on every call.
-5. Start `render.yml` by hand once (Actions tab, or `/novo` on Telegram) and watch the first run.
+1. `bash .github/scripts/first-setup.sh` (Git Bash, repository root): creates the private repository, pushes `main`,
+   creates the `state` branch and runs `cloud secrets`, which copies the keys from this PC's environment, the Google
+   client, both sign-ins (from the DPAPI files) and a new state key into the repository's Actions secrets through
+   `gh`'s standard input. Nothing is printed.
+2. Relay: create a fine-grained GitHub token (github.com > Settings > Developer settings > Fine-grained tokens) for
+   the repository `copiumvideos-arch/minuto-util` only, with "Actions: read and write" and nothing else, and save it
+   as the Windows user environment variable `MINUTO_RELAY_GITHUB_TOKEN` (the environment variables dialog, not a
+   command). Then `cd relay && npx wrangler@4 login` (a free Cloudflare account) and `bash relay/setup.sh`: it deploys
+   the Worker, gives it `TELEGRAM_BOT_TOKEN`, `OWNER_CHAT_ID`, `GITHUB_TOKEN` and a new random
+   `TELEGRAM_WEBHOOK_SECRET`, and points the bot's webhook at it (`allowed_updates` message and callback_query). The
+   relay answers only the owner's chat and checks Telegram's secret header on every call.
+3. Send `/novo` to the bot (or start `render.yml` from the Actions tab) and watch the first run.
 
 Tests: `cd relay && npm test` (node:test, GitHub and Telegram replaced by a fake fetch); `CloudTests.cs` for the topic
 queue, the sealed token store, the publish/retry/reject flow and the review video upload.
