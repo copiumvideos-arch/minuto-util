@@ -94,14 +94,35 @@ public static class PublishCopy
     /// The TikTok caption: the title, a blank line, the hashtags. The inbox upload has no caption field, so this goes to
     /// tiktok-caption.txt for the owner to paste. The title is cut first if the whole would be over the limit.
     /// </summary>
-    public static string TikTokCaption(VideoMetadata metadata, int maxChars)
+    /// <summary>
+    /// The caption to paste on TikTok: the title, the description's first paragraph (what the video tells, written by
+    /// the script writer from the same facts), then the video's own hashtags followed by the broad discovery tags,
+    /// deduplicated and without accents. The description is shortened first when the caption is too long.
+    /// </summary>
+    public static string TikTokCaption(VideoMetadata metadata, TikTokOptions options)
     {
-        var hashtags = string.Join(' ', metadata.Hashtags.Select(h => "#" + Clean(h).Trim().TrimStart('#').Replace(" ", "")).Where(h => h.Length > 1));
+        var maxChars = options.MaxCaptionChars;
+        var tags = metadata.Hashtags.Concat(options.DiscoveryHashtags)
+            .Select(Hashtag).Where(h => h.Length > 0).Distinct().Take(options.MaxHashtags).Select(h => "#" + h);
+        var hashtags = string.Join(' ', tags);
         var title = Clean(metadata.Title).Replace('\n', ' ').Trim();
         var room = maxChars - (hashtags.Length > 0 ? hashtags.Length + 2 : 0);
         if (room < 1) return TextUtil.Truncate(hashtags, maxChars);
         if (title.Length > room) title = title[..room].TrimEnd();
-        return hashtags.Length > 0 ? $"{title}\n\n{hashtags}" : title;
+        var summary = Clean(metadata.Description).Split("\n\n")[0].Replace('\n', ' ').Trim();
+        if (summary.StartsWith("Fonte:", StringComparison.Ordinal)) summary = "";
+        var summaryRoom = room - title.Length - 2;
+        if (summary.Length > summaryRoom) summary = summaryRoom > 40 ? summary[..(summaryRoom - 3)].TrimEnd() + "..." : "";
+        var text = summary.Length > 0 ? $"{title}\n\n{summary}" : title;
+        return hashtags.Length > 0 ? $"{text}\n\n{hashtags}" : text;
+    }
+
+    /// <summary>"Segunda Guerra" or "#história" becomes "segundaguerra" / "historia": letters and digits only.</summary>
+    private static string Hashtag(string tag)
+    {
+        var plain = new string(tag.Normalize(NormalizationForm.FormD)
+            .Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray());
+        return new string(plain.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
     }
 
     private static string Clean(string text) => text.Replace("\r\n", "\n").Replace('\r', '\n').Replace("<", "").Replace(">", "").Trim();

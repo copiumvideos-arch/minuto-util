@@ -134,14 +134,24 @@ public sealed class PublishCopyTests
     }
 
     [Fact]
-    public void Tiktok_caption_is_title_and_hashtags_within_the_limit()
+    public void Tiktok_caption_is_title_summary_and_hashtags_within_the_limit()
     {
-        Assert.Equal("Como a Previsão do Tempo Mudou o Dia D\n\n#segundaguerra #diad #normandia #historia",
-            PublishCopy.TikTokCaption(PublishData.Metadata(), 2200));
+        Assert.Equal("Como a Previsão do Tempo Mudou o Dia D\n\nA decisão de invadir a Normandia dependia do tempo. bFatos/b.\n\n" +
+            "#segundaguerra #diad #normandia #historia #curiosidades #aprendanotiktok",
+            PublishCopy.TikTokCaption(PublishData.Metadata(), new TikTokOptions()));
 
-        var caption = PublishCopy.TikTokCaption(PublishData.Metadata(new string('t', 3000)), 2200);
+        // The video's own tags come first; accents and spaces go; at most MaxHashtags.
+        var metadata = PublishData.Metadata() with { Hashtags = ["#História do Brasil", "Lei Áurea", "historia", "abolição", "1888", "brasil", "império"] };
+        Assert.EndsWith("\n\n#historiadobrasil #leiaurea #historia #abolicao #1888 #brasil", PublishCopy.TikTokCaption(metadata, new TikTokOptions()));
+
+        var caption = PublishCopy.TikTokCaption(PublishData.Metadata(new string('t', 3000)), new TikTokOptions());
         Assert.Equal(2200, caption.Length);
-        Assert.EndsWith("#segundaguerra #diad #normandia #historia", caption);
+        Assert.DoesNotContain("Normandia dependia", caption);
+        Assert.EndsWith("#segundaguerra #diad #normandia #historia #curiosidades #aprendanotiktok", caption);
+
+        var tight = PublishCopy.TikTokCaption(PublishData.Metadata(), new TikTokOptions { MaxCaptionChars = 160 });
+        Assert.True(tight.Length <= 160);
+        Assert.EndsWith("#aprendanotiktok", tight);
     }
 }
 
@@ -492,13 +502,15 @@ public sealed class TokenStoreTests
         try
         {
             var store = new EnvironmentTokenStore("MINUTO_TIKTOK_REFRESH_TOKEN", "rft.old-secret");
+            // Other tests log at the same time through the shared sink: read a copy taken under the lock.
+            List<string> Seen() { lock (lines) return [.. lines]; }
             store.Save("rft.old-secret");
-            Assert.DoesNotContain(lines, l => l.Contains("MINUTO_TIKTOK_REFRESH_TOKEN"));
+            Assert.DoesNotContain(Seen(), l => l.Contains("MINUTO_TIKTOK_REFRESH_TOKEN"));
 
             store.Save("rft.new-secret");
             Assert.Equal("rft.new-secret", store.Load());
-            Assert.Contains(lines, l => l.Contains("WARN") && l.Contains("MINUTO_TIKTOK_REFRESH_TOKEN"));
-            Assert.DoesNotContain(lines, l => l.Contains("rft."));
+            Assert.Contains(Seen(), l => l.Contains("WARN") && l.Contains("MINUTO_TIKTOK_REFRESH_TOKEN"));
+            Assert.DoesNotContain(Seen(), l => l.Contains("rft."));
         }
         finally
         {
@@ -842,8 +854,7 @@ public sealed class PublisherTests
         Assert.Equal("v_inbox_file~v2.123", record.TikTok!.PublishId);
         Assert.Equal("SEND_TO_USER_INBOX", record.TikTok.Status);
         Assert.Equal("vid123", record.YouTube!.VideoId);
-        Assert.Equal("Como a Previsão do Tempo Mudou o Dia D\n\n#segundaguerra #diad #normandia #historia",
-            File.ReadAllText(Path.Combine(folder, Publisher.CaptionFile)));
+        Assert.Equal(PublishCopy.TikTokCaption(PublishData.Metadata(), new TikTokOptions()), File.ReadAllText(Path.Combine(folder, Publisher.CaptionFile)));
 
         await Assert.ThrowsAsync<PublishRefusedException>(() => publisher.PublishAsync(folder, Platforms.TikTok, false, false, CancellationToken.None));
         await publisher.PublishAsync(folder, Platforms.TikTok, false, force: true, CancellationToken.None);

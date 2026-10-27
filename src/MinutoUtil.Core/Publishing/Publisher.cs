@@ -62,7 +62,7 @@ public sealed class Publisher(
                 "Pick the other platform with --youtube or --tiktok, or pass --force to post it again.");
 
         var details = PublishCopy.YouTube(metadata, youtube);
-        var caption = PublishCopy.TikTokCaption(metadata, tiktok.MaxCaptionChars);
+        var caption = PublishCopy.TikTokCaption(metadata, tiktok);
         if (metadata.DurationSeconds > 180) Log.Warn($"the video is {metadata.DurationSeconds:0} s; YouTube treats only videos up to 3 minutes as Shorts");
 
         if (dryRun) return Plan(platforms, details, caption, new FileInfo(videoPath).Length, already);

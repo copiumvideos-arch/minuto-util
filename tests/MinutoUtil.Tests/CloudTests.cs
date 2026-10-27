@@ -193,7 +193,7 @@ public sealed class CloudFlowTests
         Assert.Equal("https://youtube.com/shorts/vid123", run.YouTubeUrl);
         Assert.Equal("v_inbox_file~v2.123", run.TikTokPublishId);
         // The TikTok caption on its own, then the summary with the YouTube link.
-        Assert.Contains(messages.Sent, m => m.Text.StartsWith("Como a Previsão do Tempo Mudou o Dia D\n\n#segundaguerra", StringComparison.Ordinal));
+        Assert.Contains(messages.Sent, m => m.Text == PublishCopy.TikTokCaption(PublishData.Metadata(), new TikTokOptions()));
         Assert.Contains("https://youtube.com/shorts/vid123", messages.Sent[^1].Text);
 
         var requests = youtube.Requests.Count + tiktok.Requests.Count;
