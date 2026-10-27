@@ -102,8 +102,8 @@ public static class PublishCopy
     public static string TikTokCaption(VideoMetadata metadata, TikTokOptions options)
     {
         var maxChars = options.MaxCaptionChars;
-        var tags = metadata.Hashtags.Concat(options.DiscoveryHashtags)
-            .Select(Hashtag).Where(h => h.Length > 0).Distinct().Take(options.MaxHashtags).Select(h => "#" + h);
+        var own = metadata.Hashtags.Select(Hashtag).Where(h => h.Length > 0).Distinct().Take(options.MaxOwnHashtags);
+        var tags = own.Concat(options.DiscoveryHashtags.Select(Hashtag)).Distinct().Take(options.MaxHashtags).Select(h => "#" + h);
         var hashtags = string.Join(' ', tags);
         var title = Clean(metadata.Title).Replace('\n', ' ').Trim();
         var room = maxChars - (hashtags.Length > 0 ? hashtags.Length + 2 : 0);

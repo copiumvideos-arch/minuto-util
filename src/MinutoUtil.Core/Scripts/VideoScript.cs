@@ -25,7 +25,7 @@ public sealed record VideoScript(
     [property: Description("Place shown under the date: \"Normandia, França\".")]
     string PlaceStamp,
     IReadOnlyList<ScriptSection> Sections,
-    [property: Description("Upload description in Portuguese, 2-3 sentences, no hashtags, no credits (they are added).")]
+    [property: Description("Upload description in Portuguese, 2-3 sentences, no hashtags, no credits (they are added). It is read, not spoken: years and numbers in digits (\"em 1912\").")]
     string Description,
     [property: Description("4-6 hashtags without the # sign, e.g. \"historia\", \"segundaguerra\".")]
     IReadOnlyList<string> Hashtags)

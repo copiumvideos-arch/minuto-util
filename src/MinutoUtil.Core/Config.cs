@@ -316,8 +316,11 @@ public sealed record TikTokOptions
     /// </summary>
     public IReadOnlyList<string> DiscoveryHashtags { get; init; } = ["historia", "curiosidades", "aprendanotiktok"];
 
-    /// <summary>Hashtags in a caption, the video's own first. A handful works better than a wall of tags.</summary>
-    public int MaxHashtags { get; init; } = 6;
+    /// <summary>The video's own hashtags in a caption (the most specific ones the writer gave, first).</summary>
+    public int MaxOwnHashtags { get; init; } = 4;
+
+    /// <summary>Hashtags in a caption, the video's own then the discovery tags. A handful works better than a wall.</summary>
+    public int MaxHashtags { get; init; } = 7;
 
     /// <summary>How long to wait for TikTok to finish processing the upload before leaving it to the app.</summary>
     public int StatusWaitSeconds { get; init; } = 300;

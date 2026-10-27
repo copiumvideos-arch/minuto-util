@@ -140,9 +140,9 @@ public sealed class PublishCopyTests
             "#segundaguerra #diad #normandia #historia #curiosidades #aprendanotiktok",
             PublishCopy.TikTokCaption(PublishData.Metadata(), new TikTokOptions()));
 
-        // The video's own tags come first; accents and spaces go; at most MaxHashtags.
-        var metadata = PublishData.Metadata() with { Hashtags = ["#História do Brasil", "Lei Áurea", "historia", "abolição", "1888", "brasil", "império"] };
-        Assert.EndsWith("\n\n#historiadobrasil #leiaurea #historia #abolicao #1888 #brasil", PublishCopy.TikTokCaption(metadata, new TikTokOptions()));
+        // Up to 4 of the video's own tags, then the discovery tags; accents and spaces go; no repeats.
+        var metadata = PublishData.Metadata() with { Hashtags = ["#História do Brasil", "Lei Áurea", "historia", "abolição", "1888", "brasil"] };
+        Assert.EndsWith("\n\n#historiadobrasil #leiaurea #historia #abolicao #curiosidades #aprendanotiktok", PublishCopy.TikTokCaption(metadata, new TikTokOptions()));
 
         var caption = PublishCopy.TikTokCaption(PublishData.Metadata(new string('t', 3000)), new TikTokOptions());
         Assert.Equal(2200, caption.Length);

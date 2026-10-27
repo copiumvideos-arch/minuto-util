@@ -33,7 +33,7 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
   field: "invasão", "decisão", "até", "manhã". Text without accents is read wrong by the voice.
 - Never use em dashes or en dashes. Use commas or periods instead.
 - Write every number out in words, the way it is spoken: "seis de junho de mil novecentos e quarenta e quatro",
-  "cento e cinquenta e seis mil soldados", "vinte e quatro horas". No digits in `hook` or `sections`.
+  "cento e cinquenta e seis mil soldados", "vinte e quatro horas". No digits in `hook` or `sections`. The `description` is read, not spoken, so it uses digits ("em 1912").
 - No emoji, no hashtags, no parentheses, no quotation marks inside the narration, no abbreviations a voice would
   spell out (write "Estados Unidos", not "EUA"; "general", not "gen.").
 
