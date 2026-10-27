@@ -10,6 +10,13 @@ public interface IMediaSource
     Task<IReadOnlyList<MediaItem>> SearchAsync(string query, MediaKind kind, int limit, CancellationToken ct);
 }
 
+/// <summary>The pictures a Wikipedia article itself shows: on topic by construction, the fallback when searches find too little.</summary>
+public interface IArticleImageSource
+{
+    /// <summary>Allowed-license pictures used on the article, in page order. Never throws for a failed request: logs and returns none.</summary>
+    Task<IReadOnlyList<MediaItem>> ArticleImagesAsync(string language, string title, int limit, CancellationToken ct);
+}
+
 /// <summary>Shared plumbing: GET a JSON API with a size cap, and turn every failure into a logged empty result.</summary>
 public abstract class JsonMediaSource(HttpClient http, MediaOptions options) : IMediaSource
 {
@@ -116,9 +123,44 @@ public abstract class JsonMediaSource(HttpClient http, MediaOptions options) : I
 /// Wikimedia Commons (MediaWiki API, file namespace). The license comes from the file's own extmetadata
 /// (LicenseShortName, LicenseUrl), the author from Artist, so every result can be credited.
 /// </summary>
-public sealed class CommonsSource(HttpClient http, MediaOptions options) : JsonMediaSource(http, options)
+public sealed class CommonsSource(HttpClient http, MediaOptions options) : JsonMediaSource(http, options), IArticleImageSource
 {
     public override string Name => "Wikimedia Commons";
+
+    /// <summary>
+    /// The files an article shows (generator=images on that Wikipedia), with Commons' license data. Files kept only on
+    /// a local wiki under fair use have no free license and are dropped like any other non-free file.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>> ArticleImagesAsync(string language, string title, int limit, CancellationToken ct)
+    {
+        if (language is not ("en" or "pt")) throw new ArgumentException($"Unsupported Wikipedia language: {language}");
+        var parameters = new Dictionary<string, string>
+        {
+            ["action"] = "query",
+            ["format"] = "json",
+            ["formatversion"] = "2",
+            ["redirects"] = "1",
+            ["titles"] = title,
+            ["generator"] = "images",
+            ["gimlimit"] = Math.Clamp(limit, 1, 50).ToString(),
+            ["prop"] = "imageinfo",
+            ["iiprop"] = "url|size|mime|extmetadata",
+            ["iiextmetadatafilter"] = "LicenseShortName|LicenseUrl|Artist|Credit|DateTimeOriginal|ObjectName",
+            ["iiurlwidth"] = "2560",
+        };
+        try
+        {
+            using var doc = await GetJsonAsync(new Uri($"https://{language}.wikipedia.org/w/api.php?" + Query(parameters)), ct);
+            return Parse(doc.RootElement, title, MediaKind.Image)
+                .Where(i => !MediaScoring.IsBlocked($"{i.Title} {i.Query}", Options.BlockedWords)).ToList();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidDataException or KeyNotFoundException
+                                       or InvalidOperationException || ex is TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"{language}.wikipedia images of \"{title}\" failed: {TextUtil.Truncate(ex.Message, 200)}");
+            return [];
+        }
+    }
 
     protected override async Task<IReadOnlyList<MediaItem>> SearchCoreAsync(string query, MediaKind kind, int limit, CancellationToken ct)
     {
@@ -182,7 +224,8 @@ public sealed class CommonsSource(HttpClient http, MediaOptions options) : JsonM
             var author = TextUtil.StripHtml(Meta("Artist"));
             if (author.Length == 0) author = TextUtil.StripHtml(Meta("Credit"));
             var title = Str(page, "title");
-            var name = title.StartsWith("File:", StringComparison.Ordinal) ? title[5..] : title;
+            // Portuguese Wikipedia names the file namespace "Ficheiro:" (or "Arquivo:"); the id must match Commons' "File:".
+            var name = title.IndexOf(':') is var colon and > 0 && title[..colon] is "File" or "Ficheiro" or "Arquivo" or "Imagem" ? title[(colon + 1)..] : title;
             var width = info.TryGetProperty("width", out var wp) ? wp.GetInt32() : 0;
             var download = Str(info, "url");
             if (kind == MediaKind.Image)

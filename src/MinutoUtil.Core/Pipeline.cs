@@ -69,7 +69,8 @@ public sealed class Pipeline(
             var stills = Enumerable.Range(0, timings.Sections.Count)
                 .Select(s => Math.Max(shots.Count(x => x.Section == s && x.Effect != ShotEffect.Clip), s == 0 ? 1 : 0)).ToList();
             var clipLength = shots[0].Effect == ShotEffect.Clip ? (ShotPlanner.SegmentFrames(shots, 0, fade) + 6.0) / video.Fps : 0;
-            manifest = await gatherer.GatherAsync(script, stills, clipLength, [config.Story.EnglishArticle], mediaFolder, ct);
+            manifest = await gatherer.GatherAsync(script, stills, clipLength, [config.Story.EnglishArticle], mediaFolder, ct,
+                sources.Select(s => (s.Language, s.Title)).ToList());
             await manifest.SaveAsync(manifestPath, ct);
         }
         else

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using MinutoUtil.Core;
 using MinutoUtil.Core.Media;
+using MinutoUtil.Core.Scripts;
 using MinutoUtil.Core.Video;
 using MinutoUtil.Core.Voice;
 
@@ -137,6 +138,55 @@ public sealed class MediaTests
         Assert.NotNull(good.Hash);
         Assert.Null(bad);
         Assert.Single(Directory.GetFiles(Path.Combine(temp.Path, "media")));
+    }
+
+    /// <summary>A search source that finds nothing, like the archives for a 1996 subject.</summary>
+    private sealed class EmptySource : IMediaSource
+    {
+        public string Name => "empty";
+        public Task<IReadOnlyList<MediaItem>> SearchAsync(string query, MediaKind kind, int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MediaItem>>([]);
+    }
+
+    private sealed class ArticlePictures(params MediaItem[] items) : IArticleImageSource
+    {
+        public List<(string Language, string Title)> Asked { get; } = [];
+        public Task<IReadOnlyList<MediaItem>> ArticleImagesAsync(string language, string title, int limit, CancellationToken ct)
+        {
+            Asked.Add((language, title));
+            return Task.FromResult<IReadOnlyList<MediaItem>>(language == "pt" ? items : []);
+        }
+    }
+
+    [Fact]
+    public async Task SectionsTheSearchesLeaveShortGetTheArticlesOwnPictures()
+    {
+        using var temp = new TempFolder();
+        string[] patterns = ["testsrc2", "smptebars", "mandelbrot", "rgbtestsrc"];
+        foreach (var p in patterns) await Generated.ImageAsync(Path.Combine(temp.Path, $"{p}.jpg"), 1600, 1200, p);
+        var handler = new FakeHandler((request, _) => new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = new ByteArrayContent(File.ReadAllBytes(Path.Combine(temp.Path, Path.GetFileName(request.RequestUri!.AbsolutePath)))) });
+        var options = new MediaOptions { MinImageBytes = 1000 };
+        var downloader = new MediaDownloader(new HttpClient(handler), new Ffmpeg(new VideoOptions()), options) { DownloadInterval = TimeSpan.Zero };
+        MediaItem Picture(string pattern) => new()
+        {
+            Id = $"commons:{pattern}.jpg", Kind = MediaKind.Image, Source = "Wikimedia Commons", Title = $"Urna eletrônica {pattern}",
+            Author = "TSE", License = "CC BY 3.0", SourceUrl = $"https://commons.wikimedia.org/wiki/File:{pattern}.jpg",
+            DownloadUrl = $"https://upload.wikimedia.org/{pattern}.jpg", Width = 1600, Height = 1200,
+        };
+        var articles = new ArticlePictures([.. patterns.Select(Picture)]);
+        var gatherer = new MediaGatherer([new EmptySource()], [], downloader, null!, options, 1996, articles);
+        var section = new ScriptSection("Em 1996 o Brasil adotou a urna eletrônica.", ["voting machine"], ["urna"], "q");
+        var script = new VideoScript("Urna", "Por que só o Brasil?", "1996", "Brasil", [section, section], "d", ["urna"]);
+
+        var manifest = await gatherer.GatherAsync(script, [1, 2, 1], 0, ["Electronic voting in Brazil"], Path.Combine(temp.Path, "media"),
+            CancellationToken.None, [("en", "Electronic voting in Brazil"), ("pt", "Urna eletrônica (Brasil)")]);
+
+        // Four different photos for four shots: no picture shown twice, every section covered, Portuguese article asked first.
+        Assert.Equal(4, manifest.Images.Count);
+        Assert.Equal(4, manifest.Images.Select(i => i.Id).Distinct().Count());
+        Assert.Equal([0, 1, 1, 2], manifest.Images.Select(i => i.Section).Order());
+        Assert.Equal(("pt", "Urna eletrônica (Brasil)"), articles.Asked[0]);
     }
 
     [Fact]

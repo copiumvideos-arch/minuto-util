@@ -25,7 +25,9 @@ public sealed record MediaManifest(IReadOnlyList<MediaItem> Images, MediaItem? C
 /// Finds and downloads the pictures for each section from every image source (Commons, Library of Congress) with the
 /// section's own search queries, and one real footage clip for the opening shot (Internet Archive's US National
 /// Archives films first, then Commons videos). Results are ranked by <see cref="MediaScoring"/>, near duplicates
-/// are dropped, and no file is used twice.
+/// are dropped, and no file is used twice. Sections the searches leave short get the pictures the event's Wikipedia
+/// articles show themselves (<paramref name="articleImages"/>): recent subjects (a 1996 voting machine) find little in
+/// the archives, but their articles carry free photos of exactly the thing.
 /// </summary>
 public sealed class MediaGatherer(
     IReadOnlyList<IMediaSource> imageSources,
@@ -33,7 +35,8 @@ public sealed class MediaGatherer(
     MediaDownloader downloader,
     ClipExtractor clips,
     MediaOptions options,
-    int? eventYear)
+    int? eventYear,
+    IArticleImageSource? articleImages = null)
 {
     /// <summary>Hash distance at or below which two pictures count as the same photo.</summary>
     private const int DuplicateDistance = 10;
@@ -41,30 +44,28 @@ public sealed class MediaGatherer(
     /// <param name="stillsPerSection">How many still pictures each spoken section needs (index 0 is the hook).</param>
     /// <param name="clipSeconds">Length of the opening clip; 0 for none.</param>
     /// <param name="eventQueries">Searches for the event as a whole (the English article title), tried first for footage.</param>
+    /// <param name="articles">The event's Wikipedia articles (language, title), whose own pictures fill short sections.</param>
     public async Task<MediaManifest> GatherAsync(VideoScript script, IReadOnlyList<int> stillsPerSection, double clipSeconds,
-        IReadOnlyList<string> eventQueries, string folder, CancellationToken ct)
+        IReadOnlyList<string> eventQueries, string folder, CancellationToken ct, IReadOnlyList<(string Language, string Title)>? articles = null)
     {
         Directory.CreateDirectory(folder);
         var accepted = new List<MediaItem>();
         var seen = new HashSet<string>();
-        for (var section = 0; section < stillsPerSection.Count; section++)
+        var got = new int[stillsPerSection.Count];
+
+        // Downloads candidates into a section until it has `wanted` pictures.
+        async Task FillAsync(int section, int wanted, IEnumerable<MediaItem> candidates, string prefix)
         {
-            // The hook has no queries of its own: it shows the first section's subject.
-            var source = script.Sections[Math.Clamp(section - 1, 0, script.Sections.Count - 1)];
-            // One spare per section, so a picture that turns out unusable does not leave a gap.
-            var wanted = stillsPerSection[section] + 1;
-            var candidates = await CandidatesAsync([.. source.SearchEn, .. source.SearchPt], section, wanted * 4, seen, ct);
-            var got = 0;
             foreach (var candidate in candidates)
             {
-                if (got >= wanted) break;
+                if (got[section] >= wanted) break;
                 if (!seen.Add(candidate.Id)) continue;
                 if (accepted.Any(a => MediaScoring.TitleKey(a.Title) == MediaScoring.TitleKey(candidate.Title))) continue;
                 // A photo taken decades later (today's beach, a museum) is never the archive picture the story needs.
                 if (candidate.Year >= eventYear + 30) continue;
                 var side = Math.Min(candidate.Width, candidate.Height);
                 if (side > 0 && side < options.MinImageShortSide) continue;
-                var item = await downloader.DownloadImageAsync(candidate, folder, $"s{section}-{got + 1:00}-{TextUtil.Slug(candidate.Title, 40)}", ct);
+                var item = await downloader.DownloadImageAsync(candidate, folder, $"{prefix}{section}-{got[section] + 1:00}-{TextUtil.Slug(candidate.Title, 40)}", ct);
                 if (item is null) continue;
                 if (accepted.FirstOrDefault(a => Ffmpeg.HashDistance(a.Hash!.Value, item.Hash!.Value) <= DuplicateDistance) is { } twin)
                 {
@@ -73,9 +74,33 @@ public sealed class MediaGatherer(
                     continue;
                 }
                 accepted.Add(item with { Section = section });
-                got++;
+                got[section]++;
             }
-            Log.Info($"media: section {section} has {got} picture(s) for {stillsPerSection[section]} shot(s)");
+        }
+
+        for (var section = 0; section < stillsPerSection.Count; section++)
+        {
+            // The hook has no queries of its own: it shows the first section's subject.
+            var source = script.Sections[Math.Clamp(section - 1, 0, script.Sections.Count - 1)];
+            // One spare per section, so a picture that turns out unusable does not leave a gap.
+            var wanted = stillsPerSection[section] + 1;
+            var candidates = await CandidatesAsync([.. source.SearchEn, .. source.SearchPt], section, wanted * 4, seen, ct);
+            await FillAsync(section, wanted, candidates, "s");
+            Log.Info($"media: section {section} has {got[section]} picture(s) for {stillsPerSection[section]} shot(s)");
+        }
+
+        // Sections still short of their shots get the articles' own pictures, in page order (Portuguese article first:
+        // a Brazilian subject's best photos are usually there), shared out from the first short section on.
+        var short_ = Enumerable.Range(0, stillsPerSection.Count).Where(s => got[s] < stillsPerSection[s]).ToList();
+        if (short_.Count > 0 && articleImages is not null && articles is { Count: > 0 })
+        {
+            var pool = new List<MediaItem>();
+            foreach (var (language, title) in articles.OrderByDescending(a => a.Language == "pt"))
+                pool.AddRange(await articleImages.ArticleImagesAsync(language, title, 30, ct));
+            var before = accepted.Count;
+            foreach (var section in short_)
+                await FillAsync(section, stillsPerSection[section], pool.Where(p => !seen.Contains(p.Id)).Select(p => p with { Section = section }), "a");
+            Log.Info($"media: {accepted.Count - before} picture(s) from the articles' own images for {short_.Count} short section(s)");
         }
 
         MediaItem? clip = null;

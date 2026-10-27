@@ -113,7 +113,7 @@ var videoSources = new List<IMediaSource>();
 if (config.Media.InternetArchive) videoSources.Add(new InternetArchiveSource(http, config.Media));
 if (config.Media.Commons) videoSources.Add(new CommonsSource(http, config.Media));
 var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader(http, ffmpeg, config.Media),
-    new ClipExtractor(ffmpeg, config.Video), config.Media, config.Story.EventYear);
+    new ClipExtractor(ffmpeg, config.Video), config.Media, config.Story.EventYear, new CommonsSource(http, config.Media));
 
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
     () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer);
