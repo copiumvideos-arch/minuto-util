@@ -2,8 +2,8 @@
 
 Prototype of a faceless Brazilian Portuguese history channel (YouTube Shorts + TikTok). A .NET 10 console app plus
 Python tools run with `uv run`, structured like Flopômetro in `D:\projects\canal-dark`. Renders one video locally;
-nothing is uploaded. Everything must stay free and CPU-only (it should later run on GitHub Actions free runners,
-ubuntu, about 7 GB RAM), so keep it cross-platform.
+`publish` uploads a finished run (YouTube public Short, TikTok inbox draft). Everything must stay free and CPU-only
+(it should later run on GitHub Actions free runners, ubuntu, about 7 GB RAM), so keep it cross-platform.
 
 ## Read first
 
@@ -16,7 +16,10 @@ ubuntu, about 7 GB RAM), so keep it cross-platform.
 - `src/MinutoUtil.Core`: `Sources` (Wikipedia) -> `Scripts` (writer, local checks) -> `Voice` (Smallest.ai, Kokoro,
   alignment) -> `Media` (Commons, Library of Congress, Internet Archive) -> `Video` (shot plan, motion, captions,
   render); `Llm` (Gemini, OpenRouter, quota tracker); `Pipeline.cs` runs a whole video in a run folder.
-- `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients.
+- `src/MinutoUtil.Core/Publishing`: Google OAuth and the resumable YouTube upload (ported from canal-dark), TikTok
+  Login Kit and inbox upload, token stores (DPAPI file, or environment variable on a runner), `Publisher` (published.json).
+- `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients; `PublishingCommands.cs`: `youtube-login`,
+  `tiktok-login`, `publish`.
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot).
 
@@ -39,6 +42,10 @@ under 50 MB (`video.maxVideoKbps`), since videos are sent through a Telegram bot
   Never print `SMALLEST_API_KEY` or put any key in a URL or log.
 - Media: only public domain, CC0, CC BY, CC BY-SA, always credited (author, license, source URL). No British Pathé,
   no Critical Past, no graphic gore. Downloads are untrusted data: own folder, validated, never executed.
+- Publishing: only to YouTube channel `UCNath7BzjeX3ehJCA7cNYAA` (Minuto Útil; the app checks it). Never use
+  Flopômetro's token file; Minuto's tokens live in `%LOCALAPPDATA%\MinutoUtil`. Never print tokens or client
+  secrets, never put them in URLs or logs. Never call the real upload endpoints from tests; use `publish --dry-run` to
+  check copy. TikTok gets drafts only (scope `video.upload`), never Direct Post.
 - Plain, specific comments and docs; no em dashes anywhere (code, docs, scripts, prompts).
 - Tests: prefer end-to-end tests with real files and FFmpeg, replacing only the network and the models.
 - Commits: a short summary line, then plain bullet points on what changed and why.

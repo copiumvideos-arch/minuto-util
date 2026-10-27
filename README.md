@@ -1,7 +1,7 @@
 # Minuto Útil
 
 Prototype of a faceless Brazilian Portuguese history channel for YouTube Shorts and TikTok: one real event, under a
-minute, calm narration over archive photos and footage. This repository renders a video locally. Nothing is uploaded.
+minute, calm narration over archive photos and footage. This repository renders a video locally; a separate `publish` command uploads a finished one.
 Everything is free: Wikipedia, free model tiers, Smallest.ai's free plan, public domain and Creative Commons media,
 and CPU-only local tools (no GPU anywhere, so it can run on a GitHub Actions free runner).
 
@@ -101,6 +101,7 @@ The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideo
 | `timings.json` | every word, section and shot in seconds, and Whisper's alignment score per section |
 | `contact-sheet.png` | one frame every 3 seconds, for review |
 | `run.log` | the run's log, ending with model requests and Smallest characters used |
+| `published.json`, `tiktok-caption.txt` | written by `publish`: where the video went, and the caption to paste in TikTok |
 | `sources.json`, `voice/`, `media/`, `shots/`, `captions.ass` | intermediate files, reused by a re-run |
 
 ## Running
@@ -120,6 +121,86 @@ To redo one step of a run, delete its file and re-run the folder: `script.json` 
 `shots/` (all shots rendered again). To drop a bad picture after review, remove its entry from `media/manifest.json`
 and re-run the folder: the section's spare picture (each section downloads one more than it needs) takes its place.
 
+## Publishing
+
+`publish` sends a finished run folder to YouTube as a public Short and to the owner's TikTok inbox as a draft. It is a
+separate command: `make` never uploads anything.
+
+```powershell
+dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-v2 --dry-run   # shows what would be sent, calls nothing
+dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-v2 --youtube   # YouTube only
+dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-v2 --tiktok    # TikTok only
+dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-v2             # both
+```
+
+- **YouTube** (`Publishing/YouTubeUploader.cs`, resumable upload copied from Flopômetro): title from `metadata.json`
+  (at most 100 characters, cut at a word; " #shorts" is added only when it fits), the description as written (Windows
+  line ends and angle brackets removed; over YouTube's 5000 bytes, public domain and CC0 credit lines are folded into
+  one "Mais N itens de domínio público" line, CC BY and CC BY-SA credits are never dropped: the command refuses
+  instead), the hashtags as tags, category 27 (Education), `pt-BR`, public, not made for kids, no "altered or synthetic
+  content" flag (archive photos with an AI narrator reading facts are not realistic synthetic depictions). All of these
+  are under `youtube` in `config/minuto-util.json`. Before uploading, the token's channel is read
+  (`channels?mine=true`) and anything but `youtube.channelId` (`UCNath7BzjeX3ehJCA7cNYAA`, Minuto Útil) is refused,
+  so a Flopômetro sign-in can never post here. YouTube may lock uploads as private while the Google Cloud project has
+  not passed its API audit; the command warns when the answered privacy is not "public".
+- **TikTok** (`Publishing/TikTokUploader.cs`, Content Posting API, upload to inbox, scope `video.upload`): init with
+  `FILE_UPLOAD`, the file PUT to the returned `upload_url` (one chunk up to 64,000,000 bytes, otherwise 20,000,000-byte
+  chunks with the remainder on the last one), then the status is polled every 5 s until TikTok says
+  `SEND_TO_USER_INBOX` (up to `tiktok.statusWaitSeconds`). The owner opens the inbox notification in the TikTok app and
+  finishes the post (caption, sound, visibility). The inbox flow has no caption field, so the caption (title plus
+  hashtags, at most 2200 characters) is written to `tiktok-caption.txt` to paste. TikTok allows 5 drafts waiting in
+  the inbox per 24 hours.
+- Results go to `published.json` in the run folder (YouTube video id, URL, channel, privacy, time; TikTok publish_id,
+  status, time), written after each platform succeeds. A folder already published to a platform is refused for that
+  platform unless `--force` is given.
+- The publish lines are appended to the run's `run.log`. Tokens are never printed or logged.
+
+### YouTube sign-in, once
+
+The Google Cloud OAuth client is Flopômetro's "Desktop app" client (its consent screen is already "In production").
+The sign-in itself is Minuto Útil's own and is stored apart from Flopômetro's.
+
+1. The client file is at `%LOCALAPPDATA%\MinutoUtil\client_secret.json` (a copy of
+   `%LOCALAPPDATA%\Flopometro\client_secret.json`).
+2. `dotnet run --project src/MinutoUtil.Cli -- youtube-login`. The consent page opens (the link is printed too; add
+   `--no-browser` to open it yourself in the right browser profile). Pick the Google account, then the **Minuto Útil**
+   channel in the channel chooser. Access asked: upload videos, and read-only access to see which channel it is.
+3. The app checks the channel id; a sign-in for any other channel is thrown away. The refresh token is saved
+   DPAPI-encrypted for the Windows user in `%LOCALAPPDATA%\MinutoUtil\youtube-token.bin`.
+
+### TikTok sign-in, once
+
+In the TikTok developer portal (https://developers.tiktok.com), signed in with the owner's account:
+
+1. **Manage apps > Connect an app**: create an app (name "Minuto Útil", category Entertainment or Education, a short
+   description, an icon). Under **Platforms** tick **Desktop**.
+2. **Add products**: **Login Kit** and **Content Posting API**. In Content Posting API leave **Direct Post** off: we
+   only send drafts to the inbox.
+3. **Scopes**: `user.info.basic` and `video.upload` (both come with those products; check they are listed).
+4. **Login Kit > Redirect URI (Desktop)**: `http://localhost:8723/callback/` exactly (it must match
+   `tiktok.redirectUri` in the config). TikTok allows only `localhost` or `127.0.0.1` with a port for desktop apps.
+5. Switch the app to **Sandbox** (toggle at the top), **Create Sandbox**, then **Sandbox settings > Target users > Add
+   account** and sign in with the Minuto Útil TikTok account. It can take up to an hour to show up. Sandbox needs no
+   app review; make sure the sandbox has the same products, scopes and redirect URI (clone the configuration).
+6. Copy the sandbox's **Client key** and **Client secret** (App details) into Windows user environment variables
+   `MINUTO_TIKTOK_CLIENT_KEY` and `MINUTO_TIKTOK_CLIENT_SECRET`. Use the dialog (Start > "Edit environment variables
+   for your account", or `rundll32 sysdm.cpl,EditEnvironmentVariables`) rather than a command, so the secret does not
+   land in the PowerShell history.
+
+Then `dotnet run --project src/MinutoUtil.Cli -- tiktok-login`, allow access in the browser and check that the
+printed account name is the channel's. The refresh token (365 days; TikTok may replace it on each refresh, and the
+new one is saved) goes DPAPI-encrypted to `%LOCALAPPDATA%\MinutoUtil\tiktok-token.bin`. If the local listener cannot
+start, `tiktok-login --paste` asks you to paste the address the browser ends on (with `?code=`) instead.
+
+### On a Linux runner later
+
+The DPAPI files only work for the Windows user who made them. When these environment variables are set they win over
+the files: `MINUTO_YOUTUBE_REFRESH_TOKEN`, `MINUTO_TIKTOK_REFRESH_TOKEN`, plus `MINUTO_GOOGLE_CLIENT_ID` and
+`MINUTO_GOOGLE_CLIENT_SECRET` (the Desktop client, instead of `client_secret.json`) and the two TikTok client
+variables. TikTok rotates refresh tokens: when a refresh returns a new one, an environment variable cannot be updated,
+so the run logs a warning (never the token) and the secret has to be refreshed by signing in again on Windows. There is
+no command that exports the tokens yet: putting them into GitHub secrets is a manual step to design with the runner.
+
 ## Known limits
 
 - loc.gov answers API clients from this PC with a Cloudflare challenge (403); the Library of Congress source then
@@ -136,7 +217,7 @@ Settings live in `config/minuto-util.json` (defaults in `src/MinutoUtil.Core/Con
 ## Tests
 
 ```powershell
-dotnet test                       # about 30 s; the render test needs FFmpeg and the tools/ environment
+dotnet test                       # about 80 s; the render test needs FFmpeg and the tools/ environment
 cd tools; uv run pytest           # motion and voice tools
 ```
 
@@ -144,3 +225,7 @@ The render test runs the whole pipeline on real files with real FFmpeg and the r
 network (Wikipedia, the writer, Smallest.ai answers with generated tones) and the models (generated depth maps, no
 Whisper). Script tests parse a stored Gemini answer; the motion tests check on a synthetic scene that near pixels move
 more than far ones and that Ken Burns glides without jumps.
+Publishing tests (`PublishingTests.cs`) replace YouTube and TikTok with fake HTTP handlers that behave like the real
+endpoints: the resumable upload resuming after a failed chunk, the channel guard, TikTok's chunk plan, Content-Range
+headers, 206/201 answers and status polling, the published.json double-publish guard, and a dry run making no request.
+The sign-in tests play the browser against the real local listener. Nothing in the tests talks to Google or TikTok.

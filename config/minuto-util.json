@@ -51,5 +51,27 @@
       "wordPop": true,
       "keyWords": true
     }
+  },
+  "youtube": {
+    "channelId": "UCNath7BzjeX3ehJCA7cNYAA",
+    "categoryId": "27",
+    "language": "pt-BR",
+    "audioLanguage": "pt-BR",
+    "privacyStatus": "public",
+    "madeForKids": false,
+    "containsSyntheticMedia": false,
+    "appendShortsTag": true,
+    "clientSecretFile": "%LOCALAPPDATA%/MinutoUtil/client_secret.json",
+    "tokenFile": "%LOCALAPPDATA%/MinutoUtil/youtube-token.bin",
+    "refreshTokenEnvVar": "MINUTO_YOUTUBE_REFRESH_TOKEN"
+  },
+  "tiktok": {
+    "clientKeyEnvVar": "MINUTO_TIKTOK_CLIENT_KEY",
+    "clientSecretEnvVar": "MINUTO_TIKTOK_CLIENT_SECRET",
+    "redirectUri": "http://localhost:8723/callback/",
+    "tokenFile": "%LOCALAPPDATA%/MinutoUtil/tiktok-token.bin",
+    "refreshTokenEnvVar": "MINUTO_TIKTOK_REFRESH_TOKEN",
+    "maxCaptionChars": 2200,
+    "statusWaitSeconds": 300
   }
 }

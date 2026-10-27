@@ -13,6 +13,8 @@ public sealed record AppConfig
     public VoiceOptions Voice { get; init; } = new();
     public MediaOptions Media { get; init; } = new();
     public VideoOptions Video { get; init; } = new();
+    public YouTubeOptions YouTube { get; init; } = new();
+    public TikTokOptions TikTok { get; init; } = new();
 
     /// <summary>
     /// Quota files of other apps that use the same API keys, read only. The Gemini key is shared with the live
@@ -235,4 +237,64 @@ public sealed record StyleOptions
 
     /// <summary>Names, dates, numbers and places in yellow; the rest white.</summary>
     public bool KeyWords { get; init; } = true;
+}
+
+/// <summary>
+/// The YouTube upload: one public Short per run folder, only ever to the Minuto Útil channel. The Google Cloud OAuth
+/// client is the Desktop app client shared with Flopômetro; the sign-in (refresh token) is Minuto Útil's own.
+/// </summary>
+public sealed record YouTubeOptions
+{
+    /// <summary>The only channel this app uploads to. A sign-in or token for any other channel is refused.</summary>
+    public string ChannelId { get; init; } = "UCNath7BzjeX3ehJCA7cNYAA";
+
+    /// <summary>27 is Education.</summary>
+    public string CategoryId { get; init; } = "27";
+    public string Language { get; init; } = "pt-BR";
+    public string AudioLanguage { get; init; } = "pt-BR";
+    public string PrivacyStatus { get; init; } = "public";
+    public bool MadeForKids { get; init; }
+
+    /// <summary>
+    /// YouTube's "altered or synthetic content" flag is for realistic depictions of people, places or events that did
+    /// not happen. Archive photos and footage with an AI narrator reading facts are not that, so it is off.
+    /// </summary>
+    public bool ContainsSyntheticMedia { get; init; }
+
+    /// <summary>Adds " #shorts" to the title when it still fits in 100 characters.</summary>
+    public bool AppendShortsTag { get; init; } = true;
+
+    /// <summary>The Desktop app OAuth client (Google Cloud JSON). On a runner, MINUTO_GOOGLE_CLIENT_ID and MINUTO_GOOGLE_CLIENT_SECRET replace it.</summary>
+    public string ClientSecretFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/client_secret.json";
+    public string ClientIdEnvVar { get; init; } = "MINUTO_GOOGLE_CLIENT_ID";
+    public string ClientSecretEnvVar { get; init; } = "MINUTO_GOOGLE_CLIENT_SECRET";
+
+    /// <summary>The refresh token, DPAPI-encrypted for the Windows user. The environment variable wins when set (Linux runner).</summary>
+    public string TokenFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/youtube-token.bin";
+    public string RefreshTokenEnvVar { get; init; } = "MINUTO_YOUTUBE_REFRESH_TOKEN";
+}
+
+/// <summary>
+/// The TikTok upload: the video goes to the owner's TikTok inbox as a draft (Content Posting API, scope video.upload),
+/// and the owner finishes the post in the app. The inbox flow has no caption field, so the caption is written to a file.
+/// </summary>
+public sealed record TikTokOptions
+{
+    public string ClientKeyEnvVar { get; init; } = "MINUTO_TIKTOK_CLIENT_KEY";
+    public string ClientSecretEnvVar { get; init; } = "MINUTO_TIKTOK_CLIENT_SECRET";
+
+    /// <summary>
+    /// Must be registered exactly like this in the TikTok app's Login Kit settings (Desktop). TikTok allows only
+    /// localhost or 127.0.0.1 with a port for desktop apps.
+    /// </summary>
+    public string RedirectUri { get; init; } = "http://localhost:8723/callback/";
+
+    public string TokenFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/tiktok-token.bin";
+    public string RefreshTokenEnvVar { get; init; } = "MINUTO_TIKTOK_REFRESH_TOKEN";
+
+    /// <summary>TikTok's caption limit.</summary>
+    public int MaxCaptionChars { get; init; } = 2200;
+
+    /// <summary>How long to wait for TikTok to finish processing the upload before leaving it to the app.</summary>
+    public int StatusWaitSeconds { get; init; } = 300;
 }
