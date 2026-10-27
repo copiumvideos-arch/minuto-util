@@ -203,10 +203,12 @@ start, `tiktok-login --paste` asks you to paste the address the browser ends on 
 
 ## Cloud runs (no PC needed)
 
-The private GitHub repository `copiumvideos-arch/minuto-util` renders and publishes on its own:
+The public GitHub repository `copiumvideos-arch/minuto-util` renders and publishes on its own (public: unlimited
+free Actions minutes on a 4-core runner; secrets stay in Actions secrets, tokens on the state branch are encrypted,
+but run logs and the release videos waiting for review can be seen by anyone with the link):
 
 ```
-render.yml (08:30 and 15:30 Brasília, or "/novo" on Telegram)
+render.yml (07:00, 11:00, 15:00 and 19:00 Brasília, or "/novo" on Telegram)
   -> next topic from config/topics.json -> make -> video kept as a GitHub release "run-<tag>"
   -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
 tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
@@ -234,9 +236,8 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
 - **No double posts**: the relay removes the buttons after the first tap, publish runs for the same tag never overlap,
   publish runs for different videos wait for each other (they share the TikTok token), and `published.json` is kept
   with the release, so a retry (the "🔁 Tentar de novo" button after a failure) only sends what is missing.
-- **Minutes**: a private repository gets 2,000 free Actions minutes a month. A render is about 15-25 minutes on the
-  2-core runner, a publish about 2. Check the real numbers under Settings > Billing after the first days before adding
-  a third daily render in `render.yml`.
+- **Volume**: four renders a day. TikTok accepts 5 inbox drafts per 24 hours, so post the drafts daily. The trend
+  scan queues up to 4 topics a day and the backlog covers days without picks.
 
 ### Setting it up, once
 

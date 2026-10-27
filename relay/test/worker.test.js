@@ -5,7 +5,7 @@ import { createWorker, sameSecret } from "../src/worker.js";
 const env = {
   TELEGRAM_BOT_TOKEN: "123:bot-secret",
   TELEGRAM_WEBHOOK_SECRET: "hook-secret",
-  OWNER_CHAT_ID: "8812258999",
+  OWNER_CHAT_ID: "1000000001",
   GITHUB_TOKEN: "github_pat_x",
   GITHUB_REPO: "owner/minuto-util",
 };
@@ -28,7 +28,7 @@ function post(update, secret = "hook-secret", path = "/telegram") {
   });
 }
 
-const tap = (data, from = 8812258999) => ({
+const tap = (data, from = 1000000001) => ({
   update_id: 1,
   callback_query: { id: "cq1", data, from: { id: from }, message: { message_id: 77, chat: { id: from } } },
 });
@@ -44,7 +44,7 @@ test("Publicar starts publish.yml for that run and removes the buttons", async (
   assert.equal(github.headers.Authorization, "Bearer github_pat_x");
   assert.ok(calls.some((c) => c.url.endsWith("/answerCallbackQuery") && c.body.text === "Publicando..."));
   const edit = calls.find((c) => c.url.endsWith("/editMessageReplyMarkup"));
-  assert.deepEqual(edit.body, { chat_id: 8812258999, message_id: 77, reply_markup: { inline_keyboard: [] } });
+  assert.deepEqual(edit.body, { chat_id: 1000000001, message_id: 77, reply_markup: { inline_keyboard: [] } });
 });
 
 test("Rejeitar starts publish.yml with the reject action", async () => {
@@ -78,7 +78,7 @@ test("anyone but the owner, a forged button or a wrong secret starts nothing", a
 });
 
 test("/novo starts render.yml, with an article when one is given", async () => {
-  const message = (text, from = 8812258999) => ({ update_id: 2, message: { text, from: { id: from }, chat: { id: from } } });
+  const message = (text, from = 1000000001) => ({ update_id: 2, message: { text, from: { id: from }, chat: { id: from } } });
   let net = fakeNetwork();
   await net.worker.fetch(post(message("/novo")), env);
   assert.equal(net.calls[0].url, "https://api.github.com/repos/owner/minuto-util/actions/workflows/render.yml/dispatches");
