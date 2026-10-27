@@ -9,10 +9,10 @@ import cv2
 import numpy as np
 import pytest
 
-from mapinsert import PIN, load_countries
+from mapinsert import PIN, load_countries, parse_color
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FONT = os.path.join(HERE, "..", "assets", "fonts", "Montserrat-Black.ttf")
+FONT = os.path.join(HERE, "..", "assets", "fonts", "RobotoSerif-Black.ttf")
 
 SQUARES = {"type": "FeatureCollection", "features": [
     {"type": "Feature", "properties": {}, "geometry": {"type": "Polygon",
@@ -37,16 +37,16 @@ def test_zooms_in_and_pins_the_place(tmp_path):
             break
         frames.append(frame)
     assert len(frames) == 30
-    # BGR frames: the yellow pin and name appear only at the end.
-    yellow = np.array([PIN[2], PIN[1], PIN[0]])
+    # BGR frames: the red pin and name appear only at the end.
+    pin = np.array([PIN[2], PIN[1], PIN[0]])
 
-    def yellow_share(frame):
-        return (np.abs(frame.astype(int) - yellow).sum(axis=2) < 60).mean()
+    def pin_share(frame):
+        return (np.abs(frame.astype(int) - pin).sum(axis=2) < 60).mean()
 
-    assert yellow_share(frames[0]) < 0.001
-    assert yellow_share(frames[-1]) > 0.003
+    assert pin_share(frames[0]) < 0.001
+    assert pin_share(frames[-1]) > 0.003
     # The pin sits near the middle at the end: the zoom ends centered on the place.
-    mask = np.abs(frames[-1].astype(int) - yellow).sum(axis=2) < 60
+    mask = np.abs(frames[-1].astype(int) - pin).sum(axis=2) < 60
     ys, xs = np.nonzero(mask)
     assert abs(xs.mean() - 180) < 60
 
@@ -60,3 +60,10 @@ def test_refuses_files_that_are_not_geojson_polygons(tmp_path):
     with pytest.raises(json.JSONDecodeError):
         (tmp_path / "html.geojson").write_text("<html>not json</html>", encoding="utf-8")
         load_countries(None, str(tmp_path / "html.geojson"))
+
+
+def test_pin_color_is_a_hex_color():
+    assert parse_color("#DC010A") == (220, 1, 10)
+    assert parse_color("f7e2c7") == (247, 226, 199)
+    assert parse_color("#FFD70") is None
+    assert parse_color("red; rm") is None

@@ -173,10 +173,12 @@ public sealed record VideoOptions
     /// <summary>Parallax: how far the nearest pixels travel over one shot, as a share of the frame width.</summary>
     public double ParallaxTravel { get; init; } = 0.045;
 
-    public string FontFile { get; init; } = "assets/fonts/Montserrat-Black.ttf";
-    public string FontName { get; init; } = "Montserrat Black";
-    public string StampFontFile { get; init; } = "assets/fonts/Montserrat-ExtraBold.ttf";
-    public string StampFontName { get; init; } = "Montserrat ExtraBold";
+    /// <summary>Captions, the year and the map: Roboto Serif Black (OFL), a static instance named "Roboto Serif Black".</summary>
+    public string FontFile { get; init; } = "assets/fonts/RobotoSerif-Black.ttf";
+    public string FontName { get; init; } = "Roboto Serif Black";
+    /// <summary>Date stamp, place line and watermark text: Roboto Serif ExtraBold.</summary>
+    public string StampFontFile { get; init; } = "assets/fonts/RobotoSerif-ExtraBold.ttf";
+    public string StampFontName { get; init; } = "Roboto Serif ExtraBold";
     public string FfmpegPath { get; init; } = "ffmpeg";
     public string FfprobePath { get; init; } = "ffprobe";
     public string Encoder { get; init; } = "libx264";
@@ -229,14 +231,26 @@ public sealed record StyleOptions
     /// <summary>Where the Natural Earth countries file is kept once downloaded (untrusted data, validated on load).</summary>
     public string MapDataDirectory { get; init; } = "assets/cache/naturalearth";
 
-    /// <summary>Hourglass and "Minuto Útil", small and semi-transparent, top left.</summary>
+    /// <summary>The channel emblem and "Minuto Útil", small and semi-transparent, top left.</summary>
     public bool Watermark { get; init; } = true;
+
+    /// <summary>
+    /// The emblem drawn as the watermark: a small round PNG with transparency, made from assets/brand/emblem.png by
+    /// tools/watermark.py. When the file is missing, a vector hourglass is drawn instead.
+    /// </summary>
+    public string WatermarkImage { get; init; } = "assets/brand/watermark.png";
 
     /// <summary>Caption words appear one by one as they are spoken, each with a quick pop.</summary>
     public bool WordPop { get; init; } = true;
 
-    /// <summary>Names, dates, numbers and places in yellow; the rest white.</summary>
+    /// <summary>Names, dates, numbers and places in the highlight color; the rest in the text color.</summary>
     public bool KeyWords { get; init; } = true;
+
+    /// <summary>Caption, place line and watermark text, as #RRGGBB: the brand's cream.</summary>
+    public string TextColor { get; init; } = "#F7E2C7";
+
+    /// <summary>Key words, the year, the map pin and the fallback hourglass, as #RRGGBB: the brand's red.</summary>
+    public string HighlightColor { get; init; } = "#DC010A";
 }
 
 /// <summary>

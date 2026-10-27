@@ -48,8 +48,11 @@
       "mapSeconds": 2.6,
       "mapDataDirectory": "assets/cache/naturalearth",
       "watermark": true,
+      "watermarkImage": "assets/brand/watermark.png",
       "wordPop": true,
-      "keyWords": true
+      "keyWords": true,
+      "textColor": "#F7E2C7",
+      "highlightColor": "#DC010A"
     }
   },
   "youtube": {

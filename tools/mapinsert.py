@@ -5,9 +5,9 @@ as GeoJSON. The file is downloaded once into --data-dir and reused. It is untrus
 only, and every geometry checked to be a polygon of numbers before anything is drawn.
 
 Usage:
-  uv run mapinsert.py --out map.mp4 --name Normandia --lat 49.4 --lon -0.9 --frames 78 --font Montserrat-Black.ttf
+  uv run mapinsert.py --out map.mp4 --name Normandia --lat 49.4 --lon -0.9 --frames 78 --font RobotoSerif-Black.ttf
                       [--data-dir assets/cache/naturalearth | --geojson countries.geojson] [--fps 30]
-                      [--width 1080] [--height 1920] [--ffmpeg ffmpeg]
+                      [--width 1080] [--height 1920] [--ffmpeg ffmpeg] [--pin-color "#DC010A"]
 """
 
 import argparse
@@ -27,12 +27,12 @@ FILE_NAME = "ne_10m_admin_0_countries.geojson"
 MAX_BYTES = 40_000_000
 USER_AGENT = "MinutoUtilBot/0.1 (faceless history Shorts prototype; public domain and CC media only)"
 
-# Old atlas colors: pale sea, cream land, sepia borders; the pin in the channel's yellow.
+# Old atlas colors: pale sea, cream land, sepia borders; the pin in the channel's red (--pin-color overrides it).
 SEA = (183, 192, 182)
 LAND = (229, 214, 174)
 BORDER = (122, 92, 58)
 GRID = (160, 168, 156)
-PIN = (255, 212, 0)
+PIN = (220, 1, 10)
 INK = (20, 16, 12)
 
 # Wide view of Europe at the start, close view of the place at the end, as degrees of longitude across the frame.
@@ -97,7 +97,16 @@ def view(t: float, lat: float, lon: float) -> tuple[float, float, float]:
     return EUROPE[0] + (lon - EUROPE[0]) * e, EUROPE[1] + (lat - EUROPE[1]) * e, span
 
 
-def draw_frame(rings, bboxes, width, height, center_lon, center_lat, span, lat, lon, name, font, pin_t) -> Image.Image:
+def parse_color(text: str) -> tuple[int, int, int] | None:
+    """"#DC010A" as (220, 1, 10); None when it is not a #RRGGBB color."""
+    value = text.strip().removeprefix("#")
+    if len(value) != 6 or any(c not in "0123456789abcdefABCDEF" for c in value):
+        return None
+    return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+
+def draw_frame(rings, bboxes, width, height, center_lon, center_lat, span, lat, lon, name, font, pin_t,
+               pin=PIN) -> Image.Image:
     w, h = int(width * SUPERSAMPLE), int(height * SUPERSAMPLE)
     k = math.cos(math.radians(center_lat))
     scale = w / (span * k)
@@ -137,18 +146,18 @@ def draw_frame(rings, bboxes, width, height, center_lon, center_lat, span, lat, 
         radius = (60 + 35 * math.sin(math.pi * min(pin_t, 1.0))) * SUPERSAMPLE
         ImageDraw.Draw(glow).ellipse([px - radius, py - radius, px + radius, py + radius], fill=int(190 * appear))
         glow = glow.filter(ImageFilter.GaussianBlur(radius * 0.35))
-        image = Image.composite(Image.new("RGB", (w, h), PIN), image, glow)
+        image = Image.composite(Image.new("RGB", (w, h), pin), image, glow)
         draw = ImageDraw.Draw(image)
         dot = 22 * SUPERSAMPLE * appear
         draw.ellipse([px - dot - 5 * SUPERSAMPLE, py - dot - 5 * SUPERSAMPLE, px + dot + 5 * SUPERSAMPLE,
                       py + dot + 5 * SUPERSAMPLE], fill=INK)
-        draw.ellipse([px - dot, py - dot, px + dot, py + dot], fill=PIN)
+        draw.ellipse([px - dot, py - dot, px + dot, py + dot], fill=pin)
         if appear >= 1:
             text = name.upper()
             box = draw.textbbox((0, 0), text, font=font, stroke_width=int(7 * SUPERSAMPLE))
             tx = min(max(px - (box[2] - box[0]) / 2, 40 * SUPERSAMPLE), w - (box[2] - box[0]) - 40 * SUPERSAMPLE)
             ty = py - 70 * SUPERSAMPLE - (box[3] - box[1])
-            draw.text((tx, ty), text, font=font, fill=PIN, stroke_width=int(7 * SUPERSAMPLE), stroke_fill=INK)
+            draw.text((tx, ty), text, font=font, fill=pin, stroke_width=int(7 * SUPERSAMPLE), stroke_fill=INK)
     return image.resize((width, height), Image.LANCZOS)
 
 
@@ -166,12 +175,17 @@ def main() -> int:
     parser.add_argument("--width", type=int, default=1080)
     parser.add_argument("--height", type=int, default=1920)
     parser.add_argument("--ffmpeg", default="ffmpeg")
+    parser.add_argument("--pin-color", default="#DC010A", help="the pin, its glow and the place name, as #RRGGBB")
     args = parser.parse_args()
     if not args.data_dir and not args.geojson:
         print("Give --data-dir or --geojson.", file=sys.stderr)
         return 1
     if not (-90 <= args.lat <= 90 and -180 <= args.lon <= 180):
         print("Latitude or longitude out of range.", file=sys.stderr)
+        return 1
+    pin = parse_color(args.pin_color)
+    if pin is None:
+        print("--pin-color must be #RRGGBB.", file=sys.stderr)
         return 1
 
     rings = load_countries(args.data_dir, args.geojson)
@@ -188,7 +202,7 @@ def main() -> int:
             center_lon, center_lat, span = view(t / 0.7, args.lat, args.lon)
             pin_t = (t - 0.55) / 0.45
             frame = draw_frame(rings, bboxes, args.width, args.height, center_lon, center_lat, span, args.lat, args.lon,
-                               args.name, font, pin_t)
+                               args.name, font, pin_t, pin)
             process.stdin.write(np.asarray(frame, dtype=np.uint8).tobytes())
     finally:
         process.stdin.close()

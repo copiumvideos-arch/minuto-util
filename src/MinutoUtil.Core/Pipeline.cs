@@ -94,12 +94,14 @@ public sealed class Pipeline(
         }
 
         CopyFonts(folder);
+        var emblem = EmblemPath();
         var stampEnd = (double)shots[0].End / video.Fps;
         await File.WriteAllTextAsync(Path.Combine(folder, "captions.ass"),
-            CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, script.EraStamp, script.PlaceStamp, stampEnd, video.Style), ct);
+            CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, script.EraStamp, script.PlaceStamp, stampEnd, video.Style,
+                emblem is not null), ct);
 
         var videoPath = Path.Combine(folder, "video.mp4");
-        await final.RenderAsync(shots, shotFiles, Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct);
+        await final.RenderAsync(shots, shotFiles, Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct, emblem);
         var ffmpeg = new Ffmpeg(video);
         var probe = await ffmpeg.ProbeAsync(videoPath, ct);
         var lufs = await ffmpeg.LoudnessAsync(videoPath, ct);
@@ -213,6 +215,17 @@ public sealed class Pipeline(
         DownloadUrl = "https://www.naturalearthdata.com/",
         LocalPath = Path.Combine(dataDirectory, "ne_10m_admin_0_countries.geojson"),
     };
+
+    /// <summary>The emblem for the watermark, or null (the vector hourglass is drawn) when the watermark is off or the file is missing.</summary>
+    private string? EmblemPath()
+    {
+        var style = config.Video.Style;
+        if (!style.Watermark || string.IsNullOrWhiteSpace(style.WatermarkImage)) return null;
+        var path = Path.Combine(repositoryRoot, style.WatermarkImage);
+        if (File.Exists(path)) return path;
+        Log.Warn($"style: no watermark image at {style.WatermarkImage}, so the vector hourglass is drawn");
+        return null;
+    }
 
     private void CopyFonts(string folder)
     {

@@ -244,14 +244,14 @@ public sealed class PlannerAndCaptionTests
     [Fact]
     public void StyleSwitchesTurnEachCaptionLayerOnAndOff()
     {
-        var on = CaptionBuilder.Build(Timings(), 18, "Montserrat Black", "Montserrat ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5, new StyleOptions());
+        var on = CaptionBuilder.Build(Timings(), 18, "Roboto Serif Black", "Roboto Serif ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5, new StyleOptions());
         Assert.Contains("Minuto Útil", on);
         Assert.Contains("NORMANDIA, FRANÇA", on);
         Assert.Contains("}44", on);
         Assert.Contains(@"\fscy125", on);
         Assert.DoesNotContain(",Stamp,", on);
 
-        var off = CaptionBuilder.Build(Timings(), 18, "Montserrat Black", "Montserrat ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5,
+        var off = CaptionBuilder.Build(Timings(), 18, "Roboto Serif Black", "Roboto Serif ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5,
             new StyleOptions { YearCard = false, Watermark = false, WordPop = false, KeyWords = false });
         Assert.DoesNotContain("Minuto Útil", off);
         Assert.DoesNotContain(@"\fscy125", off);
@@ -286,10 +286,10 @@ public sealed class PlannerAndCaptionTests
     [Fact]
     public void BuildsTheAssDocumentWithHighlightAndDateStamp()
     {
-        var ass = CaptionBuilder.Build(Timings(), 18, "Montserrat Black", "Montserrat ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5);
+        var ass = CaptionBuilder.Build(Timings(), 18, "Roboto Serif Black", "Roboto Serif ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5);
         Assert.Contains("6 DE JUNHO DE 1944", ass);
         Assert.Contains("NORMANDIA, FRANÇA", ass);
-        Assert.Contains("\\c&H0000D7FF&", ass);
+        Assert.Contains("\\c&H000A01DC&", ass);
         Assert.Contains("\\pos(540,1260)", ass);
         Assert.Contains("Dialogue: 1,0:00:00.15,0:00:03.50,Stamp", ass);
     }

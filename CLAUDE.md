@@ -21,16 +21,19 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 - `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients; `PublishingCommands.cs`: `youtube-login`,
   `tiktok-login`, `publish`.
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
-  `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot).
+  `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
+  (the round watermark cut from the emblem).
 
 ## Channel style
 
 Every video uses the channel style by default unless the owner says otherwise: vintage grade, vignette, grain, faint
 flicker, two light leaks, light denoise and sharpening, more contrast and saturation, the rolling year card, the map
-insert after the hook, the hourglass watermark top left, captions that pop in word by word with names, places, dates
-and numbers in yellow, and a looping last line. No music and no sound effects. Each layer is a switch under
-`video.style` in `config/minuto-util.json`; the table with defaults is in README.md ("Channel style"). Keep files
-under 50 MB (`video.maxVideoKbps`), since videos are sent through a Telegram bot.
+insert after the hook, the emblem watermark top left, captions that pop in word by word with names, places, dates
+and numbers in red, and a looping last line. The brand is the owner's logo (`assets/brand/`): black, cream `#F7E2C7`,
+red `#DC010A`, heavy serif type (Roboto Serif Black and ExtraBold in `assets/fonts`); no yellow anywhere. If the
+emblem changes, rebuild `assets/brand/watermark.png` with `tools/watermark.py`. No music and no sound effects. Each
+layer is a switch under `video.style` in `config/minuto-util.json`; the table with defaults is in README.md ("Channel
+style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent through a Telegram bot.
 
 ## Rules
 

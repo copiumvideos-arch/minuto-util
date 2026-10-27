@@ -118,6 +118,9 @@ public sealed class RenderEndToEndTests
         Assert.Equal(timings.Shots.Count, timings.Shots.Select(s => s.Media).Distinct().Count());
         var ass = await File.ReadAllTextAsync(Path.Combine(run, "captions.ass"));
         Assert.Contains("Minuto Útil", ass);
+        // The emblem picture was found and overlaid, so the captions carry only its text, not the vector hourglass.
+        Assert.Contains($@"\pos({Layout.WatermarkLeft + Layout.EmblemSize + 14},", ass);
+        Assert.DoesNotContain("m 0 0 l 30 0", ass);
         Assert.Contains("}44", ass); // the year card's last value
         Assert.DoesNotContain(",Stamp,", ass); // the card replaces the plain date stamp
         Assert.Contains(@"\alpha&HFF&", ass); // words not yet spoken are hidden

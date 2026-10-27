@@ -26,6 +26,10 @@ public static class Layout
     public const int YearCardY = 760;
     public const int WatermarkLeft = 54;
     public const int WatermarkTop = 196;
+
+    /// <summary>The emblem watermark: a square this size whose middle lines up with the "Minuto Útil" text.</summary>
+    public const int EmblemSize = 96;
+    public const int EmblemTop = WatermarkTop + 22 - EmblemSize / 2;
 }
 
 /// <summary>
@@ -37,27 +41,49 @@ public static partial class CaptionBuilder
     private const int MaxWordsPerChunk = 4;
     private const int MinWordsPerChunk = 2;
     private const int MaxCharsPerChunk = 18;
-    private const int CaptionFontSize = 104;
+    // Roboto Serif is wider than a grotesque: at 96 most chunks need little or no horizontal squeeze.
+    private const int CaptionFontSize = 96;
     private const int YearFontSize = 230;
 
+    /// <summary>Black caption outline in pixels: thick enough that red words stay clear of dark footage.</summary>
+    private const int CaptionOutline = 8;
+
     /// <summary>
-    /// Average advance of an uppercase Montserrat Black letter or space as libass draws it, as a share of the font size
-    /// (measured: "QUARENTA E QUATRO." at size 92 is about 750 px wide), rounded up to stay on the safe side.
+    /// Advance of each uppercase Roboto Serif Black character as libass draws it, as a share of the font size, without
+    /// the style's spacing. Measured with libass (FFmpeg's ass filter): the width of "I" + 20 copies + "I" minus
+    /// "I" + 10 copies + "I", over 10. One average does not work for a serif: M (0.744) and W (0.792) are more than
+    /// twice as wide as I (0.312), so "MONTGOMERY ROMMEL" overflowed an average that fit "DESEMBARCARAM NAS".
+    /// Accented letters take their base letter's width.
     /// </summary>
-    private const double CharWidth = 0.48;
+    private static readonly Dictionary<char, double> CharWidths = new()
+    {
+        ['A'] = 0.568, ['B'] = 0.576, ['C'] = 0.528, ['D'] = 0.640, ['E'] = 0.504, ['F'] = 0.488, ['G'] = 0.592,
+        ['H'] = 0.632, ['I'] = 0.312, ['J'] = 0.488, ['K'] = 0.632, ['L'] = 0.496, ['M'] = 0.744, ['N'] = 0.568,
+        ['O'] = 0.632, ['P'] = 0.552, ['Q'] = 0.632, ['R'] = 0.600, ['S'] = 0.480, ['T'] = 0.568, ['U'] = 0.568,
+        ['V'] = 0.552, ['W'] = 0.792, ['X'] = 0.560, ['Y'] = 0.540, ['Z'] = 0.496, [' '] = 0.180, ['.'] = 0.240,
+        [','] = 0.248, ['!'] = 0.248, ['?'] = 0.456, [':'] = 0.240, [';'] = 0.248, ['-'] = 0.356, ['"'] = 0.344,
+        ['('] = 0.280, [')'] = 0.280, ['%'] = 0.584,
+    };
+
+    /// <summary>Digits all share one width; anything not measured counts as wide as a W, to stay on the safe side.</summary>
+    private const double DigitWidth = 0.432, UnknownWidth = 0.792;
+
+    /// <summary>The caption style's letter spacing, in pixels per character (the Spacing field of the Caption style).</summary>
+    private const int CaptionSpacing = 1;
 
     /// <summary>A chunk stays on screen through a pause shorter than this, so captions do not flicker.</summary>
     private const double MaxHoldGap = 0.6;
 
-    // ASS colors are &HAABBGGRR. Highlight is the channel's yellow (#FFD700).
-    private const string Highlight = "&H0000D7FF&";
-    private const string White = "&H00FFFFFF&";
-
     /// <param name="style">The style switches; null turns every layer off (the plain look of version 1).</param>
+    /// <param name="emblem">
+    /// The emblem picture is overlaid by the renderer, so only its text goes here; false draws the vector hourglass.
+    /// </param>
     public static string Build(SpeechTimings timings, double duration, string fontName, string stampFontName,
-        string eraStamp, string placeStamp, double stampEnd, StyleOptions? style = null)
+        string eraStamp, string placeStamp, double stampEnd, StyleOptions? style = null, bool emblem = false)
     {
         style ??= new StyleOptions { YearCard = false, Watermark = false, WordPop = false, KeyWords = false };
+        var colors = new Colors(AssColor(style.TextColor), AssColor(style.HighlightColor));
+        var (text, highlight) = (colors.Text, colors.Highlight);
         var sb = new StringBuilder()
             .AppendLine("[Script Info]")
             .AppendLine("ScriptType: v4.00+")
@@ -68,13 +94,13 @@ public static partial class CaptionBuilder
             .AppendLine()
             .AppendLine("[V4+ Styles]")
             .AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding")
-            .AppendLine($"Style: Caption,{fontName},{CaptionFontSize},{White},{White},&H00000000,&H90000000,0,0,0,0,100,100,1,0,1,8,4,5,110,110,0,1")
-            .AppendLine($"Style: Stamp,{stampFontName},58,{White},{White},&H00000000,&H78000000,0,0,0,0,100,100,4,0,3,18,0,8,80,80,0,1")
-            .AppendLine($"Style: Place,{stampFontName},40,&H00E8E8E8&,{White},&H00000000,&H78000000,0,0,0,0,100,100,3,0,3,14,0,8,80,80,0,1")
-            .AppendLine($"Style: Year,{fontName},{YearFontSize},{Highlight},{Highlight},&H00000000,&H64000000,0,0,0,0,100,100,2,0,1,12,6,5,0,0,0,1")
-            .AppendLine($"Style: YearPlace,{fontName},66,{White},{White},&H00000000,&H64000000,0,0,0,0,100,100,6,0,1,7,4,8,60,60,0,1")
-            .AppendLine($"Style: Mark,{stampFontName},34,{White},{White},&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,2,0,4,0,0,0,1")
-            .AppendLine($"Style: Shape,{fontName},20,{White},{White},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1")
+            .AppendLine($"Style: Caption,{fontName},{CaptionFontSize},{text},{text},&H00000000,&H90000000,0,0,0,0,100,100,{CaptionSpacing},0,1,{CaptionOutline},4,5,110,110,0,1")
+            .AppendLine($"Style: Stamp,{stampFontName},58,{text},{text},&H00000000,&H78000000,0,0,0,0,100,100,4,0,3,18,0,8,80,80,0,1")
+            .AppendLine($"Style: Place,{stampFontName},40,{text},{text},&H00000000,&H78000000,0,0,0,0,100,100,3,0,3,14,0,8,80,80,0,1")
+            .AppendLine($"Style: Year,{fontName},{YearFontSize},{highlight},{highlight},&H00000000,&H64000000,0,0,0,0,100,100,2,0,1,12,6,5,0,0,0,1")
+            .AppendLine($"Style: YearPlace,{stampFontName},66,{text},{text},&H00000000,&H64000000,0,0,0,0,100,100,6,0,1,7,4,8,60,60,0,1")
+            .AppendLine($"Style: Mark,{stampFontName},34,{text},{text},&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,2,0,4,0,0,0,1")
+            .AppendLine($"Style: Shape,{fontName},20,{text},{text},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1")
             .AppendLine()
             .AppendLine("[Events]")
             .AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
@@ -91,13 +117,13 @@ public static partial class CaptionBuilder
             if (Clean(placeStamp).Length > 0)
                 Event(sb, 1, 0.35, end, "Place", $"{{\\an8\\pos({Layout.Width / 2},{Layout.StampY + 108})\\fad(300,300)}}{Clean(placeStamp).ToUpperInvariant()}");
         }
-        if (style.Watermark) AppendWatermark(sb, duration);
+        if (style.Watermark) AppendWatermark(sb, duration, highlight, emblem);
 
         var keys = style.KeyWords ? KeyWords(timings.Words) : [];
         foreach (var chunk in Chunk(timings.Words))
         {
-            if (style.WordPop) AppendRevealChunk(sb, chunk, keys);
-            else AppendChunk(sb, chunk, keys);
+            if (style.WordPop) AppendRevealChunk(sb, chunk, keys, colors);
+            else AppendChunk(sb, chunk, keys, colors);
         }
         return sb.ToString();
     }
@@ -145,17 +171,40 @@ public static partial class CaptionBuilder
             Event(sb, 4, rollEnd + 0.05, end, "YearPlace", $"{{\\an8\\pos({Layout.Width / 2},{y + 130})\\fad(180,250)}}{place.ToUpperInvariant()}");
     }
 
+    /// <summary>How opaque the watermark is (ASS alpha 0x58, so about 65%); the emblem overlay matches it.</summary>
+    public const double WatermarkOpacity = 1 - 0x58 / 255.0;
+
     /// <summary>
-    /// A small semi-transparent hourglass and "Minuto Útil" in the top-left corner, below the status bar and clear of
-    /// TikTok's and Shorts' top buttons (top center and top right). Drawn as ASS vectors: no logo file.
+    /// "Minuto Útil" in the top-left corner, semi-transparent, below the status bar and clear of TikTok's and Shorts'
+    /// top buttons (top center and top right). The renderer overlays the emblem picture left of it; without the
+    /// picture a small hourglass is drawn here as ASS vectors.
     /// </summary>
-    private static void AppendWatermark(StringBuilder sb, double duration)
+    private static void AppendWatermark(StringBuilder sb, double duration, string highlight, bool emblem)
     {
         var (left, top) = (Layout.WatermarkLeft, Layout.WatermarkTop);
+        if (emblem)
+        {
+            Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + Layout.EmblemSize + 14},{top + 22})\\alpha&H58&}}Minuto Útil");
+            return;
+        }
         // Cap, upper glass narrowing to the waist, lower glass widening to the base.
         Event(sb, 5, 0, duration, "Shape",
-            $"{{\\pos({left},{top})\\c{Highlight}\\alpha&H58&\\p1}}m 0 0 l 30 0 30 4 0 4 m 3 6 l 27 6 15 21 m 15 23 l 27 38 3 38 m 0 40 l 30 40 30 44 0 44{{\\p0}}");
+            $"{{\\pos({left},{top})\\c{highlight}\\alpha&H58&\\p1}}m 0 0 l 30 0 30 4 0 4 m 3 6 l 27 6 15 21 m 15 23 l 27 38 3 38 m 0 40 l 30 40 30 44 0 44{{\\p0}}");
         Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + 42},{top + 22})\\alpha&H58&}}Minuto Útil");
+    }
+
+    private sealed record Colors(string Text, string Highlight);
+
+    [GeneratedRegex("^#?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$")]
+    private static partial Regex HexColor();
+
+    /// <summary>"#DC010A" as the ASS color "&amp;H000A01DC&amp;" (ASS colors are &amp;HAABBGGRR, alpha 00 is opaque).</summary>
+    internal static string AssColor(string hex)
+    {
+        var match = HexColor().Match(hex?.Trim() ?? "");
+        if (!match.Success) throw new ArgumentException($"A style color must be #RRGGBB, not \"{hex}\".", nameof(hex));
+        var (r, g, b) = (match.Groups[1].Value, match.Groups[2].Value, match.Groups[3].Value);
+        return $"&H00{b}{g}{r}&".ToUpperInvariant();
     }
 
     private static readonly HashSet<string> NumberWords = new(StringComparer.OrdinalIgnoreCase)
@@ -172,7 +221,7 @@ public static partial class CaptionBuilder
     private static bool IsNumber(SpokenWord word) => Bare(word).Any(char.IsAsciiDigit) || NumberWords.Contains(Bare(word));
 
     /// <summary>
-    /// Words shown in yellow: numbers (in digits or words, with the "e" inside "quarenta e quatro"), months, and
+    /// Words shown in the highlight color: numbers (in digits or words, with the "e" inside "quarenta e quatro"), months, and
     /// capitalized words that do not start a sentence (names and places).
     /// </summary>
     internal static HashSet<SpokenWord> KeyWords(IReadOnlyList<SpokenWord> words)
@@ -253,15 +302,27 @@ public static partial class CaptionBuilder
     private static int Length(List<SpokenWord> words) => words.Sum(w => w.Text.Length) + words.Count - 1;
 
     /// <summary>Long chunks are squeezed horizontally to stay clear of the right-hand buttons.</summary>
-    private static int Squeeze(CaptionChunk chunk)
+    internal static int Squeeze(CaptionChunk chunk)
     {
-        var text = string.Join(' ', chunk.Words.Select(w => Clean(w.Text).ToUpperInvariant()));
-        var estimated = text.Length * CaptionFontSize * CharWidth;
+        var estimated = CaptionWidth(string.Join(' ', chunk.Words.Select(w => Clean(w.Text).ToUpperInvariant())));
         return estimated > Layout.CaptionMaxWidth ? (int)Math.Floor(100 * Layout.CaptionMaxWidth / estimated) : 100;
     }
 
-    /// <summary>Version 1's captions: the whole chunk shown, the spoken word in yellow (key words in yellow too).</summary>
-    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys)
+    /// <summary>How wide libass draws an uppercase caption line at full width, in pixels, without the outline.</summary>
+    internal static double CaptionWidth(string text) =>
+        text.Sum(c => CharWidth(c) * CaptionFontSize + CaptionSpacing);
+
+    private static double CharWidth(char c)
+    {
+        if (char.IsAsciiDigit(c)) return DigitWidth;
+        if (CharWidths.TryGetValue(c, out var width)) return width;
+        // "Ã" is "A" plus a combining tilde.
+        var bare = c.ToString().Normalize(NormalizationForm.FormD)[0];
+        return CharWidths.TryGetValue(bare, out width) ? width : UnknownWidth;
+    }
+
+    /// <summary>Version 1's captions: the whole chunk shown, the spoken word highlighted (key words too).</summary>
+    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors)
     {
         var squeeze = Squeeze(chunk);
         for (var i = 0; i < chunk.Words.Count; i++)
@@ -277,7 +338,7 @@ public static partial class CaptionBuilder
             {
                 if (w > 0) line.Append(' ');
                 var word = Clean(chunk.Words[w].Text).ToUpperInvariant();
-                var color = w == i || keys.Contains(chunk.Words[w]) ? Highlight : White;
+                var color = w == i || keys.Contains(chunk.Words[w]) ? colors.Highlight : colors.Text;
                 line.Append($"{{\\c{color}}}{word}");
             }
             Event(sb, 2, start, end, "Caption", line.ToString());
@@ -287,9 +348,9 @@ public static partial class CaptionBuilder
     /// <summary>
     /// The chunk builds up word by word as it is spoken and the newest word pops in (125% to 100% in 110 ms). Words not
     /// yet spoken are already in the line but invisible, so the line does not jump sideways as it fills. Key words
-    /// are yellow, the rest white.
+    /// are in the highlight color, the rest in the text color.
     /// </summary>
-    private static void AppendRevealChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys)
+    private static void AppendRevealChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors)
     {
         var squeeze = Squeeze(chunk);
         var pop = squeeze * 125 / 100;
@@ -303,7 +364,7 @@ public static partial class CaptionBuilder
             {
                 if (w > 0) line.Append(' ');
                 var word = Clean(chunk.Words[w].Text).ToUpperInvariant();
-                var color = keys.Contains(chunk.Words[w]) ? Highlight : White;
+                var color = keys.Contains(chunk.Words[w]) ? colors.Highlight : colors.Text;
                 if (w < i) line.Append($"{{\\alpha&H00&\\c{color}}}{word}");
                 else if (w == i) line.Append($"{{\\alpha&H00&\\c{color}\\fscx{pop}\\fscy125\\t(0,110,\\fscx{squeeze}\\fscy100)}}{word}{{\\fscx{squeeze}\\fscy100}}");
                 else line.Append($"{{\\alpha&HFF&}}{word}");

@@ -25,11 +25,12 @@ public sealed class ShotRenderer(VideoOptions options, string toolsDirectory)
             shot.Effect == ShotEffect.Clip ? RenderClipAsync(media, frames, path, ct) : RenderStillAsync(shot, media, frames, path, ct), ct);
     }
 
-    /// <summary>The map shot: tools/mapinsert.py zooms from Europe into the place and pins it.</summary>
+    /// <summary>The map shot: tools/mapinsert.py zooms from Europe into the place and pins it in the highlight color.</summary>
     public async Task<string> RenderMapAsync(Shot shot, Scripts.ScriptLocation location, int frames, string fontPath, string dataDirectory,
         string folder, CancellationToken ct)
     {
-        var key = $"{RenderVersion}|map2|{location.Name}|{location.Latitude}|{location.Longitude}|{frames}|{options.Width}x{options.Height}@{options.Fps}";
+        var key = $"{RenderVersion}|map3|{location.Name}|{location.Latitude}|{location.Longitude}|{frames}|{options.Width}x{options.Height}@{options.Fps}|" +
+                  $"{Path.GetFileName(fontPath)}|{options.Style.HighlightColor}";
         return await CachedAsync(shot, key, folder, $"map of {location.Name}, {frames} frames", path =>
             ProcessRunner.RunCheckedAsync("uv",
             [
@@ -38,6 +39,7 @@ public sealed class ShotRenderer(VideoOptions options, string toolsDirectory)
                 "--font", Path.GetFullPath(fontPath), "--data-dir", Path.GetFullPath(dataDirectory),
                 "--fps", options.Fps.ToString(CultureInfo.InvariantCulture), "--width", options.Width.ToString(CultureInfo.InvariantCulture),
                 "--height", options.Height.ToString(CultureInfo.InvariantCulture), "--ffmpeg", options.FfmpegPath,
+                "--pin-color", options.Style.HighlightColor,
             ], toolsDirectory, TimeSpan.FromMinutes(10), ct), ct);
     }
 
@@ -125,23 +127,26 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
     public int FadeFrames => Math.Max(2, (int)Math.Round(options.FadeSeconds * options.Fps / 2) * 2);
 
     /// <param name="workFolder">Holds captions.ass and fonts/: FFmpeg runs there so the filter graph needs no Windows paths.</param>
+    /// <param name="emblemPath">The watermark emblem (a small RGBA PNG) to overlay top left, or null for none.</param>
     public async Task RenderAsync(IReadOnlyList<Shot> shots, IReadOnlyList<string> shotFiles, string voicePath, double duration,
-        string workFolder, string outputPath, CancellationToken ct)
+        string workFolder, string outputPath, CancellationToken ct, string? emblemPath = null)
     {
         var loudness = await ffmpeg.LoudnessAsync(voicePath, ct) ?? throw new ToolException("The narration is silent.");
         var gain = Math.Round(options.VoiceLufs - loudness, 2);
-        var arguments = Arguments(shots, shotFiles, voicePath, duration, gain, outputPath);
+        var arguments = Arguments(shots, shotFiles, voicePath, duration, gain, outputPath, emblemPath);
         Log.Info($"render: {shots.Count} shots, {duration:0.00}s, voice {loudness:0.0} LUFS, gain {gain:+0.0;-0.0} dB");
         await ProcessRunner.RunCheckedAsync(options.FfmpegPath, arguments, workFolder, TimeSpan.FromMinutes(20), ct);
     }
 
     internal IReadOnlyList<string> Arguments(IReadOnlyList<Shot> shots, IReadOnlyList<string> shotFiles, string voicePath,
-        double duration, double gainDb, string outputPath)
+        double duration, double gainDb, string outputPath, string? emblemPath = null)
     {
         var args = new List<string> { "-y", "-hide_banner", "-loglevel", "error", "-nostdin" };
         foreach (var file in shotFiles) args.AddRange(["-i", Path.GetFullPath(file)]);
         args.AddRange(["-i", Path.GetFullPath(voicePath)]);
-        args.AddRange(["-filter_complex", FilterGraph(shots, duration, gainDb)]);
+        // One still frame: overlay keeps showing its last frame to the end of the video.
+        if (emblemPath is not null) args.AddRange(["-i", Path.GetFullPath(emblemPath)]);
+        args.AddRange(["-filter_complex", FilterGraph(shots, duration, gainDb, emblemPath is not null)]);
         args.AddRange(["-map", "[vout]", "-map", "[aout]", "-r", options.Fps.ToString(CultureInfo.InvariantCulture)]);
         // CRF 18 with a peak cap: grainy archive footage otherwise needs ~6 Mbit/s, and the file must stay under the
         // 50 MB a Telegram bot can send (video.maxVideoKbps 4500 is about 35 MB a minute).
@@ -191,7 +196,8 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
             .ToList();
     }
 
-    internal string FilterGraph(IReadOnlyList<Shot> shots, double duration, double gainDb)
+    /// <param name="emblem">The emblem is the input after the voice; it goes over the picture, under the captions.</param>
+    internal string FilterGraph(IReadOnlyList<Shot> shots, double duration, double gainDb, bool emblem = false)
     {
         var fps = options.Fps;
         var half = FadeFrames / 2;
@@ -216,6 +222,12 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
             graph.Append($"[pic{k}];color=c=black:s={options.Width}x{options.Height}:r={fps}:d=0.9,format=rgba,")
                 .Append($"geq=r=255:g=138:b=48:a='255*0.42*sin(PI*T/0.9)*exp(-(pow((X-{side}*W)/(0.55*W),2)+pow((Y-0.3*H)/(0.55*H),2)))',")
                 .Append($"setpts=PTS+{ShotRenderer.Num(start)}/TB[leak{k}];[pic{k}][leak{k}]overlay=eof_action=pass:format=auto");
+        }
+        if (emblem)
+        {
+            // Already the final size: no scaling, so it stays crisp. Same see-through as the watermark text.
+            graph.Append($"[base];[{shots.Count + 1}:v]format=rgba,colorchannelmixer=aa={ShotRenderer.Num(CaptionBuilder.WatermarkOpacity)}[emblem];")
+                .Append($"[base][emblem]overlay=x={Layout.WatermarkLeft}:y={Layout.EmblemTop}:format=auto");
         }
         graph.Append(",ass=captions.ass:fontsdir=fonts,format=yuv420p[vout];");
 
