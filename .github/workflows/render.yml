@@ -23,8 +23,6 @@ concurrency:
 
 permissions:
   contents: write
-  # GitHub Models, the free spare writer after Gemini, is called with the job's own token.
-  models: read
 
 jobs:
   render:
@@ -86,7 +84,8 @@ jobs:
           ARTICLE: ${{ inputs.article }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GITHUB_MODELS_TOKEN: ${{ github.token }}
+          CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set +e
           $CLI cloud next --state state --tag "$TAG" --article "$ARTICLE" > next.json
@@ -102,7 +101,8 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GITHUB_MODELS_TOKEN: ${{ github.token }}
+          CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SMALLEST_API_KEY: ${{ secrets.SMALLEST_API_KEY }}
         run: |
           article=$(jq -r .article next.json)

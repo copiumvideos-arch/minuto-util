@@ -8,7 +8,7 @@ public sealed record AppConfig
     public ChannelOptions Channel { get; init; } = new();
     public StoryOptions Story { get; init; } = new();
     public GeminiOptions Gemini { get; init; } = new();
-    public GitHubModelsOptions GitHubModels { get; init; } = new();
+    public CloudflareAiOptions CloudflareAi { get; init; } = new();
     public OpenRouterOptions OpenRouter { get; init; } = new();
     public WriterOptions Writer { get; init; } = new();
     public VoiceOptions Voice { get; init; } = new();
@@ -62,13 +62,14 @@ public sealed record GeminiOptions
 }
 
 /// <summary>
-/// GitHub Models, the first spare after Gemini: OpenAI models, free with the GitHub account. On the Actions runner the
-/// job's own token is the key (permission models: read); locally a GitHub token with the models scope works too.
+/// Cloudflare Workers AI, the first spare after Gemini: open models on the owner's free Cloudflare account. The token
+/// (permission Workers AI) and the account id come from the environment (Actions secrets).
 /// </summary>
-public sealed record GitHubModelsOptions
+public sealed record CloudflareAiOptions
 {
-    public IReadOnlyList<string> Models { get; init; } = ["openai/gpt-4.1", "openai/gpt-4.1-mini"];
-    public string TokenEnvVar { get; init; } = "GITHUB_MODELS_TOKEN";
+    public IReadOnlyList<string> Models { get; init; } = ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
+    public string TokenEnvVar { get; init; } = "CLOUDFLARE_AI_TOKEN";
+    public string AccountIdEnvVar { get; init; } = "CLOUDFLARE_ACCOUNT_ID";
 }
 
 public sealed record OpenRouterOptions

@@ -140,7 +140,7 @@ internal static class CloudCommands
     }
 
     /// <summary>
-    /// The trend picker on the writer models: busy Gemini models hand over to the next, then GitHub Models, then OpenRouter. Five
+    /// The trend picker on the writer models: busy Gemini models hand over to the next, then Cloudflare Workers AI, then OpenRouter. Five
     /// requests at most, so three Gemini models answering 429 or 503 still leave the OpenRouter spares a turn; a model
     /// out of its daily quota is remembered in the quota file on the state branch and skipped without a request.
     /// </summary>
@@ -150,7 +150,8 @@ internal static class CloudCommands
         var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
         var models = new List<ILlmClient>();
         if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));
-        if (key(config.GitHubModels.TokenEnvVar) is { } github) models.Add(OpenRouterClient.ForGitHubModels(llmHttp, github, config.GitHubModels.Models, usage, quota));
+        if (key(config.CloudflareAi.TokenEnvVar) is { } cloudflare && key(config.CloudflareAi.AccountIdEnvVar) is { } account)
+            models.Add(OpenRouterClient.ForCloudflare(llmHttp, cloudflare, account, config.CloudflareAi.Models, usage, quota));
         if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
         return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(Path.Combine(root, "prompts", "trends.md")),
             config.Channel.Name, TimeProvider.System);

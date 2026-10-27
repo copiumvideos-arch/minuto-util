@@ -32,8 +32,9 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    (`gemini.models`, the same ids as Flopômetro) is asked once at most, never retried; a busy model hands over to the
    next, a daily quota is remembered in `data/quota-state.json`, and Flopômetro's own quota file is read (read only,
    `sharedQuotaFiles`) so a model the live channel used up is skipped without a request. OpenRouter's free writers
-   come after Gemini, after GitHub Models (OpenAI models, free with the GitHub account, called with the Actions job's
-   own token, `githubModels` in the config). `writer.maxRequests` (5) caps the whole run.
+   come after Gemini, after Cloudflare Workers AI (open models on the owner's free Cloudflare account, 10,000 neurons
+   a day; secrets `CLOUDFLARE_AI_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `cloudflareAi` in the config). GitHub Models was
+   retired on 2026-07-30. `writer.maxRequests` (5) caps the whole run.
 4. **Voice** (`Voice/SmallestVoice.cs`, `Voice/Narrator.cs`, `tools/voice.py`): Smallest.ai Waves
    (`lightning_v3.1_pro`, voice `thiago`, 24 kHz WAV), one request per section, each take cached next to its text in
    `voice/smallest/`. If Smallest fails or runs out of credits, Kokoro `pm_santa` speaks every section instead (never

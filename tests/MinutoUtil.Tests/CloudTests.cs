@@ -500,28 +500,31 @@ public sealed class TrendTests
     }
 }
 
-public sealed class GitHubModelsTests
+public sealed class CloudflareAiTests
 {
     [Fact]
-    public async Task The_spare_writer_calls_github_models_with_the_job_token_and_hands_over_on_a_daily_cap()
+    public async Task The_spare_writer_calls_workers_ai_on_the_account_and_hands_over_to_the_next_model()
     {
-        var handler = new FakeHandler((request, body) => body.Contains("\"openai/gpt-4.1\"")
-            ? FakeHandler.Json(HttpStatusCode.TooManyRequests, """{"error":{"code":"RateLimitReached","message":"Rate limit of 50 per 86400s exceeded for UserByModelByDay."}}""")
+        var handler = new FakeHandler((request, body) => body.Contains("\"@cf/openai/gpt-oss-120b\"")
+            ? FakeHandler.Json(HttpStatusCode.TooManyRequests, """{"errors":[{"message":"you have used up your daily free allocation of 10,000 neurons"}]}""")
             : FakeHandler.Json(HttpStatusCode.OK, """{"choices":[{"message":{"content":"{\"ideas\":[]}"}}]}"""));
         var usage = new RunUsage(5);
-        var client = MinutoUtil.Core.Llm.OpenRouterClient.ForGitHubModels(new HttpClient(handler), "ghs_job_token", ["openai/gpt-4.1", "openai/gpt-4.1-mini"], usage);
+        var client = MinutoUtil.Core.Llm.OpenRouterClient.ForCloudflare(new HttpClient(handler), "cf_ai_token", "b77e134015ef6359c129cf8cfe3bb38a",
+            ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"], usage);
 
         var answer = await client.CompleteJsonAsync<TrendIdeas>("system", "user", CancellationToken.None);
 
         Assert.Empty(answer.Ideas);
-        Assert.Equal("github:openai/gpt-4.1", client.Name);
+        Assert.Equal("cloudflare:@cf/openai/gpt-oss-120b", client.Name);
+        Assert.Equal(2, handler.Requests.Count);
         Assert.All(handler.Requests, r =>
         {
-            Assert.Equal("https://models.github.ai/inference/chat/completions", r.Request.RequestUri!.AbsoluteUri);
-            Assert.Equal("Bearer ghs_job_token", r.Request.Headers.Authorization!.ToString());
-            Assert.Contains("\"response_format\":{\"type\":\"json_object\"}", r.Body);
+            Assert.Equal("https://api.cloudflare.com/client/v4/accounts/b77e134015ef6359c129cf8cfe3bb38a/ai/v1/chat/completions", r.Request.RequestUri!.AbsoluteUri);
+            Assert.Equal("Bearer cf_ai_token", r.Request.Headers.Authorization!.ToString());
+            Assert.DoesNotContain("response_format", r.Body);
+            Assert.Contains("JSON schema", r.Body);
         });
-        Assert.Equal(2, handler.Requests.Count);
-        Assert.Equal(2, usage.OpenRouterRequests);
+        Assert.Throws<MinutoUtil.Core.Llm.LlmException>(() =>
+            MinutoUtil.Core.Llm.OpenRouterClient.ForCloudflare(new HttpClient(handler), "t", "../evil", ["m"], usage));
     }
 }

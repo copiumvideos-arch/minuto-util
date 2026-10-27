@@ -96,8 +96,8 @@ var quota = new QuotaTracker(Path.GetFullPath(Option("--quota-file") ?? Path.Com
 var writers = new List<ILlmClient>();
 if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota));
 else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
-if (Key(config.GitHubModels.TokenEnvVar) is { } githubModelsToken)
-    writers.Add(OpenRouterClient.ForGitHubModels(apiHttp, githubModelsToken, config.GitHubModels.Models, usage, quota));
+if (Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)
+    writers.Add(OpenRouterClient.ForCloudflare(apiHttp, cloudflareToken, cloudflareAccount, config.CloudflareAi.Models, usage, quota));
 if (Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey) writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
 var prompt = File.ReadAllText(Path.Combine(root, "prompts", "writer.md"));
 

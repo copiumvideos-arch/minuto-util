@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 namespace MinutoUtil.Core.Llm;
 
 /// <summary>
-/// An OpenAI-compatible chat API: OpenRouter's free (":free") models, or GitHub Models (<see cref="ForGitHubModels"/>),
+/// An OpenAI-compatible chat API: OpenRouter's free (":free") models, or Cloudflare Workers AI (<see cref="ForCloudflare"/>),
 /// the spare writers when Gemini is out of quota. Adapted from Flopômetro without retries: each model is asked once. The daily cap on free models
 /// (account-wide, reset at 00:00 UTC) is recorded in <paramref name="quota"/>, and every free model is then skipped
 /// without a request until it resets. The key goes in the Authorization header, never the URL.
@@ -16,14 +16,15 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
     string provider = "openrouter", Uri? endpoint = null) : ILlmClient
 {
     internal static readonly Uri Endpoint = new("https://openrouter.ai/api/v1/chat/completions");
-    internal static readonly Uri GitHubModelsEndpoint = new("https://models.github.ai/inference/chat/completions");
-
     /// <summary>
-    /// GitHub Models: free with any GitHub account, called with the Actions job's own token (permission models: read),
-    /// so it needs no sign-up and no key of its own. Daily caps per model are small but far above a few requests a day.
+    /// Cloudflare Workers AI's OpenAI-compatible endpoint: open models on the owner's free Cloudflare account (10,000
+    /// "neurons" a day, about twenty scripts), with an API token that has the Workers AI permission.
     /// </summary>
-    public static OpenRouterClient ForGitHubModels(HttpClient http, string token, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null) =>
-        new(http, token, models, usage, quota, "github", GitHubModelsEndpoint);
+    public static OpenRouterClient ForCloudflare(HttpClient http, string token, string accountId, IReadOnlyList<string> models, RunUsage usage,
+        QuotaTracker? quota = null) =>
+        System.Text.RegularExpressions.Regex.IsMatch(accountId, "^[0-9a-f]{32}$")
+            ? new(http, token, models, usage, quota, "cloudflare", new Uri($"https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions"))
+            : throw new LlmException("The Cloudflare account id must be 32 hex characters.");
     private readonly QuotaTracker _quota = quota ?? new QuotaTracker();
 
     /// <summary>The key of the account-wide daily cap on ":free" models.</summary>
@@ -67,9 +68,8 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
                 },
             };
 
-            // GitHub's OpenAI models reject a strict schema that is not fully closed; the schema in the prompt and
-            // json_object do the same job there.
-            if (provider == "github") body["response_format"] = new JsonObject { ["type"] = "json_object" };
+            // Workers AI models do not all accept OpenAI's json_schema format; the schema in the system message does the job.
+            if (provider == "cloudflare") body.Remove("response_format");
             usage.TakeModelRequest(provider);
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint ?? Endpoint)
             {

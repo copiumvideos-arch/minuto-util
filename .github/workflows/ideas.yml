@@ -33,8 +33,6 @@ on:
 
 permissions:
   contents: write
-  # GitHub Models, the free spare writer after Gemini, is called with the job's own token.
-  models: read
 
 jobs:
   ideas:
@@ -74,7 +72,8 @@ jobs:
           MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GITHUB_MODELS_TOKEN: ${{ github.token }}
+          CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           case "$ACTION" in
             list) $CLI cloud ideas --state state $AGAIN ;;
