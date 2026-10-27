@@ -115,8 +115,38 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     /// The owner's own idea, sent with /novo on Telegram: a subject or a question ("por que só o Brasil usa urna
     /// eletrônica?") turned into the event or history that answers it, checked like the trend picks.
     /// </summary>
-    public Task<IReadOnlyList<BacklogTopic>> PickForIdeaAsync(string idea, IReadOnlyCollection<string> alreadyMade, CancellationToken ct) =>
-        PickFromAsync(IdeaPrompt(idea, alreadyMade), alreadyMade, $"sua ideia: {TextUtil.Truncate(idea.Trim(), 70)}", ct);
+    /// <remarks>
+    /// The idea is first searched on Portuguese and English Wikipedia and the result titles go into the prompt: a model
+    /// guessing titles from memory picked a nonexistent article and then an unrelated one (Thomas Edison for "urna
+    /// eletrônica"), while the search finds "Urna eletrônica (Brasil)" at once.
+    /// </remarks>
+    public async Task<IReadOnlyList<BacklogTopic>> PickForIdeaAsync(string idea, IReadOnlyCollection<string> alreadyMade, CancellationToken ct)
+    {
+        var portuguese = await SearchAsync("pt", idea, ct);
+        var english = await SearchAsync("en", idea, ct);
+        return await PickFromAsync(IdeaPrompt(idea, portuguese, english, alreadyMade), alreadyMade, $"sua ideia: {TextUtil.Truncate(idea.Trim(), 70)}", ct);
+    }
+
+    /// <summary>The titles Wikipedia's own search finds for the text; none when the search fails.</summary>
+    internal async Task<IReadOnlyList<string>> SearchAsync(string language, string text, CancellationToken ct)
+    {
+        try
+        {
+            var query = Publishing.OAuthRedirect.Query([
+                new("action", "query"), new("format", "json"), new("formatversion", "2"), new("list", "search"),
+                new("srsearch", TextUtil.Truncate(text.Trim(), 200)), new("srlimit", "8"), new("srprop", ""),
+            ]);
+            using var doc = JsonDocument.Parse(await http.GetStringAsync($"https://{language}.wikipedia.org/w/api.php?{query}", ct));
+            return doc.RootElement.GetProperty("query").GetProperty("search").EnumerateArray()
+                .Select(r => r.GetProperty("title").GetString() ?? "").Where(t => t.Length > 0).ToList();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException
+                                       or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"idea: {language}.wikipedia search failed ({TextUtil.Truncate(ex.Message, 120)})");
+            return [];
+        }
+    }
 
     private async Task<IReadOnlyList<BacklogTopic>> PickFromAsync(string user, IReadOnlyCollection<string> alreadyMade, string? trend, CancellationToken ct)
     {
@@ -152,13 +182,22 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
         return picks.Take(Count).ToList();
     }
 
-    internal static string IdeaPrompt(string idea, IReadOnlyCollection<string> alreadyMade)
+    internal static string IdeaPrompt(string idea, IReadOnlyList<string> portugueseResults, IReadOnlyList<string> englishResults,
+        IReadOnlyCollection<string> alreadyMade)
     {
         var text = new StringBuilder();
         text.AppendLine("No trend lists this time: the channel owner sent this idea. Find the events or history that best answer or");
-        text.AppendLine("explain it, following every rule; the first pick should fit the idea most closely.");
+        text.AppendLine("explain it, following every rule; the first pick should fit the idea most closely. Prefer articles from the");
+        text.AppendLine("Wikipedia search results below, with their exact titles: a Portuguese result goes in `portugueseArticle`,");
+        text.AppendLine("and `article` must still be an English Wikipedia title (the English article on the same subject).");
         text.AppendLine();
         text.AppendLine($"Idea: {idea.Trim()}");
+        text.AppendLine();
+        text.AppendLine("Portuguese Wikipedia search results:");
+        foreach (var r in portugueseResults) text.AppendLine($"- {r}");
+        text.AppendLine();
+        text.AppendLine("English Wikipedia search results:");
+        foreach (var r in englishResults) text.AppendLine($"- {r}");
         text.AppendLine();
         text.AppendLine("Already made (do not pick):");
         foreach (var a in alreadyMade) text.AppendLine($"- {a}");

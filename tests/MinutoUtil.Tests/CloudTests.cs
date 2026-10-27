@@ -334,6 +334,10 @@ public sealed class TrendTests
     private static FakeHandler Wikipedia() => new((request, _) =>
     {
         var url = request.RequestUri!.AbsoluteUri;
+        if (url.Contains("list=search", StringComparison.Ordinal))
+            return url.StartsWith("https://pt.", StringComparison.Ordinal)
+                ? FakeHandler.Json(HttpStatusCode.OK, """{"query":{"search":[{"title":"Urna eletrônica (Brasil)"},{"title":"Voto eletrônico"}]}}""")
+                : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         if (url.StartsWith("https://pt.wikipedia.org/w/api.php?", StringComparison.Ordinal))
             return FakeHandler.Json(HttpStatusCode.OK, """
                 {"query":{"pages":[{"title":"Urna eletrônica (Brasil)"},{"title":"Urna Inventada","missing":true}]}}
@@ -398,6 +402,9 @@ public sealed class TrendTests
         Assert.Equal(new BacklogTopic("Electronic voting in Brazil", 1996, "Democracia", "sua ideia: por que só o Brasil usa urna eletrônica?",
             "Urna eletrônica (Brasil)"), Assert.Single(picks));
         Assert.Contains("Idea: por que só o Brasil usa urna eletrônica?", llm.Prompts[0]);
+        // The model chooses among real titles: Portuguese search results are in the prompt; a failed English search only warns.
+        Assert.Contains("Portuguese Wikipedia search results:\n- Urna eletrônica (Brasil)\n- Voto eletrônico".ReplaceLineEndings(), llm.Prompts[0].ReplaceLineEndings());
+        Assert.Contains("English Wikipedia search results:\n\n".ReplaceLineEndings(), llm.Prompts[0].ReplaceLineEndings());
         Assert.DoesNotContain("Searched in Brazil today", llm.Prompts[0]);
     }
 
