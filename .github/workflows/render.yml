@@ -47,8 +47,20 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: tools/uv.lock
+      # A static FFmpeg 7.1 build (with libass) from GitHub, cached: the Ubuntu mirror once took 16 minutes for apt.
+      - uses: actions/cache@v4
+        id: ffmpeg-cache
+        with:
+          path: ~/ffmpeg
+          key: ffmpeg-n7.1-linux64-gpl-v1
       - name: FFmpeg
-        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+        run: |
+          if [ ! -x ~/ffmpeg/bin/ffmpeg ]; then
+            mkdir -p ~/ffmpeg
+            curl -fsSL --retry 3 https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux64-gpl-7.1.tar.xz               | tar -xJ -C ~/ffmpeg --strip-components=1
+          fi
+          echo "$HOME/ffmpeg/bin" >> "$GITHUB_PATH"
+          ~/ffmpeg/bin/ffmpeg -hide_banner -filters | grep -q " ass " || { echo "this FFmpeg has no libass"; exit 1; }
       # Whisper small, Depth Anything V2 Small, Kokoro and the Natural Earth map data, downloaded once.
       - uses: actions/cache@v4
         with:

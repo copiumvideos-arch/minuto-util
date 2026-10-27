@@ -130,8 +130,8 @@ internal static class CloudCommands
                 return 0;
             }
             Log.Info($"trends: {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
-            // A busy first Gemini model hands over to the next: two requests at most.
-            var usage = new RunUsage(2);
+            // Busy Gemini models hand over to the next, then to OpenRouter: three requests at most.
+            var usage = new RunUsage(3);
             var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
             var models = new List<ILlmClient>();
             if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));
