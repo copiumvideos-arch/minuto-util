@@ -8,7 +8,10 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 ## Read first
 
 - `README.md`: the pipeline step by step, output files, how to run and test.
-- `prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words).
+- `prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words) and the
+  storytelling rules under "Story" (one protagonist, a hook that opens a gap paid off at the end, beats linked by "mas"
+  or "por isso", every sentence with a job). Anything new that tells a story (other formats, longer videos, titles)
+  follows them too.
 - `config/minuto-util.json`: overrides of the defaults in `src/MinutoUtil.Core/Config.cs`.
 
 ## Layout

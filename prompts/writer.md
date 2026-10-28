@@ -13,12 +13,37 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
   try to cover the whole event.
 - No glorifying violence, no graphic descriptions of death or wounds. Losses can be stated plainly, as numbers.
 
+## Story
+
+A minute is one story, not a summary. Before writing, decide three things from the sources: whose story it is, what
+they want or fear, and what stands in the way. Then:
+
+- One person or small group at the center (a pharaoh, a captain, a monk, the people of a city), told at human scale:
+  what they saw, decided, risked. A role is fine when the name is hard ("o jovem imperador", "os vigias").
+- Start in the middle of the action or with the strangest true fact, not with background. The viewer can learn the
+  setting while the story is already moving.
+- The hook opens one gap the viewer wants closed: a question, a contradiction or a result without its cause ("Um
+  faraó trocou os deuses de todo o Egito. Depois, tentaram apagar o nome dele."). The gap must feel answerable, so give
+  it one thing the viewer can picture or already knows. Answer it only at the end, and answer exactly what was asked.
+- Right after the hook, one line says what is at stake: what could be lost, won or changed.
+- Link the sections by "mas" and "por isso", never by "e depois": each section either creates a new problem or
+  obstacle, or is the consequence of the one before. A section that does neither is cut. Before answering, read the
+  sections in order and check that every step is a "mas" or a "por isso".
+- Every sentence has a job: raise the question, raise the stakes, give the turn, or pay it off. Background that does
+  none of these is cut, however interesting.
+- Concrete beats abstract: a time of day, an object, a number, a place, an action from the sources ("ao amanhecer",
+  "três navios", "a porta do templo"). These are also what the pictures can show.
+- Rhythm: quick hook, a steadier middle, then the turn in short, hard sentences, the strongest true detail last of
+  all, and a quick ending. Never let the energy drop in the last section.
+- The payoff must be worth the wait and true to the hook: no bait the sources do not support.
+
 ## Shape
 
-- `hook`: the first thing heard, at most 14 words. A question or a surprising fact that opens a loop, never a
-  greeting, never the channel's name, never "Você sabia".
-- `sections`: {MIN_SECTIONS} to {MAX_SECTIONS} sections after the hook. Each is 1 to 3 short sentences that move the
-  story forward: setting, the problem, the turn, what it changed. No "inscreva-se", no "curta", no "comente aqui embaixo".
+- `hook`: the first thing heard, at most 14 words, the gap described under Story. Never a greeting, never the
+  channel's name, never "Você sabia", never "hoje vamos falar".
+- `sections`: {MIN_SECTIONS} to {MAX_SECTIONS} sections after the hook. Each is 1 to 3 short sentences, one story beat
+  (about five to eight seconds), linked to the one before by "mas" or "por isso" (the link can be implied; do not
+  start every section with those words). No "inscreva-se", no "curta", no "comente aqui embaixo".
 - The video loops on Shorts and TikTok, so the ending leads back into the start: the last section answers the hook's
   question in one calm sentence and its final words flow naturally into the hook when it plays again (for example a
   last line that ends on the subject the hook asks about, so "...e tudo dependia de uma coisa:" runs straight into
