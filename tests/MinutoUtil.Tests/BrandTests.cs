@@ -56,6 +56,22 @@ public sealed class BrandTests
     }
 
     [Fact]
+    public void A_year_before_Christ_gets_the_plain_stamp_and_a_year_after_Christ_the_rolling_card()
+    {
+        var timings = Words("Em", "Roma");
+        var before = CaptionBuilder.Build(timings, 4, Black, ExtraBold, "por volta de 1274 a.C.", "Cades, Síria", 3.5, new StyleOptions());
+        var after = CaptionBuilder.Build(timings, 4, Black, ExtraBold, "4 de setembro de 476", "Ravena, Itália", 3.5, new StyleOptions());
+
+        // The rolling card has no room for "a.C.": a year before Christ would read as one after it.
+        Assert.DoesNotContain(",Year,", before);
+        Assert.Contains("}POR VOLTA DE 1274 A.C.", before);
+        Assert.Contains(",Year,", after);
+        Assert.Contains("}76", after);
+        Assert.Null(CaptionBuilder.YearOf("15 de março de 44 a.C."));
+        Assert.Equal(1274, CaptionBuilder.YearOf("1274 d.C."));
+    }
+
+    [Fact]
     public void ColorsComeFromTheStyle()
     {
         var style = new StyleOptions { TextColor = "#FFFFFF", HighlightColor = "#00FF00" };

@@ -43,6 +43,14 @@ public static partial class TextUtil
     public static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength];
 
+    /// <summary>A year as the owner reads it: negative years are before Christ ("490 a.C."), 0 or null is unknown ("?").</summary>
+    public static string YearLabel(int? year) => year switch
+    {
+        null or 0 => "?",
+        < 0 => $"{-year.Value} a.C.",
+        _ => year.Value.ToString(CultureInfo.InvariantCulture),
+    };
+
     public static int CountWords(string? text) =>
         string.IsNullOrWhiteSpace(text) ? 0 : text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 

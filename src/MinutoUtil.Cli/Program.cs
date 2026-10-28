@@ -65,7 +65,7 @@ var root = FindRepositoryRoot();
 var config = AppConfig.Load(Path.Combine(root, "config", "minuto-util.json"));
 // Another article is another event: its year comes with --year or not at all (the config's year is the default article's).
 if (Option("--article") is { } article)
-    config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year > 0 ? year : null } };
+    config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year != 0 ? year : null } };
 if (Option("--portuguese-article") is { Length: > 0 } portuguese) config = config with { Story = config.Story with { PortugueseArticle = portuguese } };
 if (Option("--topic") is { Length: > 0 } topic) config = config with { Story = config.Story with { Topic = topic } };
 

@@ -98,7 +98,7 @@ public sealed record TrendIdea(
     string Article,
     [property: Description("The Portuguese Wikipedia article on the same subject, exact title, when you know it (it can differ from the English page's language link, e.g. \"Urna eletrônica (Brasil)\"); otherwise an empty string.")]
     string PortugueseArticle,
-    [property: Description("The year the event happened, 1 or later.")]
+    [property: Description("The year the event happened, negative before Christ (-490 for 490 BC), never 0.")]
     int Year,
     [property: Description("Short series name in Portuguese, e.g. \"Democracia\", \"Monarquias\", \"Grandes descobertas\".")]
     string Topic,
@@ -128,6 +128,8 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     /// <summary>Ideas in the daily list sent to the owner.</summary>
     public const int Count = 10;
     public const int MinYearsAgo = 25;
+    /// <summary>The earliest year a pick may have: the first pharaohs (negative years are before Christ).</summary>
+    public const int MinYear = -3200;
 
     public Task<IReadOnlyList<BacklogTopic>> PickAsync(TrendSignals signals, IReadOnlyCollection<string> alreadyMade, CancellationToken ct) =>
         PickFromAsync(UserPrompt(signals, alreadyMade), alreadyMade, null, ct);
@@ -176,7 +178,7 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
         var latestYear = time.GetUtcNow().Year - MinYearsAgo;
         var ideas = answer.Ideas
             .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Article.Length <= 120 && (i.PortugueseArticle ?? "").Length <= 120
-                        && i.Year >= 1 && i.Year <= latestYear)
+                        && i.Year != 0 && i.Year >= MinYear && i.Year <= latestYear)
             .Take(Count * 2).ToList();
         foreach (var dropped in answer.Ideas.Except(ideas)) Log.Warn($"trends: dropped \"{TextUtil.Truncate(dropped.Article, 80)}\" ({dropped.Year}): outside the rules");
         if (ideas.Count == 0) return [];

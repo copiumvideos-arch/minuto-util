@@ -102,7 +102,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         {
             var (_, topic, origin) = queue[i];
             var from = origin switch { QueueOrigin.Text => "sua ideia", QueueOrigin.Tapped => "da lista do dia", _ => "fila padrão" };
-            text.Append($"\n{i + 1}. {topic.PortugueseArticle ?? topic.Article} ({topic.Year}) · {from}");
+            text.Append($"\n{i + 1}. {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}) · {from}");
         }
         if (queue.Count > QueueShown) text.Append($"\n... e mais {queue.Count - QueueShown}");
         text.Append("\n\n⏫ leva para o topo, 🗑 tira da fila. Também: /mover 5 2, /remover 3, ou mande um tema para adicionar.");
@@ -123,7 +123,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         for (var i = 0; i < list.Ideas.Count; i++)
         {
             var idea = list.Ideas[i];
-            text.Append($"\n{i + 1}. {idea.PortugueseArticle ?? idea.Article} ({idea.Year}) · {idea.Topic}");
+            text.Append($"\n{i + 1}. {idea.PortugueseArticle ?? idea.Article} ({TextUtil.YearLabel(idea.Year)}) · {idea.Topic}");
             if (idea.Trend is { Length: > 0 } trend) text.Append($" · por: {trend}");
         }
         var buttons = list.Ideas.Select((_, i) => new TelegramButton($"{i + 1}", $"{IdeaPrefix}{list.Date}:{i + 1}")).ToList();
@@ -152,7 +152,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     {
         var text = new StringBuilder();
         text.AppendLine($"🎬 {metadata.Title}");
-        text.AppendLine($"{run.Topic} · {run.Article} ({run.Year})");
+        text.AppendLine($"{run.Topic} · {run.Article} ({TextUtil.YearLabel(run.Year)})");
         if (run.Trend is { Length: > 0 } trend) text.AppendLine($"💡 Inspiração: {trend}");
         text.AppendLine($"{metadata.DurationSeconds:0} s · voz {metadata.Voice} · roteiro {metadata.Writer}");
         // The log's warnings are what a reviewer should look or listen for (a section Whisper heard poorly, a reused picture).

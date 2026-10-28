@@ -88,18 +88,25 @@ public static class MediaScoring
         return blockedWords.Any(b => words.Contains(TextUtil.Fold(b)));
     }
 
+    /// <summary>
+    /// The first photographs (daguerreotypes). Before it no picture shows the event as it happened, so a painting from
+    /// 1850 or a photo of the ruins from 2010 is what an ancient or early modern story is told with, not a later stand-in.
+    /// </summary>
+    public const int PhotographyYear = 1839;
+
     public static double Score(MediaItem item, int rank, IReadOnlyList<string> penalizedWords, int? eventYear)
     {
         var score = 1.0 / (1 + rank * 0.15);
         if (item.Year is { } year && eventYear is { } target)
         {
             if (Math.Abs(year - target) <= 2) score += 0.35;
-            else if (year >= target + 30) score -= 1.5; // a photo of today's site: only if nothing else exists
-            else if (year >= target + 10) score -= 0.5; // a memorial or museum photo, not the event
+            // Before photography a later picture is all there is (paintings, statues, ruins), so age costs nothing.
+            else if (target >= PhotographyYear && year >= target + 30) score -= 1.5; // a photo of today's site: only if nothing else exists
+            else if (target >= PhotographyYear && year >= target + 10) score -= 0.5; // a memorial or museum photo, not the event
         }
-        else if (eventYear is not null)
+        else if (eventYear >= PhotographyYear)
         {
-            score -= 0.1; // undated: often a modern photo or a scan of a map
+            score -= 0.1; // undated: often a modern photo or a scan of a map (normal for an ancient artifact)
         }
         var words = TextUtil.Fold(item.Title).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         if (penalizedWords.Any(p => words.Contains(TextUtil.Fold(p)))) score -= 0.6;

@@ -128,10 +128,11 @@ public static partial class CaptionBuilder
         return sb.ToString();
     }
 
-    [GeneratedRegex(@"(?<!\d)\d{3,4}(?!\d)")]
+    // A year before Christ ("1274 a.C.") is skipped: the rolling card has no room for "a.C.", so the plain stamp shows it.
+    [GeneratedRegex(@"(?<!\d)\d{3,4}(?!\d)(?!\s*(a\.\s*C|antes de Cristo))")]
     private static partial Regex YearNumber();
 
-    /// <summary>The last three- or four-digit number in a date stamp ("6 de junho de 1944" gives 1944), or null.</summary>
+    /// <summary>The last three- or four-digit year after Christ in a date stamp ("6 de junho de 1944" gives 1944), or null.</summary>
     internal static int? YearOf(string? text)
     {
         var matches = YearNumber().Matches(text ?? "");

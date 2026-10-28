@@ -62,7 +62,8 @@ public sealed class MediaGatherer(
                 if (!seen.Add(candidate.Id)) continue;
                 if (accepted.Any(a => MediaScoring.TitleKey(a.Title) == MediaScoring.TitleKey(candidate.Title))) continue;
                 // A photo taken decades later (today's beach, a museum) is never the archive picture the story needs.
-                if (candidate.Year >= eventYear + 30) continue;
+                // Before photography every picture is made later, so the rule only holds from then on.
+                if (eventYear >= MediaScoring.PhotographyYear && candidate.Year >= eventYear + 30) continue;
                 var side = Math.Min(candidate.Width, candidate.Height);
                 if (side > 0 && side < options.MinImageShortSide) continue;
                 var item = await downloader.DownloadImageAsync(candidate, folder, $"{prefix}{section}-{got[section] + 1:00}-{TextUtil.Slug(candidate.Title, 40)}", ct);

@@ -27,7 +27,7 @@ public static partial class ScriptReview
 
     public static string Message(RunRecord run, VideoScript script)
     {
-        var text = new StringBuilder($"{Marker} · {run.Topic} · {run.Article} ({run.Year})\n\n");
+        var text = new StringBuilder($"{Marker} · {run.Topic} · {run.Article} ({TextUtil.YearLabel(run.Year)})\n\n");
         text.AppendLine($"Título: {script.Title}");
         text.AppendLine($"Gancho: {script.Hook}");
         for (var i = 0; i < script.Sections.Count; i++) text.AppendLine($"{i + 1}. {script.Sections[i].Text}");

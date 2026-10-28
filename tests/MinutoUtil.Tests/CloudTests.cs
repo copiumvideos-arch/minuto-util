@@ -24,8 +24,13 @@ public sealed class TopicQueueTests
         {
             Assert.False(string.IsNullOrWhiteSpace(t.Article));
             Assert.False(string.IsNullOrWhiteSpace(t.Topic));
-            Assert.InRange(t.Year, 1, 2025);
+            Assert.InRange(t.Year, TrendPicker.MinYear, 2025);
+            Assert.NotEqual(0, t.Year);
         });
+        // Spread over world history: antiquity, the Middle Ages and the early modern world outnumber the last two centuries.
+        Assert.True(backlog.Topics.Count(t => t.Year < 1800) > 2 * backlog.Topics.Count(t => t.Year >= 1800));
+        Assert.True(backlog.Topics.Count(t => t.Year < 0) >= 10);
+        Assert.True(backlog.Topics.Count(t => t.Topic == "Segunda Guerra Mundial") <= 2);
         // The first video (Normandy, posted by hand) is not queued again.
         Assert.DoesNotContain(backlog.Topics, t => t.Article == "Normandy landings");
     }
@@ -401,7 +406,8 @@ public sealed class TrendTests
                 {"title":"Made Up Battle","missing":true},
                 {"title":"Election","pageprops":{"disambiguation":""},"langlinks":[{"lang":"pt","title":"Eleição"}]},
                 {"title":"Electronic voting in Brazil"},
-                {"title":"Storming of the Bastille","langlinks":[{"lang":"pt","title":"Tomada da Bastilha"}]}
+                {"title":"Storming of the Bastille","langlinks":[{"lang":"pt","title":"Tomada da Bastilha"}]},
+                {"title":"Battle of Marathon","langlinks":[{"lang":"pt","title":"Batalha de Maratona"}]}
               ]}}
             """);
     });
@@ -420,17 +426,20 @@ public sealed class TrendTests
             new("Electronic voting in Brazil", "Urna eletrônica (Brasil)", 1996, "Democracia", "eleições"),
             new("Storming of the Bastille", "", 1789, "Revoluções", "x"),
             new("2022 Brazilian general election", "", 2022, "Democracia", "eleições"),
-            new("Battle of Marathon", "", -490, "Grécia", "x"),
+            new("Battle of Marathon", "", -490, "Grécia Antiga", "democracia"),
+            new("Battle of Salamis", "", 0, "Grécia Antiga", "x"),
+            new("Storming of the Bastille", "", -5000, "Revoluções", "x"),
             new("Proclamation of the Republic (Brazil)", "Urna Inventada", 1889, "História do Brasil", "presidentes do Brasil"));
         var signals = new TrendSignals(["Xi Jinping parabeniza Lula por reeleição - G1"], ["eleições: Segundo turno movimenta o país"], ["Lista de presidentes do Brasil"]);
 
         var picks = await Picker(llm, Wikipedia()).PickAsync(signals, ["Storming of the Bastille"], CancellationToken.None);
 
-        Assert.Equal(["Magna Carta", "Electronic voting in Brazil", "Proclamation of the Republic (Brazil)"], picks.Select(p => p.Article));
+        Assert.Equal(["Magna Carta", "Electronic voting in Brazil", "Battle of Marathon", "Proclamation of the Republic (Brazil)"], picks.Select(p => p.Article));
+        Assert.Equal(-490, picks[2].Year);
         Assert.Equal(new BacklogTopic("Magna Carta", 1215, "Democracia", "eleições 2026", "Magna Carta"), picks[0]);
         // The Portuguese article the model named is used when it exists; a made-up one falls back to the language link.
         Assert.Equal("Urna eletrônica (Brasil)", picks[1].PortugueseArticle);
-        Assert.Equal("Proclamação", picks[2].PortugueseArticle);
+        Assert.Equal("Proclamação", picks[3].PortugueseArticle);
         var prompt = Assert.Single(llm.Prompts);
         Assert.Contains("Minuto Útil", prompt);
         Assert.Contains("Give 10 picks", prompt);
@@ -440,6 +449,7 @@ public sealed class TrendTests
         Assert.Contains("- Lista de presidentes do Brasil", prompt);
         Assert.Contains("Already made (do not pick):\n- Storming of the Bastille".ReplaceLineEndings(), prompt.ReplaceLineEndings());
         Assert.Contains("never a living politician", prompt);
+        Assert.Contains("Antiquity (before 500)", prompt);
     }
 
     [Fact]
@@ -635,6 +645,20 @@ public sealed class QueueTests
 
         Assert.Throws<ArgumentException>(() => state.Find(Backlog, "9"));
         Assert.Throws<ArgumentException>(() => state.Find(Backlog, "b-not-there"));
+    }
+
+    [Fact]
+    public void Years_before_Christ_read_as_a_C_in_the_queue()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(temp.Path);
+        var backlog = new TopicBacklog([new("Assassination of Julius Caesar", -44, "Roma Antiga"), new("Battle of Hastings", 1066, "Idade Média")]);
+
+        var (text, _) = CloudFlow.QueueMessage(state.Queue(backlog), "Fila");
+
+        Assert.Contains("1. Assassination of Julius Caesar (44 a.C.) · fila padrão", text);
+        Assert.Contains("2. Battle of Hastings (1066) · fila padrão", text);
+        Assert.Equal("?", TextUtil.YearLabel(null));
     }
 
     [Fact]

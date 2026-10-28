@@ -63,6 +63,7 @@ footage. Viewers are curious adults scrolling on a phone; they stay for a story,
 - `location`: the place on a map, `name` in Portuguese as a viewer knows it ("Normandia"), `latitude` and
   `longitude` in decimal degrees (south and west negative), from the source text or general geography.
 - `eraStamp` and `placeStamp`: the date and the place of the event as shown on screen ("6 de junho de 1944",
-  "Normandia, França"). Digits are fine here.
+  "Normandia, França"). Digits are fine here. Before Christ write "a.C." ("15 de março de 44 a.C."); when the sources
+  only give an approximate date, say so ("por volta de 1274 a.C."). In the spoken text say "antes de Cristo".
 - `description`: 2 or 3 sentences in Portuguese that sum up the story. No hashtags, no credits.
 - `hashtags`: 4 to 6, lowercase, no # sign, no accents.

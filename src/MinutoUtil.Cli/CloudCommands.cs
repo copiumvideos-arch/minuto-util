@@ -227,7 +227,7 @@ internal static class CloudCommands
     /// </summary>
     private static int Started(CloudState state, string tag, BacklogTopic next, int left, bool review)
     {
-        state.Save(new RunRecord { Tag = tag, Article = next.Article, PortugueseArticle = next.PortugueseArticle, Year = next.Year > 0 ? next.Year : null,
+        state.Save(new RunRecord { Tag = tag, Article = next.Article, PortugueseArticle = next.PortugueseArticle, Year = next.Year != 0 ? next.Year : null,
             Topic = next.Topic, Trend = next.Trend, Status = RunStatus.Rendering, UpdatedAt = DateTimeOffset.UtcNow });
         Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, portugueseArticle = next.PortugueseArticle ?? "", year = next.Year,
             topic = next.Topic, trend = next.Trend, left, review }));
@@ -343,7 +343,7 @@ internal static class CloudCommands
         await telegram.SendTextAsync(text, buttons, ct, perRow: 2);
         return 0;
 
-        static string Title(BacklogTopic t) => $"{t.PortugueseArticle ?? t.Article} ({t.Year})";
+        static string Title(BacklogTopic t) => $"{t.PortugueseArticle ?? t.Article} ({TextUtil.YearLabel(t.Year)})";
     }
 
     /// <summary>The owner tapped idea <paramref name="index"/> (1-based) of a day's list: it joins the approved ideas.</summary>
@@ -382,7 +382,7 @@ internal static class CloudCommands
         state.SaveApproved(new ApprovedIdea(id, topic, FromText: true, now));
         // The newest idea is the next video, even ahead of items the owner moved up earlier.
         state.Move(TopicBacklog.Load(Path.Combine(root, "config", "topics.json")), "a-" + id, 1);
-        await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({topic.Year}). É o próximo vídeo da fila (veja com /fila). Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
+        await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}). É o próximo vídeo da fila (veja com /fila). Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
         return 0;
     }
 

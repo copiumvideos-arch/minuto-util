@@ -103,6 +103,9 @@ public sealed class MediaTests
         var period = MediaScoring.Score(Item("Landing craft 1944", 1944), 3, options.PenalizedWords, 1944);
         var memorial = MediaScoring.Score(Item("Omaha Beach memorial", 2014), 0, options.PenalizedWords, 1944);
         Assert.True(period > memorial);
+        // Before photography every picture is made later: a photo of the Roman Forum ranks like an undated one.
+        Assert.Equal(MediaScoring.Score(Item("Roman Forum", null), 0, options.PenalizedWords, -44),
+            MediaScoring.Score(Item("Roman Forum", 2010), 0, options.PenalizedWords, -44));
     }
 
     [Fact]
