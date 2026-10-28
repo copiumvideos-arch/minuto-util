@@ -252,6 +252,9 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
 - **No double posts**: the relay removes the buttons after the first tap, publish runs for the same tag never overlap,
   publish runs for different videos wait for each other (they share the TikTok token), and `published.json` is kept
   with the release, so a retry (the "🔁 Tentar de novo" button after a failure) only sends what is missing.
+- **TikTok check**: when a draft never shows up in the app, run `publish.yml` with the action `tiktok-check` (no tag).
+  It sends to Telegram the TikTok account the sign-in belongs to (the drafts go only there; in Sandbox it must be a
+  target user) and TikTok's current status of the last 5 drafts (waiting in the inbox, posted, or failed with the reason).
 - **Volume**: four renders a day. TikTok accepts 5 inbox drafts per 24 hours, so post the drafts daily. The trend
   scan queues up to 4 topics a day and the backlog covers days without picks.
 

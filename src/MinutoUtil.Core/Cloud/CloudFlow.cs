@@ -211,6 +211,59 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         return 0;
     }
 
+    /// <summary>How many of the latest TikTok drafts /tiktok looks up.</summary>
+    public const int TikTokDraftsChecked = 5;
+
+    /// <summary>
+    /// Asks TikTok whose account the sign-in belongs to and where the latest drafts are, for when a draft never shows up
+    /// in the app: the drafts go only to the signed-in account (in Sandbox, a target user of the app).
+    /// </summary>
+    public async Task<int> TikTokCheckAsync(Func<CancellationToken, Task<TikTokAccount>> account,
+        Func<string, CancellationToken, Task<TikTokStatus>> status, CancellationToken ct)
+    {
+        var who = await account(ct);
+        Log.Info($"TikTok: signed in as \"{who.DisplayName}\" (open_id {who.OpenId}, scopes {who.Scopes})");
+        var drafts = new List<(RunRecord Run, TikTokStatus? Status, string? Error)>();
+        foreach (var run in state.Runs().Where(r => r.TikTokPublishId is not null).OrderByDescending(r => r.UpdatedAt).Take(TikTokDraftsChecked))
+        {
+            try
+            {
+                var s = await status(run.TikTokPublishId!, ct);
+                Log.Info($"TikTok: {run.Tag} {run.TikTokPublishId} is {s.Status}{(s.FailReason is null ? "" : $" ({s.FailReason})")}");
+                drafts.Add((run, s, null));
+            }
+            catch (TikTokUploadException ex)
+            {
+                Log.Warn($"TikTok: {run.Tag} {run.TikTokPublishId}: {ex.Message}");
+                drafts.Add((run, null, ex.Message));
+            }
+        }
+        await send(TikTokCheckMessage(who, drafts), [], ct);
+        return 0;
+    }
+
+    public static string TikTokCheckMessage(TikTokAccount account, IReadOnlyList<(RunRecord Run, TikTokStatus? Status, string? Error)> drafts)
+    {
+        var text = new StringBuilder("🎵 TikTok\n");
+        text.AppendLine($"Conta conectada: {(account.DisplayName is { Length: > 0 } name ? name : "(sem nome)")}");
+        text.AppendLine("Os rascunhos vão só para essa conta. Se não é a conta que você abre no app, faça o login de novo com a conta certa.");
+        if (drafts.Count == 0) text.AppendLine("\nNenhum rascunho enviado ainda.");
+        else text.AppendLine($"\nÚltimos rascunhos:");
+        foreach (var (run, status, error) in drafts)
+        {
+            var what = (status?.Status, error) switch
+            {
+                (_, { } e) => $"erro ao consultar: {TextUtil.Truncate(e, 150)}",
+                ("SEND_TO_USER_INBOX", _) => "na caixa de entrada, esperando você postar",
+                ("PUBLISH_COMPLETE", _) => "postado",
+                ("FAILED", _) => $"falhou: {status!.FailReason ?? "sem motivo"}",
+                (var s, _) => $"ainda processando ({s})",
+            };
+            text.AppendLine($"• {run.Title ?? run.Article} ({run.UpdatedAt.ToOffset(Brasilia):dd/MM HH:mm}): {what}");
+        }
+        return text.ToString().TrimEnd();
+    }
+
     public async Task RejectAsync(string tag, CancellationToken ct)
     {
         var run = state.Find(tag) ?? throw new PublishRefusedException($"Run {tag} is not in the state branch.");

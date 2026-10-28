@@ -203,6 +203,38 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public async Task Tiktok_check_names_the_signed_in_account_and_where_each_latest_draft_is()
+    {
+        using var temp = new TempFolder();
+        var (state, _) = Setup(temp);
+        state.Save(state.Find(Tag)! with { Status = RunStatus.Published, TikTokPublishId = "v_inbox_file~v2.123" });
+        state.Save(new RunRecord { Tag = "20261027-2224", Article = "Assassination of Archduke Franz Ferdinand", Status = RunStatus.Published,
+            Title = "O gesto de amor que iniciou a Primeira Guerra Mundial", TikTokPublishId = "v_inbox_file~v2.456", UpdatedAt = PublishData.Now.AddHours(4) });
+        state.Save(new RunRecord { Tag = "20261027-1400", Article = "Never published", Status = RunStatus.Review, UpdatedAt = PublishData.Now });
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now));
+        var store = new MemoryTokenStore();
+        store.Save("rft.0");
+        var auth = new TikTokAuth(new HttpClient(new TikTokTests.FakeTikTokAuth()), new TikTokClient("k", "s"), store, TimeProvider.System);
+        var tiktok = new TikTokTests.FakeTikTok { Statuses = new(["SEND_TO_USER_INBOX", "FAILED"]), FailReason = "file_format_check_failed" };
+        var uploader = new TikTokUploader(new HttpClient(tiktok), auth.GetAccessTokenAsync, TimeSpan.Zero, TimeSpan.Zero);
+
+        Assert.Equal(0, await flow.TikTokCheckAsync(auth.CurrentAccountAsync, uploader.FetchStatusAsync, CancellationToken.None));
+
+        var text = Assert.Single(messages.Sent).Text;
+        Assert.Contains("Conta conectada: Minuto Útil", text);
+        // Newest first, one status request per draft, and the run that never reached TikTok is left out.
+        Assert.Equal(["v_inbox_file~v2.456", "v_inbox_file~v2.123"],
+            tiktok.Requests.Select(r => JsonDocument.Parse(r.Body!).RootElement.GetProperty("publish_id").GetString()));
+        var lines = text.Split('\n').Where(l => l.StartsWith("• ")).ToList();
+        Assert.Equal(2, lines.Count);
+        Assert.Contains("Primeira Guerra Mundial", lines[0]);
+        Assert.Contains("esperando você postar", lines[0]);
+        Assert.Contains("falhou: file_format_check_failed", lines[1]);
+        Assert.DoesNotContain("Never published", text);
+    }
+
+    [Fact]
     public async Task A_failed_tiktok_step_offers_a_retry_that_does_not_post_youtube_again()
     {
         using var temp = new TempFolder();

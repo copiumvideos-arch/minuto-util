@@ -24,6 +24,7 @@ using MinutoUtil.Core.Publishing;
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
 ///   cloud reject  --state <dir> --tag <tag>
+///   cloud tiktok-check --state <dir>     the signed-in TikTok account and the status of the latest drafts
 ///   cloud failed  --state <dir> --tag <tag> --reason <text> [--log-url <url>]
 ///   cloud secrets --repo <owner/name>
 /// </summary>
@@ -70,6 +71,13 @@ internal static class CloudCommands
                     var stats = await YouTubeStats.FetchAsync(apiHttp, token, YouTubeStats.Ids(state.Runs()), cts.Token);
                     await telegram.SendTextAsync(YouTubeStats.Message(stats, DateTimeOffset.UtcNow), cts.Token);
                     return 0;
+                }
+                case "tiktok-check":
+                {
+                    var auth = PublishingCommands.StoredTikTokAuth(config, key, apiHttp);
+                    var uploader = new TikTokUploader(apiHttp, auth.GetAccessTokenAsync);
+                    return await new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
+                        .TikTokCheckAsync(auth.CurrentAccountAsync, uploader.FetchStatusAsync, cts.Token);
                 }
             }
             var tag = RunTag.Validate(Option(args, "--tag"));
@@ -158,7 +166,7 @@ internal static class CloudCommands
                     await flow.FailedAsync(tag, Option(args, "--reason") ?? "unknown error", Option(args, "--log-url"), cts.Token);
                     return 0;
                 default:
-                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|failed --state <dir> ..., or cloud secrets --repo <owner/name>");
+                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|tiktok-check|failed --state <dir> ..., or cloud secrets --repo <owner/name>");
                     return 1;
             }
         }

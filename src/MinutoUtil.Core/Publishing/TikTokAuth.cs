@@ -28,6 +28,7 @@ public sealed class TikTokAuth(HttpClient http, TikTokClient client, ITokenStore
     internal TimeSpan SignInWait { get; init; } = TimeSpan.FromMinutes(10);
 
     private string? _accessToken;
+    private string _scope = "";
     private DateTimeOffset _expiresAt;
 
     public bool HasSignedIn => store.Load() is not null;
@@ -87,6 +88,13 @@ public sealed class TikTokAuth(HttpClient http, TikTokClient client, ITokenStore
         return _accessToken!;
     }
 
+    /// <summary>The account the stored sign-in belongs to: the TikTok inbox drafts go to this account only.</summary>
+    public async Task<TikTokAccount> CurrentAccountAsync(CancellationToken ct)
+    {
+        var accessToken = await GetAccessTokenAsync(ct);
+        return await AccountAsync(accessToken, _scope, "", ct);
+    }
+
     /// <summary>TikTok's desktop PKCE: the challenge is the hex SHA-256 of the verifier (not base64url as in RFC 7636).</summary>
     internal static string Challenge(string verifier) => Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
 
@@ -126,6 +134,7 @@ public sealed class TikTokAuth(HttpClient http, TikTokClient client, ITokenStore
     private void Remember(TokenResponse tokens)
     {
         _accessToken = tokens.AccessToken;
+        _scope = tokens.Scope ?? "";
         _expiresAt = time.GetUtcNow().AddSeconds(Math.Max(0, tokens.ExpiresIn - 300));
     }
 

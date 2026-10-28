@@ -723,7 +723,7 @@ public sealed class TikTokTests
     }
 
     /// <summary>TikTok's token and user info endpoints; each refresh hands back a new refresh token.</summary>
-    private sealed class FakeTikTokAuth : HttpMessageHandler
+    internal sealed class FakeTikTokAuth : HttpMessageHandler
     {
         public List<Dictionary<string, string>> Forms { get; } = [];
 

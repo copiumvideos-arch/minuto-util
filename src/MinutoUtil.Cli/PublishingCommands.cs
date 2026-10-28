@@ -117,15 +117,18 @@ internal static class PublishingCommands
                 if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
                 return new YouTubeUploader(uploadHttp, auth.GetAccessTokenAsync);
             },
-            () =>
-            {
-                var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key),
-                    TokenStores.For(config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
-                if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
-                return new TikTokUploader(uploadHttp, auth.GetAccessTokenAsync);
-            },
+            () => new TikTokUploader(uploadHttp, StoredTikTokAuth(config, key, apiHttp).GetAccessTokenAsync),
             TimeProvider.System,
             sendText);
+
+    /// <summary>TikTok with its stored sign-in (sealed state file on the cloud runner, environment variable, or DPAPI file).</summary>
+    internal static TikTokAuth StoredTikTokAuth(AppConfig config, Func<string, string?> key, HttpClient apiHttp)
+    {
+        var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key),
+            TokenStores.For(config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
+        if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
+        return auth;
+    }
 
     // AbsoluteUri keeps the escaping: ToString() turns %20 back into spaces, which breaks the link when copied.
     private static void OpenSignIn(Uri url, string hint, bool noBrowser)

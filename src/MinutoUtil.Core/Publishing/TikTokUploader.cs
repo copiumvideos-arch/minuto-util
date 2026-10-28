@@ -161,7 +161,8 @@ public sealed class TikTokUploader(HttpClient http, Func<CancellationToken, Task
         }
     }
 
-    internal async Task<TikTokStatus> FetchStatusAsync(string publishId, CancellationToken ct)
+    /// <summary>TikTok's current status of an upload; a draft stays SEND_TO_USER_INBOX until the owner posts it.</summary>
+    public async Task<TikTokStatus> FetchStatusAsync(string publishId, CancellationToken ct)
     {
         using var data = await PostJsonAsync(StatusEndpoint, new JsonObject { ["publish_id"] = publishId }.ToJsonString(), "status check", ct);
         var root = data.RootElement;

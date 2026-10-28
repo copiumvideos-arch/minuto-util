@@ -1,5 +1,7 @@
 # Started by relay/ when the owner taps "Publicar" or "Rejeitar" under a review video on Telegram (or by hand from
 # the Actions tab). Publishes to YouTube (public Short) and the TikTok inbox (draft), or drops the video.
+# tiktok-check (no tag) sends to Telegram the TikTok account the drafts go to and the status of the latest drafts; it
+# runs here because it shares the TikTok token with the publish runs.
 name: publish
 run-name: ${{ inputs.action }} ${{ inputs.tag }}
 
@@ -7,11 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Run tag (yyyyMMdd-HHmm)"
-        required: true
+        description: "Run tag (yyyyMMdd-HHmm); empty for tiktok-check"
+        required: false
+        default: ""
       action:
         type: choice
-        options: [publish, reject]
+        options: [publish, reject, tiktok-check]
         default: publish
 
 # Two taps on the same video never run at the same time.
@@ -35,8 +38,8 @@ jobs:
     steps:
       - name: Check the input
         run: |
-          [[ "$TAG" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad tag"; exit 1; }
-          [[ "$ACTION" == publish || "$ACTION" == reject ]] || { echo "bad action"; exit 1; }
+          [[ "$ACTION" == publish || "$ACTION" == reject || "$ACTION" == tiktok-check ]] || { echo "bad action"; exit 1; }
+          [[ "$ACTION" == tiktok-check || "$TAG" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad tag"; exit 1; }
 
       # One publish at a time across videos: they share the TikTok token, which TikTok may replace on refresh.
       - name: Wait for earlier publish runs
@@ -95,6 +98,18 @@ jobs:
         run: |
           $CLI cloud reject --state state --tag "$TAG"
           gh release delete "run-$TAG" --cleanup-tag --yes
+
+      - name: TikTok check
+        if: inputs.action == 'tiktok-check'
+        env:
+          MINUTO_STATE_DIR: ${{ github.workspace }}/state
+          MINUTO_STATE_KEY: ${{ secrets.MINUTO_STATE_KEY }}
+          MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
+          MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+          MINUTO_TIKTOK_CLIENT_KEY: ${{ secrets.MINUTO_TIKTOK_CLIENT_KEY }}
+          MINUTO_TIKTOK_CLIENT_SECRET: ${{ secrets.MINUTO_TIKTOK_CLIENT_SECRET }}
+          MINUTO_TIKTOK_REFRESH_TOKEN: ${{ secrets.MINUTO_TIKTOK_REFRESH_TOKEN }}
+        run: $CLI cloud tiktok-check --state state
 
       - name: Save the state
         if: always()
