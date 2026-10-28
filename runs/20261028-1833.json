@@ -1,0 +1,14 @@
+{
+  "tag": "20261028-1833",
+  "article": "Attack on Pearl Harbor",
+  "year": 1941,
+  "topic": "Segunda Guerra Mundial",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "note": "run failed: LlmException: The run's budget of 5 model requests is spent; not asking openrouter.",
+  "updatedAt": "2026-10-28T18:37:37.2093731+00:00"
+}
