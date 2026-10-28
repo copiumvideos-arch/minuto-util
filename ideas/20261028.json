@@ -1,0 +1,76 @@
+{
+  "date": "20261028",
+  "sentAt": "2026-10-28T09:34:34.7457638+00:00",
+  "ideas": [
+    {
+      "article": "1824 United States presidential election",
+      "year": 1824,
+      "topic": "Eleições",
+      "trend": "Eleições nos EUA",
+      "portugueseArticle": "Eleição presidencial nos Estados Unidos em 1824"
+    },
+    {
+      "article": "Haymarket affair",
+      "year": 1886,
+      "topic": "Direitos trabalhistas",
+      "trend": "Fim da escala 6x1",
+      "portugueseArticle": "Revolta de Haymarket"
+    },
+    {
+      "article": "Dartmouth workshop",
+      "year": 1956,
+      "topic": "Inteligência artificial",
+      "trend": "Debates sobre Inteligência Artificial",
+      "portugueseArticle": "Workshop de Dartmouth"
+    },
+    {
+      "article": "Earth Summit",
+      "year": 1992,
+      "topic": "Meio ambiente",
+      "trend": "COP31 e metas climáticas",
+      "portugueseArticle": "Conferência das Nações Unidas sobre Meio Ambiente e Desenvolvimento"
+    },
+    {
+      "article": "Revolution of 1930",
+      "year": 1930,
+      "topic": "História do Brasil",
+      "trend": "Transição política e pacificação",
+      "portugueseArticle": "Revolução de 1930"
+    },
+    {
+      "article": "Nixon shock",
+      "year": 1971,
+      "topic": "Economia mundial",
+      "trend": "Dólar e mercado financeiro",
+      "portugueseArticle": "Choque Nixon"
+    },
+    {
+      "article": "Spanish Christmas Lottery",
+      "year": 1812,
+      "topic": "Curiosidades históricas",
+      "trend": "Mega-Sena acumulada",
+      "portugueseArticle": null
+    },
+    {
+      "article": "Video game crash of 1983",
+      "year": 1983,
+      "topic": "Indústria dos games",
+      "trend": "Lançamento do GTA 6",
+      "portugueseArticle": "Crise dos jogos eletrônicos de 1983"
+    },
+    {
+      "article": "Ping-pong diplomacy",
+      "year": 1971,
+      "topic": "Diplomacia",
+      "trend": "Notícias e marcas na China",
+      "portugueseArticle": "Diplomacia do pingue-pongue"
+    },
+    {
+      "article": "Camp David Accords",
+      "year": 1978,
+      "topic": "Geopolítica",
+      "trend": "Votações e governo em Israel",
+      "portugueseArticle": "Acordos de Camp David"
+    }
+  ]
+}
