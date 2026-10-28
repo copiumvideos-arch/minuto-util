@@ -12,6 +12,9 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   storytelling rules under "Story" (one protagonist, a hook that opens a gap paid off at the end, beats linked by "mas"
   or "por isso", every sentence with a job). Anything new that tells a story (other formats, longer videos, titles)
   follows them too.
+- `docs/scriptwriting.md`: the why behind `prompts/writer.md` (the Brazilian viewer, what the platforms reward,
+  hooks, structure, writing for the voice, how to measure and test). Read it before changing a prompt or the word
+  range; a lesson becomes a rule in the prompt and its reason goes in the guide.
 - `config/minuto-util.json`: overrides of the defaults in `src/MinutoUtil.Core/Config.cs`.
 
 ## Layout

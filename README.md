@@ -289,7 +289,8 @@ queue, the sealed token store, the publish/retry/reject flow and the review vide
 - The crop aims at the near-pixel centroid of the depth map; sometimes that is a foreground helmet, not a face.
 
 Settings live in `config/minuto-util.json` (defaults in `src/MinutoUtil.Core/Config.cs`), the writer's instructions in
-`prompts/writer.md`.
+`prompts/writer.md`, and the reasoning behind them (audience, hooks, structure, how to measure what works) in
+`docs/scriptwriting.md`.
 
 ## Tests
 
