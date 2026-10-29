@@ -6,8 +6,8 @@
     "tokenFolder": "%LOCALAPPDATA%/MinutoUtil/channels/profissao-spoiler",
     "stateFolder": "channels/profissao-spoiler",
     "releasePrefix": "run-profissao-spoiler-",
-    "scheduleUtcHours": [],
-    "ideasUtcHours": []
+    "scheduleUtcHours": [15, 23],
+    "ideasUtcHours": [9]
   },
   "story": {
     "topic": "Curiosidades de games",
@@ -62,7 +62,7 @@
     }
   },
   "youtube": {
-    "channelId": "",
+    "channelId": "UCu95_HpDH8joN28N8KYcTRQ",
     "categoryId": "20",
     "language": "pt-BR",
     "audioLanguage": "pt-BR",

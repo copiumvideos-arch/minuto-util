@@ -9,7 +9,7 @@ run-name: ideas ${{ inputs.channel }} ${{ inputs.action || 'list' }}
 on:
   schedule:
     # One line per hour in any channel's channel.ideasUtcHours (a test checks they match), always at minute 0.
-    # Minuto Útil: 06:00 in Brasília (UTC-3), before the first render.
+    # Minuto Útil and Profissão Spoiler: 06:00 in Brasília (UTC-3), before the first render.
     - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:

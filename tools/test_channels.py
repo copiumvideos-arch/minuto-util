@@ -31,10 +31,12 @@ def test_minuto_keeps_its_secrets_state_folder_and_releases():
         {"id": "minuto-util", "prefix": "MINUTO", "state": "state", "release": "run-"}]
 
 
-def test_the_scheduled_minuto_runs_pick_minuto():
+def test_each_scheduled_hour_picks_its_own_channel():
     for cron in ("0 14 * * *", "0 22 * * *"):
         assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", cron)] == ["minuto-util"]
-    assert [c["id"] for c in channels.matrix("ideasUtcHours", "", "0 9 * * *")] == ["minuto-util"]
+    for cron in ("0 15 * * *", "0 23 * * *"):
+        assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", cron)] == ["profissao-spoiler"]
+    assert [c["id"] for c in channels.matrix("ideasUtcHours", "", "0 9 * * *")] == ["minuto-util", "profissao-spoiler"]
     assert channels.matrix("scheduleUtcHours", "", "0 9 * * *") == []
 
 

@@ -294,9 +294,14 @@ public sealed class ChannelTests
         Assert.Equal(all.SelectMany(c => c.ScheduleUtcHours).Distinct().Order(), render.Order());
         var ideas = CronHours("ideas.yml");
         Assert.Equal(all.SelectMany(c => c.IdeasUtcHours).Distinct().Order(), ideas.Order());
-        // Minuto Útil's two renders stay at 14:00 and 22:00 UTC (11:00 and 19:00 in Brasília), its list at 09:00.
-        Assert.Equal([14, 22], render.Order());
-        Assert.Equal([9], ideas);
+        // Minuto Útil's two renders stay at 14:00 and 22:00 UTC (11:00 and 19:00 in Brasília), its list at 09:00;
+        // Profissão Spoiler's an hour later, its list at the same time.
+        var minuto = Channel.Load(TestPaths.RepositoryRoot, "minuto-util").Config.Channel;
+        Assert.Equal([14, 22], minuto.ScheduleUtcHours);
+        Assert.Equal([9], minuto.IdeasUtcHours);
+        var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler").Config.Channel;
+        Assert.Equal([15, 23], spoiler.ScheduleUtcHours);
+        Assert.Equal([9], spoiler.IdeasUtcHours);
     }
 
     [Fact]
