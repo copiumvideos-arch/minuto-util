@@ -1,0 +1,14 @@
+{
+  "tag": "20261029-0306",
+  "article": "Paraguayan War",
+  "year": 1864,
+  "topic": "Grandes guerras",
+  "trend": "sua ideia: guerra do Brasil contra paraguai",
+  "portugueseArticle": "Guerra do Paraguai",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "note": "run failed: LlmException: The run's budget of 5 model requests is spent; not asking openrouter.",
+  "updatedAt": "2026-10-29T03:11:04.6692644+00:00"
+}
