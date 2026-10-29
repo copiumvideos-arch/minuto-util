@@ -6,7 +6,7 @@ using MinutoUtil.Core.Sources;
 using MinutoUtil.Core.Video;
 using MinutoUtil.Core.Voice;
 
-// minuto-util make [--run <folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>] [--steam-app <id>] [--quota-file <path>]
+// minuto-util make [--run <folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>] [--steam-app <id>] [--youtube <ids>] [--quota-file <path>]
 //   Makes one video into output/<yyyy-MM-dd>/<HHmm>/, or finishes/re-renders an existing run folder, reusing
 //   everything already in it (sources, script, voice takes, media, shots). Nothing is uploaded.
 // minuto-util publish --run <folder> [--youtube] [--tiktok] [--dry-run] [--force]
@@ -61,6 +61,7 @@ if (command is not "make")
           --year        The year of that event (pictures from it rank higher, and the year card shows it).
           --topic       The series name given to the writer (default: story.topic).
           --steam-app   A trailer channel: the game's Steam app id, when the article's name does not find it.
+          --youtube     A trailer channel: YouTube videos to cut instead (ids or links, comma separated).
           --script-only Stop after writing the script (a later make --run of the folder goes on from there).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
           youtube-login Signs in to YouTube once (browser); only the channel's youtube.channelId is accepted.
@@ -89,6 +90,16 @@ if (Option("--steam-app") is { Length: > 0 } steamApp)
         return 1;
     }
     config = config with { Media = config.Media with { SteamAppId = steamAppId } };
+}
+if (Option("--youtube") is { Length: > 0 } youTube)
+{
+    var ids = youTube.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => (Text: v, Id: YouTubeTrailers.VideoId(v))).ToList();
+    if (ids.FirstOrDefault(v => v.Id is null) is { Text: not null } bad)
+    {
+        Console.Error.WriteLine($"--youtube takes YouTube video ids or links, not \"{bad.Text}\".");
+        return 1;
+    }
+    config = config with { Media = config.Media with { YouTubeVideos = ids.Select(v => v.Id!).Distinct().ToList() } };
 }
 
 var now = DateTime.Now;
@@ -142,8 +153,10 @@ var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader
 ICoverPainter? painter = Key(config.CloudflareAi.TokenEnvVar) is { } paintToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } paintAccount
     ? new CloudflareCoverPainter(apiHttp, paintToken, paintAccount, config.CloudflareAi, usage)
     : null;
-// The game's official trailers, for a channel whose footage is trailers (media.footage).
-var trailers = config.Media.Footage == "trailers" ? new SteamTrailers(http, ffmpeg, config.Media) : null;
+// The game's official trailers (Steam, else YouTube), for a channel whose footage is trailers (media.footage).
+var trailers = config.Media.Footage == "trailers"
+    ? new GameTrailers(new SteamTrailers(http, ffmpeg, config.Media), new YouTubeTrailers(ffmpeg, config.Media, Path.Combine(root, "tools")), config.Media)
+    : null;
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
     () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter, trailers);
 try

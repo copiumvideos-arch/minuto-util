@@ -36,7 +36,7 @@ public sealed class Pipeline(
     Narrator narrator,
     MediaGatherer gatherer,
     ICoverPainter? painter = null,
-    SteamTrailers? trailers = null)
+    GameTrailers? trailers = null)
 {
     private string Tools => Path.Combine(repositoryRoot, "tools");
 
@@ -52,11 +52,19 @@ public sealed class Pipeline(
         Log.Info($"script: \"{script.Title}\", {script.WordCount} words, {script.Sections.Count} sections");
         if (scriptOnly) return null;
 
+        // Trailers before the voice: a game with no footage fails here, before any voice credits are spent.
+        IReadOnlyList<MediaItem>? found = null;
+        if (config.Media.Footage == "trailers")
+        {
+            if (trailers is null) throw new InvalidOperationException("media.footage is \"trailers\" but no trailer source was given.");
+            found = await trailers.GatherAsync(config.Story.EnglishArticle, Path.Combine(folder, "media"), ct);
+        }
+
         var timings = await narrator.NarrateAsync(script, folder, ct);
         // Whole frames, so the shots, the captions and the audio all end on the same frame.
         var duration = Math.Ceiling((timings.Duration + video.TailSeconds) * video.Fps) / video.Fps;
         Log.Info($"voice: {timings.Voice}, {timings.Duration:0.00}s spoken, alignment {string.Join(" ", timings.Checks.Select(c => c.Score.ToString("0.00")))}");
-        if (config.Media.Footage == "trailers") return await TrailerVideoAsync(folder, script, sources, timings, writerName, duration, ct);
+        if (found is not null) return await TrailerVideoAsync(folder, script, sources, found, timings, writerName, duration, ct);
 
         var clipSeconds = config.Media.ClipSeconds;
         // The map shot needs the place on the map; scripts written before the field existed simply go without.
@@ -153,16 +161,14 @@ public sealed class Pipeline(
     }
 
     /// <summary>
-    /// The rest of a run whose footage is the game's trailers (media.footage "trailers"): the trailers from Steam,
+    /// The rest of a run whose footage is the game's trailers (media.footage "trailers"): the trailers from Steam or YouTube,
     /// tools/trailer.py cuts them on the narration into one silent picture track, then the same final render as the
     /// archive look (captions, voice, loudness), with the channel's own style switches. No map, year card or cover.
     /// </summary>
     private async Task<RunResult> TrailerVideoAsync(string folder, VideoScript script, IReadOnlyList<SourceArticle> sources,
-        SpeechTimings timings, string writerName, double duration, CancellationToken ct)
+        IReadOnlyList<MediaItem> found, SpeechTimings timings, string writerName, double duration, CancellationToken ct)
     {
-        if (trailers is null) throw new InvalidOperationException("media.footage is \"trailers\" but no Steam trailer source was given.");
         var video = config.Video;
-        var found = await trailers.GatherAsync(config.Story.EnglishArticle, config.Media.SteamAppId, Path.Combine(folder, "media"), ct);
 
         var frames = (int)Math.Round(duration * video.Fps);
         var footage = Path.Combine(folder, "footage.mp4");

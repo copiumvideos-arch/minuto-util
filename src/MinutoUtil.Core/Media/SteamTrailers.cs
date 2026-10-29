@@ -14,7 +14,7 @@ public sealed class MediaException(string message) : Exception(message);
 /// The game is found by the name of its Wikipedia article (or media.steamAppId), each trailer's HLS stream is read at
 /// its best resolution up to 1080p, and FFmpeg copies the video track (no audio) into the run's media/trailers/. The
 /// store's answers are untrusted data: the streams must be https on Steam's video host, and every file is probed
-/// before use. The list is saved as trailers.json and reused by a re-render.
+/// before use. <see cref="GameTrailers"/> saves the list for a re-render.
 /// </summary>
 public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaOptions options)
 {
@@ -24,17 +24,6 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
     public async Task<IReadOnlyList<MediaItem>> GatherAsync(string game, int? appId, string mediaFolder, CancellationToken ct)
     {
         var folder = Path.Combine(mediaFolder, "trailers");
-        var manifestPath = Path.Combine(mediaFolder, "trailers.json");
-        if (File.Exists(manifestPath))
-        {
-            var saved = JsonSerializer.Deserialize<List<MediaItem>>(await File.ReadAllTextAsync(manifestPath, ct), Json.Options) ?? [];
-            if (saved.Count > 0 && saved.All(t => File.Exists(t.LocalPath)))
-            {
-                Log.Info($"trailers: reused {saved.Count} from {manifestPath}");
-                return saved;
-            }
-        }
-
         var app = appId ?? await FindAppAsync(game, ct);
         var details = await GetJsonAsync($"{Store}/api/appdetails?appids={app}&l=english", ct);
         var data = details?[app.ToString(CultureInfo.InvariantCulture)]?["data"]
@@ -91,26 +80,28 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
             }
         }
         if (trailers.Count == 0) throw new MediaException($"None of the trailers of {name} (Steam app {app}) could be downloaded.");
-        await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(trailers, Json.Options), ct);
         return trailers;
     }
 
     /// <summary>
     /// The Steam app of a game by name: the search result whose name is the game's name, or else the first one that
-    /// starts with it (a later edition, "The Witcher 3: Wild Hunt - Remastered"), so "Hades" never finds "Hades II".
+    /// starts with its words (a later edition, "The Witcher 3: Wild Hunt - Remastered"), so "Hades" never finds "Hades II"
+    /// and "Grand Theft Auto VI" never finds "Grand Theft Auto: Vice City".
     /// Anything else is refused rather than guessed, since a wrong game's trailers would contradict the narration;
     /// --steam-app names the app then.
     /// </summary>
     internal async Task<int> FindAppAsync(string game, CancellationToken ct)
     {
-        var title = WithoutQualifier().Replace(game, "").Trim();
-        var wanted = Key(title);
+        var title = GameNames.Title(game);
+        var wanted = GameNames.Key(title);
         if (wanted.Length == 0) throw new MediaException("No game name to look up on Steam.");
         var found = await GetJsonAsync($"{Store}/api/storesearch/?term={Uri.EscapeDataString(title)}&l=english&cc=US", ct);
         var items = (found?["items"] as JsonArray ?? []).OfType<JsonObject>()
             .Where(i => i["type"]?.GetValue<string>() == "app" && i["id"] is not null)
             .Select(i => (Id: i["id"]!.GetValue<int>(), Name: Clean(i["name"]?.GetValue<string>() ?? ""))).ToList();
-        var match = items.Where(i => Key(i.Name) == wanted).Concat(items.Where(i => Key(i.Name).StartsWith(wanted, StringComparison.Ordinal)))
+        var words = TextUtil.Fold(title) + " ";
+        var match = items.Where(i => GameNames.Key(i.Name) == wanted)
+            .Concat(items.Where(i => (TextUtil.Fold(i.Name) + " ").StartsWith(words, StringComparison.Ordinal)))
             .FirstOrDefault();
         if (match.Id > 0)
         {
@@ -175,16 +166,6 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
             text = text.Replace(bad, good);
         return text.Trim();
     }
-
-    /// <summary>Letters and digits only, folded: "The Witcher 3: Wild Hunt" and "the witcher 3 wild hunt" match.</summary>
-    private static string Key(string text) => NotAlphanumeric().Replace(TextUtil.Fold(Clean(text)), "");
-
-    /// <summary>Wikipedia's disambiguation in a title: "Hades (video game)", "God of War (2018 video game)".</summary>
-    [GeneratedRegex(@"\s*\((\d{4} )?(video ?game|jogo eletrônico|jogo|game)\)\s*$", RegexOptions.IgnoreCase)]
-    private static partial Regex WithoutQualifier();
-
-    [GeneratedRegex("[^a-z0-9]")]
-    private static partial Regex NotAlphanumeric();
 
     [GeneratedRegex(@"^#EXT-X-STREAM-INF:.*RESOLUTION=\d+x(\d+)")]
     private static partial Regex StreamResolution();

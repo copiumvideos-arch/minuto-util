@@ -257,11 +257,17 @@ files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` ex
 vintage look) or `trailers` (Profissão Spoiler, a games channel). A trailer run writes and voices the script the same
 way (Wikipedia sources, the channel's `writer.md`), then:
 
-1. **Trailers** (`Media/SteamTrailers.cs`): the game is found on Steam by its Wikipedia article's name (the exact
-   name first, then a later edition that starts with it; anything else is refused, and `make --steam-app <id>` names
-   the app). Up to `media.trailers` (3) official trailers, highlighted ones first, are read from their HLS streams at
-   the best size up to 1080p, video only, into `media/trailers/`; only https streams on `*.steamstatic.com` are
-   followed. `media/trailers.json` keeps the list for a re-render.
+1. **Trailers** (`Media/GameTrailers.cs`), fetched before the voice so a game with no footage costs no credits:
+   - Steam (`Media/SteamTrailers.cs`): the game is found by its Wikipedia article's name (the exact name first, then
+     a later edition that starts with its words; anything else is refused, and `make --steam-app <id>` names the app).
+     Up to `media.trailers` (3) official trailers, highlighted ones first, are read from their HLS streams at the best
+     size up to 1080p, video only, into `media/trailers/`; only https streams on `*.steamstatic.com` are followed.
+   - YouTube (`Media/YouTubeTrailers.cs`), when Steam has no such game (GTA VI): yt-dlp searches "<game> official
+     trailer" and keeps videos from a channel in `media.youTubeChannels` (Rockstar, PlayStation, Xbox, IGN... by id)
+     or a verified channel named after the game, whose title names the game and is not a reaction, review or
+     breakdown; another channel's reupload of the same length is dropped. `make --youtube <ids or links>` names the
+     videos instead. The best H.264 track up to 1080p, video only, cut to `media.maxTrailerSeconds`.
+   `media/trailers.json` keeps the list for a re-render. `MINUTO_LIVE_TESTS=1 dotnet test` also runs a live download.
 2. **Cuts** (`tools/trailer.py`): shots are found in each trailer (cached in `shots.json` next to them), the narration
    is cut into 1.3 to 2.6 s slots on word starts (1.0 to 1.6 s in the first five seconds), each slot gets an unused
    high-motion shot from a different trailer than the one before, cropped to 9:16 on the action with a slow push in.

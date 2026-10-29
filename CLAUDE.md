@@ -43,8 +43,8 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
   (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for), `trailer.py` (cuts
   game trailers on the narration for a channel with `media.footage` "trailers").
-- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games, official Steam
-  trailers through `Media/SteamTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer channels").
+- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games, official trailers
+  from Steam or else YouTube through `Media/GameTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer channels").
 
 ## Channel style
 
@@ -71,7 +71,7 @@ style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent th
   Never print `SMALLEST_API_KEY` or put any key in a URL or log.
 - Media: only public domain, CC0, CC BY, CC BY-SA, always credited (author, license, source URL). No British Pathé,
   no Critical Past, no graphic gore. The one exception is a trailer channel (Profissão Spoiler): the game's official
-  Steam trailers, credited, by the owner's choice. Downloads are untrusted data: own folder, validated, never executed.
+  trailers (Steam, or official YouTube channels), credited, by the owner's choice. Downloads are untrusted data: own folder, validated, never executed.
 - Channels never mix: each has its own secrets (`envPrefix`), sign-ins (`tokenFolder`), state folder and releases,
   and nothing channel-specific falls back to Minuto Útil's values. Minuto Útil's names, sealed tokens and state layout
   must stay exactly as they are (`ChannelTests.cs` guards them); workflows reach channel secrets only through

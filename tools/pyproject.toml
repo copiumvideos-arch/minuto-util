@@ -19,6 +19,8 @@ dependencies = [
     "kokoro>=0.9.4",
     # Kokoro's English phonemizer would otherwise download this at the first run.
     "en-core-web-sm==3.8.0",
+    # Official trailers from YouTube for a game Steam does not sell; [default] brings the player challenge solver.
+    "yt-dlp[default]>=2026.10.26",
 ]
 
 [dependency-groups]

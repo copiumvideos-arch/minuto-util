@@ -33,6 +33,15 @@ public sealed class SteamTrailersTests
     }
 
     [Fact]
+    public async Task ANameThatOnlyStartsWithTheGamesLettersIsAnotherGame()
+    {
+        // Steam's real answer for "Grand Theft Auto VI" on 2026-10-29: "vi" is where "Vice City" starts.
+        var handler = Search("""{"type":"app","name":"Grand Theft Auto: Vice City – The Definitive Edition","id":1546990},{"type":"app","name":"Grand Theft Auto V Enhanced","id":3240220}""");
+
+        await Assert.ThrowsAsync<MediaException>(() => Steam(handler).FindAppAsync("Grand Theft Auto VI", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task RefusesToGuessWhenNoResultIsTheGame()
     {
         var handler = Search("""{"type":"app","name":"Witcher Hunter Simulator","id":1},{"type":"bundle","name":"The Witcher 3: Wild Hunt","id":2}""");

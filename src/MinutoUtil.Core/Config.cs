@@ -232,12 +232,36 @@ public sealed record MediaOptions
 
     /// <summary>
     /// Where the pictures come from: "archive" (public domain and CC pictures and footage, the Minuto Útil look) or
-    /// "trailers" (the game's official Steam trailers, cut fast on the narration; <see cref="Media.SteamTrailers"/>).
+    /// "trailers" (the game's official trailers from Steam or YouTube, cut fast on the narration; <see cref="Media.GameTrailers"/>).
     /// </summary>
     public string Footage { get; init; } = "archive";
 
     /// <summary>The Steam app of the game when its name does not find it; usually set per run with --steam-app.</summary>
     public int? SteamAppId { get; init; }
+
+    /// <summary>YouTube videos to use instead of Steam's trailers (ids), set per run with --youtube.</summary>
+    public IReadOnlyList<string> YouTubeVideos { get; init; } = [];
+
+    /// <summary>
+    /// The YouTube channels whose videos a search may use for a game Steam does not sell (besides a verified channel
+    /// named after the game): publishers, platforms and the outlets that post official trailers. Channel ids, since
+    /// names can be copied.
+    /// </summary>
+    public IReadOnlyList<string> YouTubeChannels { get; init; } =
+    [
+        "UC6VcWc1rAoWdBCM0JxrRQ3A", // Rockstar Games
+        "UC-2Y8dQb0S6DtpxNgAKoJKA", // PlayStation
+        "UCjBp_7RuDBUYbd1LegWEJ8g", // Xbox
+        "UCGIY_O-8vW4rfX98KlMkvRg", // Nintendo of America
+        "UCIHBybdoneVVpaQK7xMz1ww", // Electronic Arts
+        "UC0KU8F9jJqSLS11LRXvFWmg", // Ubisoft
+        "UCvZHe-SP3xC7DdOk4Ri8QBw", // Bethesda Softworks
+        "UCW7h-1mymnJ96akzjrmiIgA", // Capcom USA
+        "UC_ntXHv-XdKCD7CPynVvnQw", // Bandai Namco Entertainment America
+        "UCWfXR0-F7MI-TbqikgEdJcQ", // SEGA
+        "UCKy1dAqELo0zrOtPkf0eTMw", // IGN
+        "UCUnRn1f78foyP26XGkRfWsA", // GameSpot Trailers
+    ];
 
     /// <summary>Trailers downloaded per video: enough shots that none repeats in a minute of fast cuts.</summary>
     public int Trailers { get; init; } = 3;
