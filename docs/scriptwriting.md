@@ -454,8 +454,8 @@ Worth testing, roughly in order of expected impact:
    reach? Shorter videos finish more often; the question is whether the story survives the cut.
 2. **Hook types.** Which of the types in section 6 has the lowest swipe-away for this audience?
 3. **Brazil bridge.** Do videos with a sourced link to Brazil or to the school curriculum hold better?
-4. **Era.** The topic picker favors older history for variety and pictures. Does the audience agree, or do modern
-   and Brazilian stories hold far better?
+4. **Era.** The topics are Brazil only for now, mixed over the colony, the Empire and the Republic. Which period
+   holds best, and do world stories with a Brazil bridge do as well as Brazilian ones when they come back?
 5. **Loop vs. question ending.** Does the loop raise rewatches enough to beat the comment boost of an out-loud
    question, on subjects where either would fit?
 6. **Scale comparisons.** Should the prompt allow "do tamanho de dois Maracanãs"-style comparisons, given the facts

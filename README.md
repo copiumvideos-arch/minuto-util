@@ -228,15 +228,17 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   -> Rejeitar: the release is deleted, the topic is not tried again
 ```
 
-- **Topics**: `config/topics.json`, taken in order, spread over world history (negative years are before Christ: the
-  Telegram lists show "44 a.C.", and the year card gives way to the plain date stamp). An article that was rendered
+- **Topics**: `config/topics.json`, taken in order. For now the channel tells Brazil's history only: events in Brazil,
+  the wars Brazil fought in South America and Brazil's part in the World Wars, mixed over the colony, the Empire and
+  the Republic (negative years still work for anything before Christ: the Telegram lists show "44 a.C.", and the year
+  card gives way to the plain date stamp). An article that was rendered
   (in review, published or rejected) is skipped; one that failed gets one more try, then leaves the queue. Telegram warns when 5 topics are left. On
   Telegram, `/novo` renders the next topic now and `/novo <English Wikipedia article>` renders that article.
 - **Ideas (the owner chooses)**: every day at 06:00 Brasília, `ideas.yml` reads Google Trends Brazil (daily searches
   with a headline each) and the most read pages on Portuguese Wikipedia, and asks the writer models (one request,
-  `prompts/trends.md`) for 10 historical events spread over every era and region (antiquity, the Middle Ages and the
-  early modern world get most picks, the modern era at most three), with the news only as a loose inspiration: an
-  election in the news can become Athens' first democracy or the Magna Carta. Never the current news itself, a living
+  `prompts/trends.md`) for 10 events from Brazil's history (at least two each from the colony, the Empire and the
+  Republic, every region of the country, at most two from the same war), with the news only as a loose inspiration:
+  an election in the news can become the Republic's first vote, a football final the Maracanazo. Never the current news itself, a living
   politician or a party, and only events at least 25 years old. Every pick is checked on Wikipedia (English article, not a disambiguation
   page; the Portuguese article the model names, or else the English page's link) and against past runs, recent
   lists and waiting ideas. The list goes to Telegram with buttons 1 to 10: a tap approves that idea (`approved/` on

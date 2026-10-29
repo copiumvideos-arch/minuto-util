@@ -27,10 +27,12 @@ public sealed class TopicQueueTests
             Assert.InRange(t.Year, TrendPicker.MinYear, 2025);
             Assert.NotEqual(0, t.Year);
         });
-        // Spread over world history: antiquity, the Middle Ages and the early modern world outnumber the last two centuries.
-        Assert.True(backlog.Topics.Count(t => t.Year < 1800) > 2 * backlog.Topics.Count(t => t.Year >= 1800));
-        Assert.True(backlog.Topics.Count(t => t.Year < 0) >= 10);
-        Assert.True(backlog.Topics.Count(t => t.Topic == "Segunda Guerra Mundial") <= 2);
+        // Brazil only for now, mixed over the colony, the Empire and the Republic, and never two in a row from one series.
+        Assert.All(backlog.Topics, t => Assert.InRange(t.Year, 1494, 2001));
+        Assert.True(backlog.Topics.Count(t => t.Year < 1822) >= 10);
+        Assert.True(backlog.Topics.Count(t => t.Year is >= 1822 and < 1889) >= 10);
+        Assert.True(backlog.Topics.Count(t => t.Year >= 1889) >= 10);
+        Assert.All(backlog.Topics.Zip(backlog.Topics.Skip(1)), p => Assert.NotEqual(p.First.Topic, p.Second.Topic));
         // The first video (Normandy, posted by hand) is not queued again.
         Assert.DoesNotContain(backlog.Topics, t => t.Article == "Normandy landings");
     }
@@ -486,7 +488,7 @@ public sealed class TrendTests
         Assert.Contains("- Lista de presidentes do Brasil", prompt);
         Assert.Contains("Already made (do not pick):\n- Storming of the Bastille".ReplaceLineEndings(), prompt.ReplaceLineEndings());
         Assert.Contains("never a living politician", prompt);
-        Assert.Contains("Antiquity (before 500)", prompt);
+        Assert.Contains("the channel tells Brazil's history only", prompt);
     }
 
     [Fact]
