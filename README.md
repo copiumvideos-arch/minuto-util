@@ -267,6 +267,10 @@ way (Wikipedia sources, the channel's `writer.md`), then:
      or a verified channel named after the game, whose title names the game and is not a reaction, review or
      breakdown; another channel's reupload of the same length is dropped. `make --youtube <ids or links>` names the
      videos instead. The best H.264 track up to 1080p, video only, cut to `media.maxTrailerSeconds`.
+   - A footage release (`Media/FootageCache.cs`), checked before both: YouTube asks GitHub's runners to sign in ("not
+     a bot"), so for a YouTube-only game run `minuto-util footage --channel <id> --article "<game>"` on the PC first.
+     It downloads the trailers there and puts them in the release `footage-<game>` (replacing it); every cloud run of
+     that game then takes them from it.
    `media/trailers.json` keeps the list for a re-render. `MINUTO_LIVE_TESTS=1 dotnet test` also runs a live download.
 2. **Cuts** (`tools/trailer.py`): shots are found in each trailer (cached in `shots.json` next to them), the narration
    is cut into 1.3 to 2.6 s slots on word starts (1.0 to 1.6 s in the first five seconds), each slot gets an unused

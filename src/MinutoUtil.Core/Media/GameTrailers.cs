@@ -4,18 +4,20 @@ using System.Text.RegularExpressions;
 namespace MinutoUtil.Core.Media;
 
 /// <summary>
-/// The footage of a channel with media.footage "trailers": the videos named with --youtube, else the game's Steam
-/// trailers, else (a game Steam does not sell, like GTA VI) its official trailers on YouTube. The list is saved as
-/// trailers.json and reused by a re-render.
+/// The footage of a channel with media.footage "trailers": the videos named with --youtube, else the game's footage
+/// release (<see cref="FootageCache"/>, made on the owner's PC), else its Steam trailers, else (a game Steam does not
+/// sell, like GTA VI) its official trailers on YouTube. The list is saved as trailers.json and reused by a re-render.
 /// </summary>
-public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, MediaOptions options)
+public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, MediaOptions options, FootageCache? cache = null)
 {
     public async Task<IReadOnlyList<MediaItem>> GatherAsync(string game, string mediaFolder, CancellationToken ct)
     {
         var manifestPath = Path.Combine(mediaFolder, "trailers.json");
         if (File.Exists(manifestPath))
         {
-            var saved = JsonSerializer.Deserialize<List<MediaItem>>(await File.ReadAllTextAsync(manifestPath, ct), Json.Options) ?? [];
+            // By file name: a run folder restored in another place (the cloud) keeps its trailers next to the manifest.
+            var saved = (JsonSerializer.Deserialize<List<MediaItem>>(await File.ReadAllTextAsync(manifestPath, ct), Json.Options) ?? [])
+                .Select(t => t with { LocalPath = Path.Combine(mediaFolder, "trailers", Path.GetFileName(t.LocalPath ?? "")) }).ToList();
             if (saved.Count > 0 && saved.All(t => File.Exists(t.LocalPath)))
             {
                 Log.Info($"trailers: reused {saved.Count} from {manifestPath}");
@@ -27,6 +29,10 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
         if (options.YouTubeVideos.Count > 0)
         {
             trailers = await youTube.NamedAsync(options.YouTubeVideos, mediaFolder, ct);
+        }
+        else if (cache is not null && await cache.DownloadAsync(game, mediaFolder, ct) is { } cached)
+        {
+            trailers = cached;
         }
         else
         {
@@ -43,7 +49,8 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
                 }
                 catch (MediaException youTubeError)
                 {
-                    throw new MediaException($"{steamError.Message} {youTubeError.Message}");
+                    throw new MediaException($"{steamError.Message} {youTubeError.Message} On the PC, `minuto-util footage --channel " +
+                                             $"<id> --article \"{game}\"` downloads them for the cloud (release {FootageCache.ReleaseTag(game)}).");
                 }
             }
         }

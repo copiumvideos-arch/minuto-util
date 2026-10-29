@@ -13,6 +13,8 @@ using MinutoUtil.Core.Voice;
 //   Sends a finished run to YouTube (public Short) and to the owner's TikTok inbox (draft); see PublishingCommands.cs.
 // minuto-util cover --run <folder> [--text ..] [--scene ..] [--date ..] [--youtube] [--telegram] [--caption "<text>"]
 //   A new painted thumbnail for a run, set on its published Short; see CoverCommand.cs.
+// minuto-util footage --article "<game>" [--youtube <ids>] [--steam-app <id>]
+//   A trailer channel: downloads the game's trailers on this PC into its footage release, for the cloud runs; see FootageCommand.cs.
 // minuto-util cloud next|review|publish|reject|failed|secrets ...
 //   The steps of the GitHub Actions runs; see CloudCommands.cs.
 // Every command takes --channel <id> (default minuto-util): the channel in channels/<id>/ whose config, topics,
@@ -39,6 +41,8 @@ if (command is "cloud")
     return await CloudCommands.RunAsync(args, channel!, FindRepositoryRoot(), Key);
 if (command is "cover")
     return await CoverCommand.RunAsync(args, channel!.Config, FindRepositoryRoot(), Key);
+if (command is "footage")
+    return await FootageCommand.RunAsync(args, channel!.Config, FindRepositoryRoot());
 if (command is "youtube-login" or "tiktok-login" or "publish")
     return await PublishingCommands.RunAsync(command, args, channel!.Config, Key);
 if (command is not "make")
@@ -48,6 +52,7 @@ if (command is not "make")
 
         Usage: minuto-util make [--run <run folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>]
                minuto-util check-script --run <run folder>
+               minuto-util footage --article "<game>" [--youtube <ids or links>] [--steam-app <id>]
                minuto-util youtube-login [--no-browser]
                minuto-util tiktok-login [--no-browser] [--paste]
                minuto-util publish --run <run folder> [--youtube] [--tiktok] [--dry-run] [--force]
@@ -63,6 +68,8 @@ if (command is not "make")
           --steam-app   A trailer channel: the game's Steam app id, when the article's name does not find it.
           --youtube     A trailer channel: YouTube videos to cut instead (ids or links, comma separated).
           --script-only Stop after writing the script (a later make --run of the folder goes on from there).
+          footage       A trailer channel: downloads the game's trailers on this PC (YouTube refuses the cloud) into
+                        the GitHub release footage-<game>, which the cloud runs of that game use before Steam or YouTube.
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
           youtube-login Signs in to YouTube once (browser); only the channel's youtube.channelId is accepted.
           tiktok-login  Signs in to TikTok once (browser). --paste: paste the address the browser ends on instead.
@@ -155,7 +162,8 @@ ICoverPainter? painter = Key(config.CloudflareAi.TokenEnvVar) is { } paintToken 
     : null;
 // The game's official trailers (Steam, else YouTube), for a channel whose footage is trailers (media.footage).
 var trailers = config.Media.Footage == "trailers"
-    ? new GameTrailers(new SteamTrailers(http, ffmpeg, config.Media), new YouTubeTrailers(ffmpeg, config.Media, Path.Combine(root, "tools")), config.Media)
+    ? new GameTrailers(new SteamTrailers(http, ffmpeg, config.Media), new YouTubeTrailers(ffmpeg, config.Media, Path.Combine(root, "tools")), config.Media,
+        new FootageCache(root))
     : null;
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
     () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter, trailers);
