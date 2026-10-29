@@ -31,8 +31,9 @@ using MinutoUtil.Core.Video;
 /// </summary>
 internal static class CloudCommands
 {
-    public static async Task<int> RunAsync(string[] args, AppConfig config, string root, Func<string, string?> key)
+    public static async Task<int> RunAsync(string[] args, Channel channel, string root, Func<string, string?> key)
     {
+        var config = channel.Config;
         var step = args.ElementAtOrDefault(1) ?? "";
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
@@ -44,7 +45,8 @@ internal static class CloudCommands
         {
             if (step == "secrets") return await SecretsAsync(config, key, Option(args, "--repo") ?? throw new ArgumentException("cloud secrets needs --repo <owner/name>."));
 
-            var state = new CloudState(Option(args, "--state") ?? throw new ArgumentException("cloud needs --state <state branch folder>."));
+            // --state is the state branch checkout; each channel keeps its files in its own folder of it (Minuto Útil at the root).
+            var state = new CloudState(channel.StateFolder(Option(args, "--state") ?? throw new ArgumentException("cloud needs --state <state branch folder>.")));
             using var apiHttp = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(30));
             using var uploadHttp = SafeHttp.CreatePublicClient(TimeSpan.FromMinutes(10));
             var telegram = PublishingCommands.Telegram(config.Telegram, key, apiHttp)
@@ -52,19 +54,19 @@ internal static class CloudCommands
             switch (step)
             {
                 case "ideas":
-                    return await IdeasAsync(state, config, root, key, telegram, args.Contains("--again"), cts.Token);
+                    return await IdeasAsync(state, channel, key, telegram, args.Contains("--again"), cts.Token);
                 case "approve":
                     return Approve(state, Option(args, "--date") ?? "", int.TryParse(Option(args, "--index"), out var index) ? index : 0);
                 case "add-idea":
-                    return await AddIdeaAsync(state, config, root, key, Option(args, "--idea") ?? "", telegram, cts.Token);
+                    return await AddIdeaAsync(state, channel, key, Option(args, "--idea") ?? "", telegram, cts.Token);
                 case "queue":
-                    return await QueueAsync(state, root, Option(args, "--top"), Option(args, "--remove"), Option(args, "--move"),
+                    return await QueueAsync(state, channel, Option(args, "--top"), Option(args, "--remove"), Option(args, "--move"),
                         Option(args, "--to"), telegram, cts.Token);
                 case "settings":
-                    return await SettingsAsync(state, Option(args, "--set") ?? "", telegram, cts.Token);
+                    return await SettingsAsync(state, config.Channel, Option(args, "--set") ?? "", telegram, cts.Token);
                 case "status":
-                    await telegram.SendTextAsync(CloudFlow.StatusMessage(state.Settings(), state.Runs(),
-                        state.Queue(TopicBacklog.Load(Path.Combine(root, "config", "topics.json"))), DateTimeOffset.UtcNow), cts.Token);
+                    await telegram.SendTextAsync(CloudFlow.StatusMessage(config.Channel, state.Settings(), state.Runs(),
+                        state.Queue(TopicBacklog.Load(channel.TopicsFile)), DateTimeOffset.UtcNow), cts.Token);
                     return 0;
                 case "stats":
                 {
@@ -102,7 +104,7 @@ internal static class CloudCommands
                         Log.Info("next: the scheduled videos are paused (/retomar on Telegram)");
                         return 3;
                     }
-                    return await NextAsync(state, tag, config, root, key, Option(args, "--article"), telegram, cts.Token);
+                    return await NextAsync(state, tag, channel, key, Option(args, "--article"), telegram, cts.Token);
                 case "script-review":
                 {
                     var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud script-review needs --run <folder>."));
@@ -185,10 +187,10 @@ internal static class CloudCommands
     /// "trend","left"} for the workflow. With --article (the owner's /novo text): a backlog title is used as it is,
     /// anything else is an idea the trend picker turns into an event (one model request). Exit code 3: nothing to render.
     /// </summary>
-    private static async Task<int> NextAsync(CloudState state, string tag, AppConfig config, string root, Func<string, string?> key,
+    private static async Task<int> NextAsync(CloudState state, string tag, Channel channel, Func<string, string?> key,
         string? article, TelegramNotifier telegram, CancellationToken ct)
     {
-        var backlog = TopicBacklog.Load(Path.Combine(root, "config", "topics.json"));
+        var backlog = TopicBacklog.Load(channel.TopicsFile);
         var (next, left) = state.NextTopic(backlog);
         if (!string.IsNullOrWhiteSpace(article))
         {
@@ -200,7 +202,7 @@ internal static class CloudCommands
                 using var llmHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
                 try
                 {
-                    next = (await Picker(state, config, root, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
+                    next = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
                 }
                 catch (Exception ex) when (ex is LlmException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
                 {
@@ -215,11 +217,11 @@ internal static class CloudCommands
         }
         if (next is null)
         {
-            await telegram.SendTextAsync("📭 A fila de temas acabou (config/topics.json). Adicione eventos para continuar.", ct);
+            await telegram.SendTextAsync($"📭 A fila de temas acabou ({channel.TopicsFileName}). Adicione eventos para continuar.", ct);
             return 3;
         }
         if (string.IsNullOrWhiteSpace(article) && left <= 5)
-            await telegram.SendTextAsync($"📋 Restam {left} temas na fila (config/topics.json).", ct);
+            await telegram.SendTextAsync($"📋 Restam {left} temas na fila ({channel.TopicsFileName}).", ct);
         return Started(state, tag, next, left, state.Settings().Review);
     }
 
@@ -257,7 +259,7 @@ internal static class CloudCommands
         JsonSerializer.Deserialize<T>(File.ReadAllText(path), Json.Options) ?? throw new InvalidDataException($"{path} is empty.");
 
     /// <summary>/revisar on|off, /pausar, /retomar.</summary>
-    private static async Task<int> SettingsAsync(CloudState state, string set, TelegramNotifier telegram, CancellationToken ct)
+    private static async Task<int> SettingsAsync(CloudState state, ChannelOptions channel, string set, TelegramNotifier telegram, CancellationToken ct)
     {
         var settings = state.Settings();
         (settings, var reply) = set switch
@@ -265,7 +267,8 @@ internal static class CloudCommands
             "review-on" => (settings with { Review = true }, "📝 Revisão de roteiro ligada: cada vídeo espera você aprovar ou editar o roteiro."),
             "review-off" => (settings with { Review = false }, "📝 Revisão de roteiro desligada: os vídeos saem direto, como antes."),
             "pause" => (settings with { Paused = true }, "⏸️ Vídeos agendados pausados. /novo ainda funciona; /retomar volta."),
-            "resume" => (settings with { Paused = false }, "▶️ Vídeos agendados de volta: 07h, 11h, 15h e 19h."),
+            "resume" => (settings with { Paused = false }, channel.ScheduleUtcHours.Count == 0 ? "▶️ Vídeos agendados de volta (este canal não tem horários; /novo faz um agora)."
+                : $"▶️ Vídeos agendados de volta: {CloudFlow.ScheduleHours(channel.ScheduleUtcHours)}."),
             _ => throw new ArgumentException($"Unknown setting \"{TextUtil.Truncate(set, 20)}\"."),
         };
         state.SaveSettings(settings);
@@ -279,8 +282,9 @@ internal static class CloudCommands
     /// take the spares' turn; a model out of its daily quota is remembered in the quota file on the state branch and
     /// skipped without a request.
     /// </summary>
-    private static TrendPicker Picker(CloudState state, AppConfig config, string root, Func<string, string?> key, HttpClient http, HttpClient llmHttp)
+    private static TrendPicker Picker(CloudState state, Channel channel, Func<string, string?> key, HttpClient http, HttpClient llmHttp)
     {
+        var config = channel.Config;
         var usage = new RunUsage(5, config.Writer.MaxSpareRequests);
         var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
         var models = new List<ILlmClient>();
@@ -288,7 +292,7 @@ internal static class CloudCommands
         if (key(config.CloudflareAi.TokenEnvVar) is { } cloudflare && key(config.CloudflareAi.AccountIdEnvVar) is { } account)
             models.Add(OpenRouterClient.ForCloudflare(llmHttp, cloudflare, account, config.CloudflareAi.Models, usage, quota));
         if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
-        return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(Path.Combine(root, "prompts", "trends.md")),
+        return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(channel.TrendsPromptFile),
             config.Channel.Name, TimeProvider.System);
     }
 
@@ -297,7 +301,7 @@ internal static class CloudCommands
     /// events related to them (one request), checks them on Wikipedia, saves the list as ideas/&lt;date&gt;.json and sends
     /// it to the owner with a button per idea. Any failure only warns: the renders go on with approved ideas and the backlog.
     /// </summary>
-    private static async Task<int> IdeasAsync(CloudState state, AppConfig config, string root, Func<string, string?> key,
+    private static async Task<int> IdeasAsync(CloudState state, Channel channel, Func<string, string?> key,
         TelegramNotifier telegram, bool again, CancellationToken ct)
     {
         var date = IdeaList.DateFor(DateTimeOffset.UtcNow);
@@ -317,7 +321,7 @@ internal static class CloudCommands
                 return 0;
             }
             Log.Info($"ideas: {signals.Headlines.Count} headlines, {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
-            var picks = await Picker(state, config, root, key, http, llmHttp).PickAsync(signals, state.TakenArticles(), ct);
+            var picks = await Picker(state, channel, key, http, llmHttp).PickAsync(signals, state.TakenArticles(), ct);
             if (picks.Count == 0)
             {
                 Log.Warn("ideas: no idea passed the checks; no list today");
@@ -340,10 +344,10 @@ internal static class CloudCommands
     /// /fila and its buttons: applies the change (an item is a key from a button or a 1-based position from /mover and
     /// /remover) and sends the queue as it is now.
     /// </summary>
-    private static async Task<int> QueueAsync(CloudState state, string root, string? top, string? remove, string? move, string? to,
+    private static async Task<int> QueueAsync(CloudState state, Channel channel, string? top, string? remove, string? move, string? to,
         TelegramNotifier telegram, CancellationToken ct)
     {
-        var backlog = TopicBacklog.Load(Path.Combine(root, "config", "topics.json"));
+        var backlog = TopicBacklog.Load(channel.TopicsFile);
         string? done = null;
         try
         {
@@ -377,7 +381,7 @@ internal static class CloudCommands
     }
 
     /// <summary>The owner's text: the picker turns it into an event (one model request); it goes first in line.</summary>
-    private static async Task<int> AddIdeaAsync(CloudState state, AppConfig config, string root, Func<string, string?> key, string idea,
+    private static async Task<int> AddIdeaAsync(CloudState state, Channel channel, Func<string, string?> key, string idea,
         TelegramNotifier telegram, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(idea) || idea.Length > 200) throw new ArgumentException("The idea must be 1 to 200 characters.");
@@ -386,7 +390,7 @@ internal static class CloudCommands
         BacklogTopic? topic = null;
         try
         {
-            topic = (await Picker(state, config, root, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
+            topic = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
         }
         catch (Exception ex) when (ex is LlmException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
         {
@@ -401,7 +405,7 @@ internal static class CloudCommands
         var id = $"{now.UtcDateTime:yyyyMMdd-HHmmss}-text";
         state.SaveApproved(new ApprovedIdea(id, topic, FromText: true, now));
         // The newest idea is the next video, even ahead of items the owner moved up earlier.
-        state.Move(TopicBacklog.Load(Path.Combine(root, "config", "topics.json")), "a-" + id, 1);
+        state.Move(TopicBacklog.Load(channel.TopicsFile), "a-" + id, 1);
         await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}). É o próximo vídeo da fila (veja com /fila). Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
         return 0;
     }
@@ -428,9 +432,9 @@ internal static class CloudCommands
             (config.TikTok.ClientSecretEnvVar, key(config.TikTok.ClientSecretEnvVar)),
             (config.YouTube.ClientIdEnvVar, google.ClientId),
             (config.YouTube.ClientSecretEnvVar, google.ClientSecret),
-            (config.YouTube.RefreshTokenEnvVar, new DpapiTokenStore(TokenStores.ExpandPath(config.YouTube.TokenFile), "youtube").Load()),
-            (config.TikTok.RefreshTokenEnvVar, new DpapiTokenStore(TokenStores.ExpandPath(config.TikTok.TokenFile), "tiktok").Load()),
-            (SealedFileTokenStore.KeyEnvVar, Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))),
+            (config.YouTube.RefreshTokenEnvVar, new DpapiTokenStore(TokenStores.ExpandPath(config.YouTube.TokenFile), "youtube", config.Channel.Id).Load()),
+            (config.TikTok.RefreshTokenEnvVar, new DpapiTokenStore(TokenStores.ExpandPath(config.TikTok.TokenFile), "tiktok", config.Channel.Id).Load()),
+            (config.Channel.StateKeyEnvVar, Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))),
         };
         var failed = 0;
         foreach (var (name, value) in values)

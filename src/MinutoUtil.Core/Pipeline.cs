@@ -143,7 +143,7 @@ public sealed class Pipeline(
         await File.WriteAllTextAsync(Path.Combine(folder, "timings.json"), JsonSerializer.Serialize(timingsFile, Json.Options), ct);
 
         var used = shots.Where(s => s.Effect != ShotEffect.Map).Select(s => byId[s.MediaId!]).DistinctBy(m => m.Id).ToList();
-        if (shots.Any(s => s.Effect == ShotEffect.Map)) used.Add(NaturalEarth(Path.Combine(repositoryRoot, video.Style.MapDataDirectory)));
+        if (shots.Any(s => s.Effect == ShotEffect.Map)) used.Add(NaturalEarth(Path.Combine(repositoryRoot, video.Style.MapDataDirectory), config.Channel.Name));
         var metadata = Metadata(script, sources, used, duration, timings.Voice, writerName, folder, coverArt?.Model);
         await File.WriteAllTextAsync(Path.Combine(folder, "metadata.json"), JsonSerializer.Serialize(metadata, Json.Options), ct);
 
@@ -251,12 +251,12 @@ public sealed class Pipeline(
     }
 
     /// <summary>The map's data source, for the credits.</summary>
-    private static MediaItem NaturalEarth(string dataDirectory) => new()
+    private static MediaItem NaturalEarth(string dataDirectory, string channelName) => new()
     {
         Id = "naturalearth",
         Kind = MediaKind.Image,
         Source = "Natural Earth",
-        Title = "Admin 0 countries, 1:10m (map drawn by Minuto Útil)",
+        Title = $"Admin 0 countries, 1:10m (map drawn by {channelName})",
         Author = "Natural Earth",
         License = "Public domain",
         SourceUrl = "https://www.naturalearthdata.com/",

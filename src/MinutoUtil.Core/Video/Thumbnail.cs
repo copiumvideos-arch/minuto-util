@@ -161,7 +161,7 @@ public static partial class Thumbnail
             Event(sb, 2, "Words", $"{{\\an5\\pos({x},{y})\\q2\\fscx{squeeze}}}{words}");
         }
         if (style.Watermark && emblem)
-            Event(sb, 3, "Mark", $"{{\\an4\\pos({Layout.WatermarkLeft + Layout.EmblemSize + 14},{Layout.WatermarkTop + 22})}}Minuto Útil");
+            Event(sb, 3, "Mark", $"{{\\an4\\pos({Layout.WatermarkLeft + Layout.EmblemSize + 14},{Layout.WatermarkTop + 22})}}{CaptionBuilder.Clean(style.WatermarkText)}");
         return sb.ToString();
     }
 

@@ -67,11 +67,11 @@ public sealed class YouTubeUploader(HttpClient http, Func<CancellationToken, Tas
                 Title: i.TryGetProperty("snippet", out var s) && s.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "")).ToList()
             : [];
         if (channels.Count == 0)
-            throw new YouTubeUploadException("The signed-in Google account has no YouTube channel. Sign in with the Minuto Útil channel (pick it in the account chooser).");
+            throw new YouTubeUploadException("The signed-in Google account has no YouTube channel. Sign in with the channel's own YouTube channel (pick it in the account chooser).");
         if (channels.FirstOrDefault(c => c.Id == expectedChannelId) is { Id.Length: > 0 } match) return match.Title;
         throw new YouTubeUploadException(
             $"The sign-in belongs to channel {channels[0].Id} ({channels[0].Title}), not {expectedChannelId}. " +
-            "Nothing was saved or uploaded. Sign in again and pick the Minuto Útil channel (youtube.channelId in config).");
+            "Nothing was saved or uploaded. Sign in again and pick the YouTube channel named by youtube.channelId in the channel's config.json.");
     }
 
     public async Task<UploadedVideo> UploadAsync(string videoPath, VideoDetails details, CancellationToken ct)

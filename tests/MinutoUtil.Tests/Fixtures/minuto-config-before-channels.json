@@ -1,0 +1,223 @@
+{
+  "channel": {
+    "name": "Minuto Útil",
+    "language": "pt"
+  },
+  "story": {
+    "topic": "Segunda Guerra Mundial",
+    "englishArticle": "Normandy landings",
+    "portugueseArticle": "",
+    "eventYear": 1944,
+    "maxSourceChars": 16000
+  },
+  "gemini": {
+    "models": [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.5-flash"
+    ],
+    "apiKeyEnvVar": "GEMINI_API_KEY"
+  },
+  "cloudflareAi": {
+    "models": [
+      "@cf/openai/gpt-oss-120b",
+      "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    ],
+    "tokenEnvVar": "CLOUDFLARE_AI_TOKEN",
+    "accountIdEnvVar": "CLOUDFLARE_ACCOUNT_ID",
+    "imageModel": "@cf/black-forest-labs/flux-2-klein-4b",
+    "imageWidth": 864,
+    "imageHeight": 1536,
+    "imageStyle": "Vintage oil painting in the style of a nineteenth century history painting, visible brush strokes, muted earthy colors with deep shadows and warm dramatic light, tall vertical composition with one clear subject in the middle. No text, no letters, no logos, no modern objects, no close-up faces."
+  },
+  "openRouter": {
+    "writerModels": [
+      "nvidia/nemotron-3.5-super-vl:free",
+      "thinkingmachines/inkling:free"
+    ],
+    "apiKeyEnvVar": "OPENROUTER_API_KEY"
+  },
+  "writer": {
+    "maxRequests": 5,
+    "maxSpareRequests": 6,
+    "minWords": 220,
+    "maxWords": 380,
+    "minSections": 6,
+    "maxSections": 12,
+    "hardWordMargin": 40
+  },
+  "voice": {
+    "engine": "smallest",
+    "smallest": {
+      "endpoint": "https://api.smallest.ai/waves/v1/tts",
+      "voiceId": "thiago",
+      "model": "lightning_v3.1_pro",
+      "language": "pt",
+      "sampleRate": 24000,
+      "speed": 1,
+      "apiKeyEnvVar": "SMALLEST_API_KEY"
+    },
+    "kokoroVoice": "pm_santa",
+    "kokoroSpeed": 1,
+    "sectionPause": 0.4,
+    "maxPause": 0.55,
+    "listener": "whisper",
+    "minAlignScore": 0.8
+  },
+  "media": {
+    "commons": true,
+    "libraryOfCongress": true,
+    "internetArchive": true,
+    "minImageShortSide": 760,
+    "minImageBytes": 40000,
+    "maxDownloadBytes": 40000000,
+    "resultsPerQuery": 12,
+    "clipSeconds": 4.5,
+    "blockedWords": [
+      "dead",
+      "death",
+      "corpse",
+      "corpses",
+      "body",
+      "bodies",
+      "killed",
+      "casualty",
+      "casualties",
+      "wounded",
+      "injured",
+      "cadaver",
+      "grave",
+      "graves",
+      "burial",
+      "execution",
+      "executed",
+      "massacre",
+      "atrocity",
+      "mortos",
+      "morto",
+      "cadaveres",
+      "feridos",
+      "tote",
+      "leichen",
+      "gefallene"
+    ],
+    "penalizedWords": [
+      "map",
+      "mapa",
+      "karte",
+      "diagram",
+      "chart",
+      "logo",
+      "flag",
+      "insignia",
+      "patch",
+      "badge",
+      "stamp",
+      "coin",
+      "poster",
+      "plan",
+      "svg",
+      "memorial",
+      "museum",
+      "cemetery",
+      "monument",
+      "satellite",
+      "landsat",
+      "sentinel",
+      "nasa",
+      "reenactment",
+      "reenactors",
+      "handbook",
+      "page",
+      "uniforms",
+      "illustration",
+      "drawing",
+      "scan",
+      "document"
+    ]
+  },
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "fadeSeconds": 0.35,
+    "maxShotSeconds": 6.5,
+    "tailSeconds": 0.6,
+    "voiceLufs": -16,
+    "motionSupersample": 2,
+    "kenBurnsZoom": 0.1,
+    "parallaxTravel": 0.045,
+    "fontFile": "assets/fonts/RobotoSerif-Black.ttf",
+    "fontName": "Roboto Serif Black",
+    "stampFontFile": "assets/fonts/RobotoSerif-ExtraBold.ttf",
+    "stampFontName": "Roboto Serif ExtraBold",
+    "ffmpegPath": "ffmpeg",
+    "ffprobePath": "ffprobe",
+    "encoder": "libx264",
+    "style": {
+      "vintage": true,
+      "grain": 7,
+      "vignette": 0.6,
+      "warmth": 0.035,
+      "sharpen": 0.7,
+      "denoise": true,
+      "contrast": 1.12,
+      "saturation": 1.18,
+      "lightLeaks": true,
+      "yearCard": true,
+      "yearCardSeconds": 1.8,
+      "mapInsert": true,
+      "mapSeconds": 2.6,
+      "mapDataDirectory": "assets/cache/naturalearth",
+      "watermark": true,
+      "watermarkImage": "assets/brand/watermark.png",
+      "thumbnail": true,
+      "thumbnailPicture": "ai",
+      "coverFrames": 1,
+      "wordPop": true,
+      "keyWords": true,
+      "textColor": "#F7E2C7",
+      "highlightColor": "#DC010A"
+    },
+    "maxVideoKbps": 4500,
+    "maxFileMegabytes": 45
+  },
+  "youTube": {
+    "channelId": "UCNath7BzjeX3ehJCA7cNYAA",
+    "categoryId": "27",
+    "language": "pt-BR",
+    "audioLanguage": "pt-BR",
+    "privacyStatus": "public",
+    "madeForKids": false,
+    "containsSyntheticMedia": false,
+    "appendShortsTag": true,
+    "clientSecretFile": "%LOCALAPPDATA%/MinutoUtil/client_secret.json",
+    "clientIdEnvVar": "MINUTO_GOOGLE_CLIENT_ID",
+    "clientSecretEnvVar": "MINUTO_GOOGLE_CLIENT_SECRET",
+    "tokenFile": "%LOCALAPPDATA%/MinutoUtil/youtube-token.bin",
+    "refreshTokenEnvVar": "MINUTO_YOUTUBE_REFRESH_TOKEN"
+  },
+  "tikTok": {
+    "clientKeyEnvVar": "MINUTO_TIKTOK_CLIENT_KEY",
+    "clientSecretEnvVar": "MINUTO_TIKTOK_CLIENT_SECRET",
+    "redirectUri": "http://localhost:8723/callback/",
+    "tokenFile": "%LOCALAPPDATA%/MinutoUtil/tiktok-token.bin",
+    "refreshTokenEnvVar": "MINUTO_TIKTOK_REFRESH_TOKEN",
+    "maxCaptionChars": 2200,
+    "discoveryHashtags": [
+      "historia",
+      "curiosidades",
+      "aprendanotiktok"
+    ],
+    "maxOwnHashtags": 4,
+    "maxHashtags": 7,
+    "statusWaitSeconds": 300
+  },
+  "telegram": {
+    "botTokenEnvVar": "MINUTO_TELEGRAM_BOT_TOKEN",
+    "chatIdEnvVar": "MINUTO_TELEGRAM_CHAT_ID"
+  },
+  "sharedQuotaFiles": [
+    "D:/projects/canal-dark/data/quota-state.json"
+  ]
+}

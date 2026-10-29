@@ -59,7 +59,7 @@ public sealed class ThumbnailTests
     [Fact]
     public void The_ass_file_uses_the_brand_colors_and_keeps_the_text_in_the_tiktok_grid_crop()
     {
-        var style = new StyleOptions();
+        var style = new StyleOptions { WatermarkText = "Minuto Útil" };
         var layout = Thumbnail.Arrange(Thumbnail.Words("O bilhete que *ninguém* leu"), "44 A.C.");
 
         var ass = Thumbnail.Ass(layout, "Roboto Serif Black", "Roboto Serif ExtraBold", style, emblem: true);

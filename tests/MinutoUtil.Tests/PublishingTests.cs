@@ -46,7 +46,10 @@ internal static class PublishData
         return bytes;
     }
 
-    public static YouTubeOptions YouTubeConfig => AppConfig.Load(Path.Combine(TestPaths.RepositoryRoot, "config", "minuto-util.json")).YouTube;
+    /// <summary>The live channel as the app loads it: channels/minuto-util with every derived name filled in.</summary>
+    public static Channel Minuto => Channel.Load(TestPaths.RepositoryRoot, "minuto-util");
+
+    public static YouTubeOptions YouTubeConfig => Minuto.Config.YouTube;
 }
 
 public sealed class PublishCopyTests
@@ -484,23 +487,23 @@ public sealed class TokenStoreTests
         using var temp = new TempFolder();
         var path = Path.Combine(temp.Path, "youtube-token.bin");
 
-        new DpapiTokenStore(path, "youtube").Save("1//refresh-token-value");
+        new DpapiTokenStore(path, "youtube", "minuto-util").Save("1//refresh-token-value");
 
         Assert.DoesNotContain("refresh-token-value", Encoding.UTF8.GetString(File.ReadAllBytes(path)));
-        Assert.Equal("1//refresh-token-value", new DpapiTokenStore(path, "youtube").Load());
+        Assert.Equal("1//refresh-token-value", new DpapiTokenStore(path, "youtube", "minuto-util").Load());
         // Each platform's file has its own key: a TikTok store cannot read the YouTube token.
-        Assert.Throws<PublishAuthException>(() => new DpapiTokenStore(path, "tiktok").Load());
+        Assert.Throws<PublishAuthException>(() => new DpapiTokenStore(path, "tiktok", "minuto-util").Load());
     }
 
     [Fact]
     public void The_environment_variable_wins_over_the_file()
     {
         var variable = $"MINUTO_TEST_TOKEN_{Guid.NewGuid():N}";
-        Assert.IsType<DpapiTokenStore>(TokenStores.For(variable, "%TEMP%/none.bin", "youtube"));
+        Assert.IsType<DpapiTokenStore>(TokenStores.For(PublishData.Minuto.Config.Channel, variable, "%TEMP%/none.bin", "youtube"));
         Environment.SetEnvironmentVariable(variable, "env-refresh");
         try
         {
-            var store = TokenStores.For(variable, "%TEMP%/none.bin", "youtube");
+            var store = TokenStores.For(PublishData.Minuto.Config.Channel, variable, "%TEMP%/none.bin", "youtube");
             Assert.IsType<EnvironmentTokenStore>(store);
             Assert.Equal("env-refresh", store.Load());
         }

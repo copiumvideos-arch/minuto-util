@@ -23,13 +23,13 @@ internal static class PublishingCommands
         {
             if (command == "youtube-login")
             {
-                var store = new DpapiTokenStore(TokenStores.ExpandPath(config.YouTube.TokenFile), "youtube");
+                var store = new DpapiTokenStore(TokenStores.ExpandPath(config.YouTube.TokenFile), "youtube", config.Channel.Id);
                 WarnIfOverridden(config.YouTube.RefreshTokenEnvVar);
                 var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key), store, TimeProvider.System);
                 string? channel = null;
                 // The channel is checked before the token is saved: a sign-in with any other channel is thrown away.
                 await auth.AuthorizeInteractiveAsync(
-                    url => OpenSignIn(url, "Pick the Google account, then the Minuto Útil channel.", noBrowser),
+                    url => OpenSignIn(url, $"Pick the Google account, then the {config.Channel.Name} channel.", noBrowser),
                     async (token, ct) => channel = await YouTubeUploader.EnsureChannelAsync(apiHttp, token, config.YouTube.ChannelId, ct),
                     cts.Token);
                 Console.WriteLine($"Signed in to YouTube channel \"{channel}\" ({config.YouTube.ChannelId}).");
@@ -39,7 +39,7 @@ internal static class PublishingCommands
 
             if (command == "tiktok-login")
             {
-                var store = new DpapiTokenStore(TokenStores.ExpandPath(config.TikTok.TokenFile), "tiktok");
+                var store = new DpapiTokenStore(TokenStores.ExpandPath(config.TikTok.TokenFile), "tiktok", config.Channel.Id);
                 WarnIfOverridden(config.TikTok.RefreshTokenEnvVar);
                 var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key), store, TimeProvider.System);
                 Func<string?>? paste = args.Contains("--paste")
@@ -50,7 +50,7 @@ internal static class PublishingCommands
                     }
                     : null;
                 var account = await auth.AuthorizeInteractiveAsync(config.TikTok.RedirectUri,
-                    url => OpenSignIn(url, "Sign in with the Minuto Útil TikTok account.", noBrowser), paste, cts.Token);
+                    url => OpenSignIn(url, $"Sign in with the {config.Channel.Name} TikTok account.", noBrowser), paste, cts.Token);
                 Console.WriteLine($"Signed in to TikTok as \"{account.DisplayName}\" (scopes {account.Scopes}). Check that this is the channel's account.");
                 Console.WriteLine($"The refresh token is in {store.Path}, encrypted for this Windows user.");
                 return 0;
@@ -98,7 +98,7 @@ internal static class PublishingCommands
     internal static Task<string> YouTubeAccessTokenAsync(AppConfig config, Func<string, string?> key, HttpClient apiHttp, CancellationToken ct)
     {
         var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key),
-            TokenStores.For(config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
+            TokenStores.For(config.Channel, config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
         if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
         return auth.GetAccessTokenAsync(ct);
     }
@@ -113,7 +113,7 @@ internal static class PublishingCommands
             () =>
             {
                 var auth = new GoogleAuth(apiHttp, GoogleClient(config.YouTube, key),
-                    TokenStores.For(config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
+                    TokenStores.For(config.Channel, config.YouTube.RefreshTokenEnvVar, config.YouTube.TokenFile, "youtube"), TimeProvider.System);
                 if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to YouTube. Run '{GoogleAuth.LoginCommand}' once.");
                 return new YouTubeUploader(uploadHttp, auth.GetAccessTokenAsync);
             },
@@ -125,7 +125,7 @@ internal static class PublishingCommands
     internal static TikTokAuth StoredTikTokAuth(AppConfig config, Func<string, string?> key, HttpClient apiHttp)
     {
         var auth = new TikTokAuth(apiHttp, TikTokClientFrom(config.TikTok, key),
-            TokenStores.For(config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
+            TokenStores.For(config.Channel, config.TikTok.RefreshTokenEnvVar, config.TikTok.TokenFile, "tiktok"), TimeProvider.System);
         if (!auth.HasSignedIn) throw new PublishAuthException($"Not signed in to TikTok. Run '{TikTokAuth.LoginCommand}' once.");
         return auth;
     }

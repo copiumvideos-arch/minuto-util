@@ -87,12 +87,16 @@ public sealed class RenderEndToEndTests
             ? FakeHandler.Json(HttpStatusCode.TooManyRequests, """{"success":false,"errors":[{"code":4006,"message":"daily free allocation used up"}]}""")
             : FakeHandler.Json(HttpStatusCode.OK, $$"""{"result":{"image":"{{Convert.ToBase64String(File.ReadAllBytes(painted))}}"},"success":true}"""));
 
-        // Every style layer on (the defaults) and the painted cover, with the map reading the stand-in data.
+        // Every style layer on (the defaults) and the painted cover, with the map reading the stand-in data; the channel
+        // and its watermark text are the live channel's, as channels/minuto-util/config.json resolves them.
+        var minuto = PublishData.Minuto.Config;
         var config = new AppConfig
         {
+            Channel = minuto.Channel,
             Video = new VideoOptions
             {
-                MotionSupersample = 1.0, Style = new StyleOptions { MapDataDirectory = mapData, MapSeconds = 1.5, ThumbnailPicture = "ai" },
+                MotionSupersample = 1.0,
+                Style = new StyleOptions { MapDataDirectory = mapData, MapSeconds = 1.5, ThumbnailPicture = "ai", WatermarkText = minuto.Video.Style.WatermarkText },
             },
             Voice = voiceOptions,
         };

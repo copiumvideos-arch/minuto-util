@@ -2,16 +2,23 @@
 # buttons. The buttons reach relay/ (a Cloudflare Worker), which starts publish.yml. Nothing is posted from here.
 # Review mode (/revisar on): the run stops after the script and sends it to Telegram; approving or editing it starts
 # this workflow again with `continue`, which picks the run up from its saved folder.
+# Every channel in channels/ runs here: a run started by hand (or by the relay) names its channel, and a scheduled run
+# renders every channel whose channel.scheduleUtcHours has that hour, one matrix job each (tools/channels.py).
 name: render
 
 on:
   schedule:
-    # 11:00 and 19:00 in Brasília (UTC-3), the lunch and evening peaks. GitHub may start scheduled runs some minutes
-    # late. Two a day, by the owner's choice; /novo adds more. Skipped while paused (/pausar).
+    # One line per hour in any channel's channel.scheduleUtcHours (a test checks they match), always at minute 0.
+    # Minuto Útil: 11:00 and 19:00 in Brasília (UTC-3), the lunch and evening peaks. GitHub may start scheduled runs
+    # some minutes late. Two a day, by the owner's choice; /novo adds more. Skipped while paused (/pausar).
     - cron: "0 14 * * *"
     - cron: "0 22 * * *"
   workflow_dispatch:
     inputs:
+      channel:
+        description: "The channel (a folder in channels/)"
+        required: false
+        default: minuto-util
       article:
         description: "An idea or English Wikipedia article to make now (empty: the queue)"
         required: false
@@ -33,23 +40,52 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: render
-  cancel-in-progress: false
-
 permissions:
   contents: write
 
 jobs:
+  channels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the channels
+        id: pick
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          list=$(python3 tools/channels.py matrix scheduleUtcHours)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
   render:
+    needs: channels
+    if: needs.channels.outputs.list != '[]'
+    name: render ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.channels.outputs.list) }}
+    # One render at a time per channel; two channels never wait for or cancel each other.
+    concurrency:
+      group: render-${{ matrix.id }}
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 80
     env:
-      CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
+      # The app for this channel: CH_<NAME> variables reach it as <prefix>_<NAME> (.github/scripts/cli.sh).
+      CLI: bash .github/scripts/cli.sh
+      CHANNEL: ${{ matrix.id }}
+      PREFIX: ${{ matrix.prefix }}
+      # The channel's folder in the state checkout: state for Minuto Útil, state/channels/<id> for the others.
+      CHANNEL_STATE: ${{ matrix.state }}
+      RELEASE: ${{ matrix.release }}
       GH_TOKEN: ${{ github.token }}
       CONTINUE: ${{ inputs.continue }}
-      MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
-      MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+      CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
+      CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -112,7 +148,7 @@ jobs:
           RESCRIPT: ${{ inputs.rescript }}
         run: |
           mkdir -p "output/$TAG"
-          gh release download "run-$TAG" -p run.tar.gz -O - | tar -xz -C "output/$TAG"
+          gh release download "$RELEASE$TAG" -p run.tar.gz -O - | tar -xz -C "output/$TAG"
           if [ "$RESCRIPT" = "true" ]; then rm -f "output/$TAG/script.json" "output/$TAG/script-writer.json"; fi
           if [ -n "$SCRIPT" ]; then
             set +e
@@ -150,7 +186,7 @@ jobs:
           code=$?
           set -e
           # A remake replaces the old video: its release goes (the run record is already marked rejected).
-          if [ "$code" = "0" ] && [ -n "$REMAKE" ]; then gh release delete "run-$REMAKE" --cleanup-tag --yes || true; fi
+          if [ "$code" = "0" ] && [ -n "$REMAKE" ]; then gh release delete "$RELEASE$REMAKE" --cleanup-tag --yes || true; fi
           if [ "$code" = "3" ]; then echo "empty=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$code" != "0" ]; then exit "$code"; fi
           cat next.json
@@ -172,7 +208,7 @@ jobs:
           topic=$(jq -r .topic next.json)
           portuguese=$(jq -r .portugueseArticle next.json)
           $CLI make --run "output/$TAG" --article "$article" --portuguese-article "$portuguese" --year "$year" --topic "$topic" \
-            --quota-file state/quota-state.json $SCRIPT_ONLY
+            --quota-file "$CHANNEL_STATE/quota-state.json" $SCRIPT_ONLY
 
       # Review mode: the folder so far (sources, script, log) is kept with the run until the owner answers.
       - name: Send the script for review
@@ -181,10 +217,10 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           tar -czf run.tar.gz -C "output/$TAG" .
-          if gh release view "run-$TAG" >/dev/null 2>&1; then
-            gh release upload "run-$TAG" run.tar.gz --clobber
+          if gh release view "$RELEASE$TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE$TAG" run.tar.gz --clobber
           else
-            gh release create "run-$TAG" --prerelease --title "Roteiro $TAG" --notes "Script waiting for review on Telegram." run.tar.gz
+            gh release create "$RELEASE$TAG" --prerelease --title "Roteiro $TAG" --notes "Script waiting for review on Telegram." run.tar.gz
           fi
           $CLI cloud script-review --state state --tag "$TAG" --run "output/$TAG"
 
@@ -196,11 +232,11 @@ jobs:
           files=("output/$TAG/video.mp4" "output/$TAG/metadata.json" "output/$TAG/run.log" "output/$TAG/contact-sheet.png")
           # The cover (video.style.thumbnail): set as the YouTube thumbnail when the run is published.
           if [ -f "output/$TAG/thumbnail.jpg" ]; then files+=("output/$TAG/thumbnail.jpg"); fi
-          if gh release view "run-$TAG" >/dev/null 2>&1; then
-            gh release upload "run-$TAG" "${files[@]}" --clobber
-            gh release edit "run-$TAG" --title "$(jq -r .title "output/$TAG/metadata.json")"
+          if gh release view "$RELEASE$TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE$TAG" "${files[@]}" --clobber
+            gh release edit "$RELEASE$TAG" --title "$(jq -r .title "output/$TAG/metadata.json")"
           else
-            gh release create "run-$TAG" --prerelease --title "$(jq -r .title "output/$TAG/metadata.json")" \
+            gh release create "$RELEASE$TAG" --prerelease --title "$(jq -r .title "output/$TAG/metadata.json")" \
               --notes "Rendered by run $GITHUB_RUN_ID; waiting for review on Telegram." "${files[@]}"
           fi
 
@@ -223,4 +259,4 @@ jobs:
         if: always() && steps.tag.outcome == 'success'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-        run: bash .github/scripts/save-state.sh "render $TAG"
+        run: bash .github/scripts/save-state.sh "render $CHANNEL $TAG"

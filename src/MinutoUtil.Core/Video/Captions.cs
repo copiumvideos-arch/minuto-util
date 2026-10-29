@@ -27,7 +27,7 @@ public static class Layout
     public const int WatermarkLeft = 54;
     public const int WatermarkTop = 196;
 
-    /// <summary>The emblem watermark: a square this size whose middle lines up with the "Minuto Útil" text.</summary>
+    /// <summary>The emblem watermark: a square this size whose middle lines up with the watermark text.</summary>
     public const int EmblemSize = 96;
     public const int EmblemTop = WatermarkTop + 22 - EmblemSize / 2;
 }
@@ -117,7 +117,7 @@ public static partial class CaptionBuilder
             if (Clean(placeStamp).Length > 0)
                 Event(sb, 1, 0.35, end, "Place", $"{{\\an8\\pos({Layout.Width / 2},{Layout.StampY + 108})\\fad(300,300)}}{Clean(placeStamp).ToUpperInvariant()}");
         }
-        if (style.Watermark) AppendWatermark(sb, duration, highlight, emblem);
+        if (style.Watermark) AppendWatermark(sb, duration, highlight, emblem, Clean(style.WatermarkText));
 
         var keys = style.KeyWords ? KeyWords(timings.Words) : [];
         foreach (var chunk in Chunk(timings.Words))
@@ -176,22 +176,22 @@ public static partial class CaptionBuilder
     public const double WatermarkOpacity = 1 - 0x58 / 255.0;
 
     /// <summary>
-    /// "Minuto Útil" in the top-left corner, semi-transparent, below the status bar and clear of TikTok's and Shorts'
-    /// top buttons (top center and top right). The renderer overlays the emblem picture left of it; without the
-    /// picture a small hourglass is drawn here as ASS vectors.
+    /// The channel's name (style.watermarkText) in the top-left corner, semi-transparent, below the status bar and clear
+    /// of TikTok's and Shorts' top buttons (top center and top right). The renderer overlays the emblem picture left of
+    /// it; without the picture a small hourglass is drawn here as ASS vectors.
     /// </summary>
-    private static void AppendWatermark(StringBuilder sb, double duration, string highlight, bool emblem)
+    private static void AppendWatermark(StringBuilder sb, double duration, string highlight, bool emblem, string mark)
     {
         var (left, top) = (Layout.WatermarkLeft, Layout.WatermarkTop);
         if (emblem)
         {
-            Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + Layout.EmblemSize + 14},{top + 22})\\alpha&H58&}}Minuto Útil");
+            Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + Layout.EmblemSize + 14},{top + 22})\\alpha&H58&}}{mark}");
             return;
         }
         // Cap, upper glass narrowing to the waist, lower glass widening to the base.
         Event(sb, 5, 0, duration, "Shape",
             $"{{\\pos({left},{top})\\c{highlight}\\alpha&H58&\\p1}}m 0 0 l 30 0 30 4 0 4 m 3 6 l 27 6 15 21 m 15 23 l 27 38 3 38 m 0 40 l 30 40 30 44 0 44{{\\p0}}");
-        Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + 42},{top + 22})\\alpha&H58&}}Minuto Útil");
+        Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + 42},{top + 22})\\alpha&H58&}}{mark}");
     }
 
     private sealed record Colors(string Text, string Highlight);

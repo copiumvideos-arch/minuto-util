@@ -15,8 +15,13 @@ using MinutoUtil.Core.Voice;
 //   A new painted thumbnail for a run, set on its published Short; see CoverCommand.cs.
 // minuto-util cloud next|review|publish|reject|failed|secrets ...
 //   The steps of the GitHub Actions runs; see CloudCommands.cs.
+// Every command takes --channel <id> (default minuto-util): the channel in channels/<id>/ whose config, topics,
+// prompts, sign-ins, secrets and state it uses.
 
 var command = args.FirstOrDefault() ?? "help";
+Channel? channel = null;
+if (command is not ("help" or "--help" or "-h") && !TryLoadChannel(out channel))
+    return 1;
 if (command is "check-script" && Option("--run") is { } checkFolder)
 {
     // Shows what the local fixes (dashes, accents) and checks make of a run's saved script, without changing it or
@@ -26,21 +31,21 @@ if (command is "check-script" && Option("--run") is { } checkFolder)
     var scriptSaved = System.Text.Json.JsonSerializer.Deserialize<VideoScript>(File.ReadAllText(Path.Combine(checkFolder, "script.json")), saved)!;
     var polishedScript = ScriptWriter.Polish(scriptSaved, sourcesSaved);
     Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(polishedScript, saved));
-    var rootForCheck = FindRepositoryRoot();
-    var writerOptions = AppConfig.Load(Path.Combine(rootForCheck, "config", "minuto-util.json")).Writer;
-    foreach (var warning in new ScriptWriter(new ChainedLlmClient([]), "", writerOptions, "").Check(polishedScript, sourcesSaved))
+    foreach (var warning in new ScriptWriter(new ChainedLlmClient([]), "", channel!.Config.Writer, "").Check(polishedScript, sourcesSaved))
         Console.WriteLine($"warning: {warning}");
     return 0;
 }
 if (command is "cloud")
-    return await CloudCommands.RunAsync(args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), FindRepositoryRoot(), Key);
+    return await CloudCommands.RunAsync(args, channel!, FindRepositoryRoot(), Key);
 if (command is "cover")
-    return await CoverCommand.RunAsync(args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), FindRepositoryRoot(), Key);
+    return await CoverCommand.RunAsync(args, channel!.Config, FindRepositoryRoot(), Key);
 if (command is "youtube-login" or "tiktok-login" or "publish")
-    return await PublishingCommands.RunAsync(command, args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), Key);
+    return await PublishingCommands.RunAsync(command, args, channel!.Config, Key);
 if (command is not "make")
 {
     Console.WriteLine("""
+        Every command takes --channel <id> (default minuto-util), one of the folders in channels/.
+
         Usage: minuto-util make [--run <run folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>]
                minuto-util check-script --run <run folder>
                minuto-util youtube-login [--no-browser]
@@ -51,13 +56,13 @@ if (command is not "make")
 
           make          Writes, voices and renders one video into output/<yyyy-MM-dd>/<HHmm>/.
           --run         Re-render an existing run folder, reusing its script, voice takes and media (no new API calls).
-          --article     The event's English Wikipedia article (default: story.englishArticle in config/minuto-util.json).
+          --article     The event's English Wikipedia article (default: story.englishArticle in channels/<id>/config.json).
           --portuguese-article  The Portuguese Wikipedia article to use with it (default: the English page's link).
           --year        The year of that event (pictures from it rank higher, and the year card shows it).
           --topic       The series name given to the writer (default: story.topic).
           --script-only Stop after writing the script (a later make --run of the folder goes on from there).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
-          youtube-login Signs in to YouTube once (browser); only the Minuto Útil channel is accepted.
+          youtube-login Signs in to YouTube once (browser); only the channel's youtube.channelId is accepted.
           tiktok-login  Signs in to TikTok once (browser). --paste: paste the address the browser ends on instead.
           publish       Uploads a run's video.mp4: a public YouTube Short and a TikTok inbox draft (both unless one
                         is named). --dry-run prints what would be sent and calls nothing. --force posts a folder again.
@@ -69,7 +74,7 @@ if (command is not "make")
 }
 
 var root = FindRepositoryRoot();
-var config = AppConfig.Load(Path.Combine(root, "config", "minuto-util.json"));
+var config = channel!.Config;
 // Another article is another event: its year comes with --year or not at all (the config's year is the default article's).
 if (Option("--article") is { } article)
     config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year != 0 ? year : null } };
@@ -107,7 +112,7 @@ else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
 if (Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)
     writers.Add(OpenRouterClient.ForCloudflare(apiHttp, cloudflareToken, cloudflareAccount, config.CloudflareAi.Models, usage, quota));
 if (Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey) writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
-var prompt = File.ReadAllText(Path.Combine(root, "prompts", "writer.md"));
+var prompt = File.ReadAllText(channel.WriterPromptFile);
 
 var tools = Path.Combine(root, "tools");
 var smallest = Key(config.Voice.Smallest.ApiKeyEnvVar) is { } smallestKey ? new SmallestVoice(apiHttp, smallestKey, config.Voice.Smallest, usage) : null;
@@ -150,6 +155,24 @@ finally
 {
     Log.Info(usage.Summary());
     logWriter.Dispose();
+}
+
+// The channel named by --channel (default minuto-util); a bad id or a missing folder is reported, not thrown. The last
+// --channel counts: the workflows append it after the other options, some of which carry the owner's text.
+bool TryLoadChannel(out Channel? loaded)
+{
+    try
+    {
+        var at = Array.LastIndexOf(args, "--channel");
+        loaded = Channel.Load(FindRepositoryRoot(), at < 0 ? Channel.DefaultId : at + 1 < args.Length ? args[at + 1] : "");
+        return true;
+    }
+    catch (Exception ex) when (ex is ArgumentException or InvalidDataException or System.Text.Json.JsonException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        loaded = null;
+        return false;
+    }
 }
 
 string? Option(string name)

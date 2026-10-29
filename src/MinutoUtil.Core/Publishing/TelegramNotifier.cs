@@ -4,18 +4,21 @@ using System.Text.Json;
 
 namespace MinutoUtil.Core.Publishing;
 
-/// <summary>Where the owner's Telegram bot and chat come from. The token is never written to config or logs.</summary>
+/// <summary>
+/// Where the owner's Telegram bot and chat come from: &lt;prefix&gt;_TELEGRAM_BOT_TOKEN and &lt;prefix&gt;_TELEGRAM_CHAT_ID,
+/// filled by <see cref="Channel.Load"/>. Each channel has its own bot. The token is never written to config or logs.
+/// </summary>
 public sealed record TelegramOptions
 {
-    public string BotTokenEnvVar { get; init; } = "MINUTO_TELEGRAM_BOT_TOKEN";
-    public string ChatIdEnvVar { get; init; } = "MINUTO_TELEGRAM_CHAT_ID";
+    public string BotTokenEnvVar { get; init; } = "";
+    public string ChatIdEnvVar { get; init; } = "";
 }
 
 /// <summary>An inline button under a message; <see cref="Data"/> comes back to the relay (relay/) when it is tapped.</summary>
 public sealed record TelegramButton(string Text, string Data);
 
 /// <summary>
-/// Messages to the owner through Minuto Útil's own Telegram bot (not Flopômetro's). The bot token is part of
+/// Messages to the owner through the channel's own Telegram bot (not Flopômetro's). The bot token is part of
 /// Telegram's URL, so errors are rebuilt from Telegram's "description" and never carry the request address.
 /// </summary>
 public sealed class TelegramNotifier(HttpClient http, string botToken, string chatId)

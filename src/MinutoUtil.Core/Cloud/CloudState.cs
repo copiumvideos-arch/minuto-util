@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace MinutoUtil.Core.Cloud;
 
 /// <summary>
-/// One event to render: the English article, the year it happened and the series name, from config/topics.json or
+/// One event to render: the English article, the year it happened and the series name, from channels/minuto-util/topics.json or
 /// from today's trends or the owner's idea (<see cref="Trend"/> says what inspired it). <see cref="PortugueseArticle"/>
 /// is the second source when it is not the English page's language link.
 /// </summary>

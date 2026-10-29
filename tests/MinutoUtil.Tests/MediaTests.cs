@@ -297,7 +297,7 @@ public sealed class PlannerAndCaptionTests
     [Fact]
     public void StyleSwitchesTurnEachCaptionLayerOnAndOff()
     {
-        var on = CaptionBuilder.Build(Timings(), 18, "Roboto Serif Black", "Roboto Serif ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5, new StyleOptions());
+        var on = CaptionBuilder.Build(Timings(), 18, "Roboto Serif Black", "Roboto Serif ExtraBold", "6 de junho de 1944", "Normandia, França", 3.5, new StyleOptions { WatermarkText = "Minuto Útil" });
         Assert.Contains("Minuto Útil", on);
         Assert.Contains("NORMANDIA, FRANÇA", on);
         Assert.Contains("}44", on);

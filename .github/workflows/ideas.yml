@@ -1,15 +1,22 @@
 # The bot's quick jobs (ideas, the queue, settings, status, stats, title edits). The owner's say in what gets made. Every morning: 10 ideas from the day's trends go to Telegram with a button each.
 # relay/ starts this workflow again when the owner taps an idea (approve) or sends a text idea (add); approved ideas
-# and text ideas go ahead of config/topics.json in render.yml.
+# and text ideas go ahead of the channel's topics.json in render.yml.
+# A run started by hand (or by the relay) names its channel; a scheduled run makes the list for every channel whose
+# channel.ideasUtcHours has that hour, one matrix job each (tools/channels.py).
 name: ideas
-run-name: ideas ${{ inputs.action || 'list' }}
+run-name: ideas ${{ inputs.channel }} ${{ inputs.action || 'list' }}
 
 on:
   schedule:
-    # 06:00 in Brasília (UTC-3), before the first render at 07:00.
+    # One line per hour in any channel's channel.ideasUtcHours (a test checks they match), always at minute 0.
+    # Minuto Útil: 06:00 in Brasília (UTC-3), before the first render.
     - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
+      channel:
+        description: "The channel (a folder in channels/)"
+        required: false
+        default: minuto-util
       action:
         type: choice
         options: [list, approve, add, queue, top, remove, move, settings, status, stats, title]
@@ -39,17 +46,44 @@ permissions:
   contents: write
 
 jobs:
+  channels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the channels
+        id: pick
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          list=$(python3 tools/channels.py matrix ideasUtcHours)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
   ideas:
+    needs: channels
+    if: needs.channels.outputs.list != '[]'
+    name: ideas ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.channels.outputs.list) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      # The app for this channel: CH_<NAME> variables reach it as <prefix>_<NAME> (.github/scripts/cli.sh).
+      CLI: bash .github/scripts/cli.sh
+      CHANNEL: ${{ matrix.id }}
+      PREFIX: ${{ matrix.prefix }}
+      RELEASE: ${{ matrix.release }}
       ACTION: ${{ inputs.action || 'list' }}
       DATE: ${{ inputs.date }}
       INDEX: ${{ inputs.index }}
       IDEA: ${{ inputs.idea }}
       ITEM: ${{ inputs.item }}
       AGAIN: ${{ inputs.again && '--again' || '' }}
-      CLI: dotnet src/MinutoUtil.Cli/bin/Release/net10.0/minuto-util.dll
     steps:
       - name: Check the input
         run: |
@@ -80,13 +114,13 @@ jobs:
       - name: Run
         env:
           GH_TOKEN: ${{ github.token }}
-          MINUTO_STATE_DIR: ${{ github.workspace }}/state
-          MINUTO_STATE_KEY: ${{ secrets.MINUTO_STATE_KEY }}
-          MINUTO_GOOGLE_CLIENT_ID: ${{ secrets.MINUTO_GOOGLE_CLIENT_ID }}
-          MINUTO_GOOGLE_CLIENT_SECRET: ${{ secrets.MINUTO_GOOGLE_CLIENT_SECRET }}
-          MINUTO_YOUTUBE_REFRESH_TOKEN: ${{ secrets.MINUTO_YOUTUBE_REFRESH_TOKEN }}
-          MINUTO_TELEGRAM_BOT_TOKEN: ${{ secrets.MINUTO_TELEGRAM_BOT_TOKEN }}
-          MINUTO_TELEGRAM_CHAT_ID: ${{ secrets.MINUTO_TELEGRAM_CHAT_ID }}
+          CH_STATE_DIR: ${{ github.workspace }}/${{ matrix.state }}
+          CH_STATE_KEY: ${{ secrets[format('{0}_STATE_KEY', matrix.prefix)] }}
+          CH_GOOGLE_CLIENT_ID: ${{ secrets[format('{0}_GOOGLE_CLIENT_ID', matrix.prefix)] }}
+          CH_GOOGLE_CLIENT_SECRET: ${{ secrets[format('{0}_GOOGLE_CLIENT_SECRET', matrix.prefix)] }}
+          CH_YOUTUBE_REFRESH_TOKEN: ${{ secrets[format('{0}_YOUTUBE_REFRESH_TOKEN', matrix.prefix)] }}
+          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
+          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
@@ -106,12 +140,12 @@ jobs:
             title)
               # The title publish.yml will use lives in the run's metadata.json, kept with its release.
               mkdir -p "output/$ITEM"
-              gh release download "run-$ITEM" -D "output/$ITEM" -p metadata.json
+              gh release download "$RELEASE$ITEM" -D "output/$ITEM" -p metadata.json
               $CLI cloud title --state state --tag "$ITEM" --run "output/$ITEM" --title "$IDEA"
-              gh release upload "run-$ITEM" "output/$ITEM/metadata.json" --clobber
-              gh release edit "run-$ITEM" --title "$IDEA" ;;
+              gh release upload "$RELEASE$ITEM" "output/$ITEM/metadata.json" --clobber
+              gh release edit "$RELEASE$ITEM" --title "$IDEA" ;;
           esac
 
       - name: Save the state
         if: always()
-        run: bash .github/scripts/save-state.sh "ideas $ACTION"
+        run: bash .github/scripts/save-state.sh "ideas $CHANNEL $ACTION"

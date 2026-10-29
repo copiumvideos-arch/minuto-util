@@ -84,11 +84,13 @@ public sealed class BrandTests
     public void WithTheEmblemOnlyTheTextIsDrawnElseTheHourglass()
     {
         var timings = Words("O", "general", "Eisenhower");
-        var withEmblem = CaptionBuilder.Build(timings, 2, Black, ExtraBold, "", "", 0, new StyleOptions(), emblem: true);
+        // The live channel's style: its watermark text is the channel name from channels/minuto-util/config.json.
+        var minuto = PublishData.Minuto.Config.Video.Style;
+        var withEmblem = CaptionBuilder.Build(timings, 2, Black, ExtraBold, "", "", 0, minuto, emblem: true);
         Assert.Contains($@"\pos({Layout.WatermarkLeft + Layout.EmblemSize + 14},{Layout.WatermarkTop + 22})\alpha&H58&}}Minuto Útil", withEmblem);
         Assert.DoesNotContain("m 0 0 l 30 0", withEmblem);
 
-        var hourglass = CaptionBuilder.Build(timings, 2, Black, ExtraBold, "", "", 0, new StyleOptions(), emblem: false);
+        var hourglass = CaptionBuilder.Build(timings, 2, Black, ExtraBold, "", "", 0, minuto, emblem: false);
         Assert.Contains(@"\c&H000A01DC&\alpha&H58&\p1}m 0 0 l 30 0", hourglass);
         Assert.Contains($@"\pos({Layout.WatermarkLeft + 42},{Layout.WatermarkTop + 22})", hourglass);
     }

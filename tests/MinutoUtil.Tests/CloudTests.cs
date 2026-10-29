@@ -16,7 +16,7 @@ public sealed class TopicQueueTests
     [Fact]
     public void The_real_backlog_is_valid_and_has_no_repeats()
     {
-        var backlog = TopicBacklog.Load(Path.Combine(TestPaths.RepositoryRoot, "config", "topics.json"));
+        var backlog = TopicBacklog.Load(PublishData.Minuto.TopicsFile);
 
         Assert.True(backlog.Topics.Count >= 30);
         Assert.Equal(backlog.Topics.Count, backlog.Topics.Select(t => t.Article.ToLowerInvariant()).Distinct().Count());
@@ -82,12 +82,15 @@ public sealed class SealedTokenStoreTests
 {
     private static readonly byte[] Key = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
 
+    private static SealedFileTokenStore Sealed(string path, byte[] key, string purpose, string? seed) =>
+        new(path, key, purpose, seed, "minuto-util", "MINUTO_STATE_KEY");
+
     [Fact]
     public void Starts_from_the_secret_then_keeps_a_rotated_token_encrypted_in_the_state_folder()
     {
         using var temp = new TempFolder();
         var path = Path.Combine(temp.Path, "tiktok-token.enc");
-        var store = new SealedFileTokenStore(path, Key, "tiktok", "rft.from-secret");
+        var store = Sealed(path, Key, "tiktok", "rft.from-secret");
 
         Assert.Equal("rft.from-secret", store.Load());
         Assert.False(File.Exists(path));
@@ -96,7 +99,7 @@ public sealed class SealedTokenStoreTests
 
         Assert.DoesNotContain("rotated", Encoding.UTF8.GetString(File.ReadAllBytes(path)));
         // The next job starts with the same secret but reads the newer token from the file.
-        Assert.Equal("rft.rotated-value", new SealedFileTokenStore(path, Key, "tiktok", "rft.from-secret").Load());
+        Assert.Equal("rft.rotated-value", Sealed(path, Key, "tiktok", "rft.from-secret").Load());
     }
 
     [Fact]
@@ -104,22 +107,22 @@ public sealed class SealedTokenStoreTests
     {
         using var temp = new TempFolder();
         var path = Path.Combine(temp.Path, "tiktok-token.enc");
-        new SealedFileTokenStore(path, Key, "tiktok", null).Save("rft.old-value");
+        Sealed(path, Key, "tiktok", null).Save("rft.old-value");
         var lines = new List<string>();
         var sink = Log.Sink;
         Log.Sink = line => { lock (lines) lines.Add(line); };
         try
         {
             var otherKey = new byte[32];
-            Assert.Equal("rft.new-secret", new SealedFileTokenStore(path, otherKey, "tiktok", "rft.new-secret").Load());
+            Assert.Equal("rft.new-secret", Sealed(path, otherKey, "tiktok", "rft.new-secret").Load());
             // Same key, other platform: the file is bound to the platform it was written for.
-            Assert.Equal("rft.new-secret", new SealedFileTokenStore(path, Key, "youtube", "rft.new-secret").Load());
+            Assert.Equal("rft.new-secret", Sealed(path, Key, "youtube", "rft.new-secret").Load());
         }
         finally
         {
             Log.Sink = sink;
         }
-        Assert.Contains(lines, l => l.Contains("WARN") && l.Contains(SealedFileTokenStore.KeyEnvVar));
+        Assert.Contains(lines, l => l.Contains("WARN") && l.Contains("MINUTO_STATE_KEY"));
         Assert.DoesNotContain(lines, l => l.Contains("rft."));
     }
 
@@ -129,22 +132,23 @@ public sealed class SealedTokenStoreTests
         using var temp = new TempFolder();
         var variable = $"MINUTO_TEST_TOKEN_{Guid.NewGuid():N}";
         Environment.SetEnvironmentVariable(variable, "rft.secret");
-        Environment.SetEnvironmentVariable(SealedFileTokenStore.StateDirEnvVar, temp.Path);
-        Environment.SetEnvironmentVariable(SealedFileTokenStore.KeyEnvVar, Convert.ToBase64String(Key));
+        var minuto = PublishData.Minuto.Config.Channel;
+        Environment.SetEnvironmentVariable(minuto.StateDirEnvVar, temp.Path);
+        Environment.SetEnvironmentVariable(minuto.StateKeyEnvVar, Convert.ToBase64String(Key));
         try
         {
-            var store = Assert.IsType<SealedFileTokenStore>(TokenStores.For(variable, "%TEMP%/none.bin", "tiktok"));
+            var store = Assert.IsType<SealedFileTokenStore>(TokenStores.For(minuto, variable, "%TEMP%/none.bin", "tiktok"));
             Assert.Equal(Path.Combine(temp.Path, "tiktok-token.enc"), store.Path);
             Assert.Equal("rft.secret", store.Load());
 
-            Environment.SetEnvironmentVariable(SealedFileTokenStore.KeyEnvVar, "not-a-key");
-            Assert.Throws<PublishAuthException>(() => TokenStores.For(variable, "%TEMP%/none.bin", "tiktok"));
+            Environment.SetEnvironmentVariable(minuto.StateKeyEnvVar, "not-a-key");
+            Assert.Throws<PublishAuthException>(() => TokenStores.For(minuto, variable, "%TEMP%/none.bin", "tiktok"));
         }
         finally
         {
             Environment.SetEnvironmentVariable(variable, null);
-            Environment.SetEnvironmentVariable(SealedFileTokenStore.StateDirEnvVar, null);
-            Environment.SetEnvironmentVariable(SealedFileTokenStore.KeyEnvVar, null);
+            Environment.SetEnvironmentVariable(minuto.StateDirEnvVar, null);
+            Environment.SetEnvironmentVariable(minuto.StateKeyEnvVar, null);
         }
     }
 }
@@ -452,7 +456,7 @@ public sealed class TrendTests
     });
 
     private static TrendPicker Picker(FakeLlm llm, FakeHandler wikipedia) =>
-        new(llm, new HttpClient(wikipedia), File.ReadAllText(Path.Combine(TestPaths.RepositoryRoot, "prompts", "trends.md")),
+        new(llm, new HttpClient(wikipedia), File.ReadAllText(PublishData.Minuto.TrendsPromptFile),
             "Minuto Útil", new FakeTimeProvider(PublishData.Now));
 
     [Fact]
@@ -790,7 +794,7 @@ public sealed class BotFeatureTests
         state.Save(new RunRecord { Tag = "20261028-0700", Article = "Magna Carta", Title = "A Magna Carta", Status = RunStatus.Failed, Note = "no voice",
             UpdatedAt = PublishData.Now });
 
-        var text = CloudFlow.StatusMessage(state.Settings(), state.Runs(), [], PublishData.Now.AddMinutes(10));
+        var text = CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, state.Settings(), state.Runs(), [], PublishData.Now.AddMinutes(10));
 
         Assert.True(state.Settings().Paused);
         Assert.Contains("pausados", text);
@@ -810,12 +814,12 @@ public sealed class BotFeatureTests
         // Tuesday 27/10 15:30 in Brasília: the next renders are 19h today, then 11h and 19h tomorrow.
         var now = new DateTimeOffset(2026, 10, 27, 15, 30, 0, TimeSpan.FromHours(-3));
 
-        var text = CloudFlow.StatusMessage(new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
+        var text = CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
 
         Assert.Contains("\n1. Magna Carta: hoje às 19h\n2. Lei Áurea: amanhã às 11h\n3. Apollo 11: amanhã às 19h", text);
         Assert.DoesNotContain("Sputnik", text);
         Assert.Contains("vai ao ar quando você toca ✅ Publicar", text);
-        Assert.Contains("1. Magna Carta (pausado)", CloudFlow.StatusMessage(new BotSettings { Paused = true }, [], queue, now));
+        Assert.Contains("1. Magna Carta (pausado)", CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings { Paused = true }, [], queue, now));
         Assert.Equal("sexta às 07h", CloudFlow.When(new DateTimeOffset(2026, 10, 30, 10, 0, 0, TimeSpan.Zero), now));
     }
 

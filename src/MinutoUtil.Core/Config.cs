@@ -2,7 +2,10 @@ using System.Text.Json;
 
 namespace MinutoUtil.Core;
 
-/// <summary>Everything a run can be tuned with. config/minuto-util.json overrides these defaults.</summary>
+/// <summary>
+/// Everything a run can be tuned with. A channel's channels/&lt;id&gt;/config.json overrides these defaults; load it with
+/// <see cref="Channel.Load"/>, which also fills the names derived from the channel (environment variables, token files).
+/// </summary>
 public sealed record AppConfig
 {
     public ChannelOptions Channel { get; init; } = new();
@@ -25,17 +28,59 @@ public sealed record AppConfig
     /// </summary>
     public IReadOnlyList<string> SharedQuotaFiles { get; init; } = [];
 
-    public static AppConfig Load(string path) =>
+    /// <summary>The file as written, without the names derived from the channel; use <see cref="Channel.Load"/>.</summary>
+    internal static AppConfig Load(string path) =>
         JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(path), Json.Options)
         ?? throw new InvalidDataException($"{path} is empty.");
 }
 
+/// <summary>
+/// Who the channel is. Everything that must never mix between two channels (sign-ins, secrets, state, schedule) is
+/// named from here, so each channel's config.json sets these itself; there are no shared defaults for them.
+/// </summary>
 public sealed record ChannelOptions
 {
-    public string Name { get; init; } = "Minuto Útil";
+    /// <summary>The folder name under channels/; set by <see cref="Channel.Load"/>, not written in config.json.</summary>
+    public string Id { get; init; } = "";
+
+    /// <summary>The channel's name: watermark text, Telegram status header, sign-in hints.</summary>
+    public string Name { get; init; } = "";
 
     /// <summary>Wikipedia language code of the narration; English is always fetched too.</summary>
     public string Language { get; init; } = "pt";
+
+    /// <summary>
+    /// Start of every secret's environment variable and Actions secret name: MINUTO gives MINUTO_TELEGRAM_BOT_TOKEN,
+    /// MINUTO_YOUTUBE_REFRESH_TOKEN, MINUTO_STATE_KEY and so on. Upper case letters and digits.
+    /// </summary>
+    public string EnvPrefix { get; init; } = "";
+
+    /// <summary>The folder of this PC's DPAPI sign-in files and the Google client file (%LOCALAPPDATA% is expanded).</summary>
+    public string TokenFolder { get; init; } = "";
+
+    /// <summary>
+    /// The channel's folder inside the state branch checkout: "." (the root) only for Minuto Útil, whose files were
+    /// there before there were channels; channels/&lt;id&gt; for every other channel, so no two channels share a file.
+    /// </summary>
+    public string StateFolder { get; init; } = "";
+
+    /// <summary>
+    /// GitHub release names of the runs are this plus the run tag: "run-" for Minuto Útil, run-&lt;id&gt;- for the others,
+    /// so two channels rendering in the same minute never share a release.
+    /// </summary>
+    public string ReleasePrefix { get; init; } = "";
+
+    /// <summary>The scheduled renders in UTC hours; render.yml has one cron line per hour (a test checks it).</summary>
+    public IReadOnlyList<int> ScheduleUtcHours { get; init; } = [];
+
+    /// <summary>The daily idea list in UTC hours (ideas.yml); empty for a channel without one.</summary>
+    public IReadOnlyList<int> IdeasUtcHours { get; init; } = [];
+
+    /// <summary>The 32-byte key of the sealed token files on the state branch (an Actions secret).</summary>
+    public string StateKeyEnvVar => $"{EnvPrefix}_STATE_KEY";
+
+    /// <summary>Set on the runner to the channel's state folder: the sealed token files are kept there.</summary>
+    public string StateDirEnvVar => $"{EnvPrefix}_STATE_DIR";
 }
 
 /// <summary>The event the video is about: an English Wikipedia article; its Portuguese twin is found by language link.</summary>
@@ -276,8 +321,11 @@ public sealed record StyleOptions
     /// <summary>Where the Natural Earth countries file is kept once downloaded (untrusted data, validated on load).</summary>
     public string MapDataDirectory { get; init; } = "assets/cache/naturalearth";
 
-    /// <summary>The channel emblem and "Minuto Útil", small and semi-transparent, top left.</summary>
+    /// <summary>The channel emblem and the channel's name, small and semi-transparent, top left.</summary>
     public bool Watermark { get; init; } = true;
+
+    /// <summary>The words next to the emblem; <see cref="Channel.Load"/> fills in the channel's name when empty.</summary>
+    public string WatermarkText { get; init; } = "";
 
     /// <summary>
     /// The emblem drawn as the watermark: a small round PNG with transparency, made from assets/brand/emblem.png by
@@ -317,13 +365,14 @@ public sealed record StyleOptions
 }
 
 /// <summary>
-/// The YouTube upload: one public Short per run folder, only ever to the Minuto Útil channel. The Google Cloud OAuth
-/// client is the Desktop app client shared with Flopômetro; the sign-in (refresh token) is Minuto Útil's own.
+/// The YouTube upload: one public Short per run folder, only ever to the channel's own YouTube channel. The Google
+/// Cloud OAuth client is the Desktop app client shared with Flopômetro; each channel's sign-in (refresh token) is its own.
+/// The variable and file names are empty here and filled from <see cref="ChannelOptions"/> by <see cref="Channel.Load"/>.
 /// </summary>
 public sealed record YouTubeOptions
 {
-    /// <summary>The only channel this app uploads to. A sign-in or token for any other channel is refused.</summary>
-    public string ChannelId { get; init; } = "UCNath7BzjeX3ehJCA7cNYAA";
+    /// <summary>The only YouTube channel this channel uploads to. A sign-in or token for any other is refused.</summary>
+    public string ChannelId { get; init; } = "";
 
     /// <summary>27 is Education.</summary>
     public string CategoryId { get; init; } = "27";
@@ -341,14 +390,20 @@ public sealed record YouTubeOptions
     /// <summary>Adds " #shorts" to the title when it still fits in 100 characters.</summary>
     public bool AppendShortsTag { get; init; } = true;
 
-    /// <summary>The Desktop app OAuth client (Google Cloud JSON). On a runner, MINUTO_GOOGLE_CLIENT_ID and MINUTO_GOOGLE_CLIENT_SECRET replace it.</summary>
-    public string ClientSecretFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/client_secret.json";
-    public string ClientIdEnvVar { get; init; } = "MINUTO_GOOGLE_CLIENT_ID";
-    public string ClientSecretEnvVar { get; init; } = "MINUTO_GOOGLE_CLIENT_SECRET";
+    /// <summary>
+    /// The Desktop app OAuth client (Google Cloud JSON), &lt;tokenFolder&gt;/client_secret.json. On a runner,
+    /// &lt;prefix&gt;_GOOGLE_CLIENT_ID and &lt;prefix&gt;_GOOGLE_CLIENT_SECRET replace it.
+    /// </summary>
+    public string ClientSecretFile { get; init; } = "";
+    public string ClientIdEnvVar { get; init; } = "";
+    public string ClientSecretEnvVar { get; init; } = "";
 
-    /// <summary>The refresh token, DPAPI-encrypted for the Windows user. The environment variable wins when set (Linux runner).</summary>
-    public string TokenFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/youtube-token.bin";
-    public string RefreshTokenEnvVar { get; init; } = "MINUTO_YOUTUBE_REFRESH_TOKEN";
+    /// <summary>
+    /// The refresh token, DPAPI-encrypted for the Windows user (&lt;tokenFolder&gt;/youtube-token.bin). The environment
+    /// variable &lt;prefix&gt;_YOUTUBE_REFRESH_TOKEN wins when set (Linux runner).
+    /// </summary>
+    public string TokenFile { get; init; } = "";
+    public string RefreshTokenEnvVar { get; init; } = "";
 }
 
 /// <summary>
@@ -357,8 +412,9 @@ public sealed record YouTubeOptions
 /// </summary>
 public sealed record TikTokOptions
 {
-    public string ClientKeyEnvVar { get; init; } = "MINUTO_TIKTOK_CLIENT_KEY";
-    public string ClientSecretEnvVar { get; init; } = "MINUTO_TIKTOK_CLIENT_SECRET";
+    /// <summary>&lt;prefix&gt;_TIKTOK_CLIENT_KEY and _CLIENT_SECRET, filled by <see cref="Channel.Load"/>.</summary>
+    public string ClientKeyEnvVar { get; init; } = "";
+    public string ClientSecretEnvVar { get; init; } = "";
 
     /// <summary>
     /// Must be registered exactly like this in the TikTok app's Login Kit settings (Desktop). TikTok allows only
@@ -366,8 +422,9 @@ public sealed record TikTokOptions
     /// </summary>
     public string RedirectUri { get; init; } = "http://localhost:8723/callback/";
 
-    public string TokenFile { get; init; } = "%LOCALAPPDATA%/MinutoUtil/tiktok-token.bin";
-    public string RefreshTokenEnvVar { get; init; } = "MINUTO_TIKTOK_REFRESH_TOKEN";
+    /// <summary>&lt;tokenFolder&gt;/tiktok-token.bin and &lt;prefix&gt;_TIKTOK_REFRESH_TOKEN, filled by <see cref="Channel.Load"/>.</summary>
+    public string TokenFile { get; init; } = "";
+    public string RefreshTokenEnvVar { get; init; } = "";
 
     /// <summary>TikTok's caption limit.</summary>
     public int MaxCaptionChars { get; init; } = 2200;

@@ -16,22 +16,31 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:",
         TopPrefix = "qt:", RemovePrefix = "qd:";
 
-    /// <summary>The scheduled renders in UTC hours; keep in step with the cron lines in .github/workflows/render.yml.</summary>
-    public static readonly int[] ScheduleUtcHours = [14, 22];
-
     private static readonly TimeSpan Brasilia = TimeSpan.FromHours(-3);
 
-    /// <summary>The next <paramref name="count"/> scheduled render times after <paramref name="now"/>.</summary>
-    public static IReadOnlyList<DateTimeOffset> NextSlots(DateTimeOffset now, int count)
+    /// <summary>
+    /// The next <paramref name="count"/> scheduled render times after <paramref name="now"/>, from the channel's
+    /// scheduleUtcHours (the cron lines of .github/workflows/render.yml; a test keeps them in step). None without a schedule.
+    /// </summary>
+    public static IReadOnlyList<DateTimeOffset> NextSlots(IReadOnlyList<int> scheduleUtcHours, DateTimeOffset now, int count)
     {
         var slots = new List<DateTimeOffset>();
+        var hours = scheduleUtcHours.Distinct().Order().ToList();
+        if (hours.Count == 0) return slots;
         for (var day = now.UtcDateTime.Date; slots.Count < count; day = day.AddDays(1))
-            foreach (var hour in ScheduleUtcHours)
+            foreach (var hour in hours)
             {
                 var slot = new DateTimeOffset(day.AddHours(hour), TimeSpan.Zero);
                 if (slot > now && slots.Count < count) slots.Add(slot);
             }
         return slots;
+    }
+
+    /// <summary>The scheduled render hours in Brasília time, like "11h e 19h", for the bot's messages.</summary>
+    public static string ScheduleHours(IReadOnlyList<int> scheduleUtcHours)
+    {
+        var hours = scheduleUtcHours.Select(h => (h + 24 + Brasilia.Hours) % 24).Distinct().Order().Select(h => $"{h:00}h").ToList();
+        return hours.Count <= 1 ? string.Concat(hours) : $"{string.Join(", ", hours.SkipLast(1))} e {hours[^1]}";
     }
 
     /// <summary>"hoje às 15h", "amanhã às 07h", "sexta às 11h", in Brasília time.</summary>
@@ -48,11 +57,16 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         return $"{day} às {local:HH}h";
     }
 
-    /// <summary>/status: the switches, what is being made or waiting for the owner, the last results and the next topics.</summary>
-    public static string StatusMessage(BotSettings settings, IReadOnlyList<RunRecord> runs, IReadOnlyList<QueueEntry> queue, DateTimeOffset now)
+    /// <summary>
+    /// /status: the channel's name, the switches, what is being made or waiting for the owner, the last results and the
+    /// next topics with the scheduled render that takes each.
+    /// </summary>
+    public static string StatusMessage(ChannelOptions channel, BotSettings settings, IReadOnlyList<RunRecord> runs, IReadOnlyList<QueueEntry> queue, DateTimeOffset now)
     {
-        var text = new StringBuilder("ℹ️ Minuto Útil\n");
-        text.AppendLine(settings.Paused ? "⏸️ Vídeos agendados pausados (/retomar volta)." : "▶️ Vídeos às 07h, 11h, 15h e 19h (/pausar para).");
+        var text = new StringBuilder($"ℹ️ {channel.Name}\n");
+        text.AppendLine(settings.Paused ? "⏸️ Vídeos agendados pausados (/retomar volta)."
+            : channel.ScheduleUtcHours.Count == 0 ? "▶️ Sem vídeos agendados: só /novo."
+            : $"▶️ Vídeos às {ScheduleHours(channel.ScheduleUtcHours)} (/pausar para).");
         text.AppendLine(settings.Review ? "📝 Revisão de roteiro ligada (/revisar off desliga)." : "📝 Revisão de roteiro desligada (/revisar on liga).");
         string Line(RunRecord r) => $"• {r.Title ?? r.Article} ({r.UpdatedAt.ToOffset(TimeSpan.FromHours(-3)):dd/MM HH:mm})";
         void Group(string heading, IEnumerable<RunRecord> items)
@@ -72,11 +86,13 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         // minutes later (the script first, in review mode) and goes out when the owner taps Publicar.
         text.AppendLine().AppendLine("📋 Próximos vídeos:");
         if (queue.Count == 0) text.AppendLine("Fila vazia: mande um tema.");
-        var slots = NextSlots(now, 3);
+        var slots = NextSlots(channel.ScheduleUtcHours, now, 3);
         for (var i = 0; i < Math.Min(3, queue.Count); i++)
         {
             var title = queue[i].Topic.PortugueseArticle ?? queue[i].Topic.Article;
-            text.AppendLine(settings.Paused ? $"{i + 1}. {title} (pausado)" : $"{i + 1}. {title}: {When(slots[i], now)}");
+            text.AppendLine(settings.Paused ? $"{i + 1}. {title} (pausado)"
+                : i < slots.Count ? $"{i + 1}. {title}: {When(slots[i], now)}"
+                : $"{i + 1}. {title}");
         }
         if (!settings.Paused && queue.Count > 0)
             text.AppendLine(settings.Review
