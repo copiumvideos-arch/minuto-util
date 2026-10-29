@@ -95,7 +95,7 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-var usage = new RunUsage(config.Writer.MaxRequests);
+var usage = new RunUsage(config.Writer.MaxRequests, config.Writer.MaxSpareRequests);
 using var http = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(60));
 using var apiHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
 // The cloud runs keep the quota file on the state branch (--quota-file), so it carries over between jobs.

@@ -163,8 +163,47 @@ public sealed class ScriptAndLlmTests
 
         Assert.Equal(5, script.Sections.Count);
         Assert.Equal(2, usage.GeminiRequests);
-        Assert.Equal(1, usage.OpenRouterRequests);
+        Assert.Equal(1, usage.SpareRequests);
         Assert.Equal("Bearer o", handler.Requests[^1].Request.Headers.Authorization!.ToString());
+    }
+
+    /// <summary>
+    /// The morning of 2026-10-29, three renders in a row: Gemini timed out and answered 503, Workers AI cut both answers
+    /// at its default 256 tokens (gpt-oss spent them thinking and gave no text, Llama stopped mid JSON), and the
+    /// budget of 5 was spent before OpenRouter was asked.
+    /// </summary>
+    [Fact]
+    public async Task A_bad_gemini_morning_and_cut_off_spare_answers_still_reach_openrouter()
+    {
+        var answer = File.ReadAllText(TestPaths.Fixture("script-answer.json"));
+        var handler = new FakeHandler((request, body) =>
+        {
+            var uri = request.RequestUri!.ToString();
+            if (uri.Contains("gemini-a")) throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 180 seconds elapsing.");
+            if (uri.Contains("generativelanguage")) return FakeHandler.Json(HttpStatusCode.ServiceUnavailable, """{"error":{"code":503,"message":"The model is overloaded."}}""");
+            if (uri.Contains("cloudflare") && body.Contains("gpt-oss"))
+                return FakeHandler.Json(HttpStatusCode.OK, """{"choices":[{"message":{"content":null,"reasoning":"We need to produce"},"finish_reason":"length"}]}""");
+            if (uri.Contains("cloudflare"))
+                return FakeHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = answer[..200] }, finish_reason = "length" } } }));
+            return FakeHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = answer } } } }));
+        });
+        var usage = new RunUsage(5, new WriterOptions().MaxSpareRequests);
+        var http = new HttpClient(handler);
+        var chain = new ChainedLlmClient([
+            new GeminiClient(http, "g", Models, usage),
+            OpenRouterClient.ForCloudflare(http, "cf", "b77e134015ef6359c129cf8cfe3bb38a", ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"], usage),
+            new OpenRouterClient(http, "o", ["some/model:free"], usage),
+        ]);
+        var writer = new ScriptWriter(chain, "", Lenient, "x");
+
+        var written = await writer.WriteAsync("Guerra do Paraguai", Sources(), 16000, CancellationToken.None);
+
+        Assert.Equal(5, written.Script.Sections.Count);
+        Assert.Contains("openrouter.ai", handler.Requests[^1].Request.RequestUri!.Host);
+        Assert.Equal((3, 3), (usage.GeminiRequests, usage.SpareRequests));
+        // Workers AI is asked for a reply long enough for a script; its default of 256 tokens cut both answers.
+        Assert.All(handler.Requests.Where(r => r.Request.RequestUri!.Host.Contains("cloudflare")),
+            r => Assert.Contains($"\"max_tokens\":{OpenRouterClient.MaxReplyTokens}", r.Body));
     }
 
     [Fact]
@@ -177,7 +216,7 @@ public sealed class ScriptAndLlmTests
         var error = await Assert.ThrowsAsync<LlmException>(() => gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None));
 
         Assert.Equal(2, handler.Requests.Count);
-        Assert.Contains("budget of 2", error.Message);
+        Assert.Contains("budget of 2 Gemini requests", error.Message);
     }
 
     [Theory]

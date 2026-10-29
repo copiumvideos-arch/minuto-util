@@ -274,13 +274,14 @@ internal static class CloudCommands
     }
 
     /// <summary>
-    /// The trend picker on the writer models: busy Gemini models hand over to the next, then Cloudflare Workers AI, then OpenRouter. Five
-    /// requests at most, so three Gemini models answering 429 or 503 still leave the OpenRouter spares a turn; a model
-    /// out of its daily quota is remembered in the quota file on the state branch and skipped without a request.
+    /// The trend picker on the writer models: busy Gemini models hand over to the next, then Cloudflare Workers AI, then
+    /// OpenRouter. Five Gemini requests at most and the spares counted apart, so Gemini models answering 429 or 503 never
+    /// take the spares' turn; a model out of its daily quota is remembered in the quota file on the state branch and
+    /// skipped without a request.
     /// </summary>
     private static TrendPicker Picker(CloudState state, AppConfig config, string root, Func<string, string?> key, HttpClient http, HttpClient llmHttp)
     {
-        var usage = new RunUsage(5);
+        var usage = new RunUsage(5, config.Writer.MaxSpareRequests);
         var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
         var models = new List<ILlmClient>();
         if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));

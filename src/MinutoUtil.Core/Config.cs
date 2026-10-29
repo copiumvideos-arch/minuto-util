@@ -101,10 +101,17 @@ public sealed record OpenRouterOptions
 public sealed record WriterOptions
 {
     /// <summary>
-    /// Model requests a whole run may make, over every provider. The Gemini key's free quota is shared with a live
-    /// channel, so a failing model is never retried in a loop: each model is asked once and the budget stops the rest.
+    /// Gemini requests a whole run may make. The Gemini key's free quota is shared with a live channel, so a failing
+    /// model is never retried in a loop: each model is asked once and the budget stops the rest.
     /// </summary>
     public int MaxRequests { get; init; } = 3;
+
+    /// <summary>
+    /// Requests a whole run may make to the spare writers (Cloudflare Workers AI, then OpenRouter), counted apart from
+    /// Gemini so that failed Gemini requests never use up their turn. Enough to ask each spare model once, and a few more
+    /// for the rewrite of a script far outside the word range.
+    /// </summary>
+    public int MaxSpareRequests { get; init; } = 6;
 
     /// <summary>Spoken words of hook plus sections. pt-BR narration runs at about 150 words a minute at speed 1.0.</summary>
     public int MinWords { get; init; } = 130;

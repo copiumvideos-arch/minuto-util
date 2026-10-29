@@ -34,7 +34,9 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    `sharedQuotaFiles`) so a model the live channel used up is skipped without a request. OpenRouter's free writers
    come after Gemini, after Cloudflare Workers AI (open models on the owner's free Cloudflare account, 10,000 neurons
    a day; secrets `CLOUDFLARE_AI_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `cloudflareAi` in the config). GitHub Models was
-   retired on 2026-07-30. `writer.maxRequests` (5) caps the whole run.
+   retired on 2026-07-30. `writer.maxRequests` (5) caps the Gemini requests of a whole run, and
+   `writer.maxSpareRequests` (6) the Cloudflare and OpenRouter ones, counted apart so failed Gemini requests never
+   take the spares' turn. Workers AI is asked for up to 8,192 reply tokens; its default of 256 cuts a script short.
 4. **Voice** (`Voice/SmallestVoice.cs`, `Voice/Narrator.cs`, `tools/voice.py`): Smallest.ai Waves
    (`lightning_v3.1_pro`, voice `thiago`, 24 kHz WAV), one request per section, each take cached next to its text in
    `voice/smallest/`. If Smallest fails or runs out of credits, Kokoro `pm_santa` speaks every section instead (never

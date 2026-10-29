@@ -16,6 +16,8 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
     string provider = "openrouter", Uri? endpoint = null) : ILlmClient
 {
     internal static readonly Uri Endpoint = new("https://openrouter.ai/api/v1/chat/completions");
+    /// <summary>The reply length asked of Workers AI: room for a script and the model's reasoning.</summary>
+    internal const int MaxReplyTokens = 8192;
     /// <summary>
     /// Cloudflare Workers AI's OpenAI-compatible endpoint: open models on the owner's free Cloudflare account (10,000
     /// "neurons" a day, about twenty scripts), with an API token that has the Workers AI permission.
@@ -69,7 +71,13 @@ public sealed class OpenRouterClient(HttpClient http, string apiKey, IReadOnlyLi
             };
 
             // Workers AI models do not all accept OpenAI's json_schema format; the schema in the system message does the job.
-            if (provider == "cloudflare") body.Remove("response_format");
+            // Its default reply length is 256 tokens, which cut every script short: gpt-oss spent them all thinking and
+            // returned no text, Llama stopped mid JSON. A script with its reasoning took about 2,100 tokens (2026-10-29).
+            if (provider == "cloudflare")
+            {
+                body.Remove("response_format");
+                body["max_tokens"] = MaxReplyTokens;
+            }
             usage.TakeModelRequest(provider);
             using var request = new HttpRequestMessage(HttpMethod.Post, endpoint ?? Endpoint)
             {
