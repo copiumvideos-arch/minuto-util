@@ -1,0 +1,14 @@
+{
+  "tag": "20261029-1043",
+  "article": "Battle of Salamis",
+  "year": -480,
+  "topic": "Grécia Antiga",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "note": "run failed: LlmException: The run's budget of 5 model requests is spent; not asking openrouter.",
+  "updatedAt": "2026-10-29T10:49:49.5079996+00:00"
+}
