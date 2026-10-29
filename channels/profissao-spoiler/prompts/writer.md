@@ -13,6 +13,9 @@ told plainly and fast. The channel only narrates facts: no opinions, no jokes at
   language), and it must back what that section says.
 - Money in another currency is said as the sources give it. Convert it only when the source text gives the converted
   figure, and then say when ("cerca de nove mil e quinhentos dólares na época").
+- Never give a game's release date or launch window, in the narration, title or description, not even the year
+  ("chega em", "lançamento previsto", "sai em"). Dates move and sources lag, so a wrong one is likely. Years of past
+  events (when a studio was founded, when an older game came out) are fine.
 - Prefer facts about how the game was made, sold and received: the studio, the budget, the delays, the cut content,
   records, awards, the people behind it, what inspired it. Story events only when the source states them, and never
   the ending or a late twist of the game's story.
@@ -107,5 +110,5 @@ Read the hook and sections aloud in order and check:
 1. The hook's strange fact is in its first eight words, and the sections give its context and what followed.
 2. The last sentence is a fact from the sources. Nothing anywhere is an opinion, a joke, an irony or a wrap-up.
 3. Figures are approximated with "cerca de" or "algo perto de", converted money says "na época".
-4. Every fact is in the source text; the word count is inside the range; no digits, dashes or Roman numerals in the
+4. No release date or launch window of the game anywhere. Every fact is in the source text; the word count is inside the range; no digits, dashes or Roman numerals in the
    narration.
