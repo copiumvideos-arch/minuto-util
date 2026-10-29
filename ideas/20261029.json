@@ -1,0 +1,69 @@
+{
+  "date": "20261029",
+  "sentAt": "2026-10-29T09:42:45.2569572+00:00",
+  "ideas": [
+    {
+      "article": "Battle of Salamis",
+      "year": -480,
+      "topic": "Grécia Antiga",
+      "trend": "Semana de vitórias",
+      "portugueseArticle": "Batalha de Salamina"
+    },
+    {
+      "article": "First Council of Nicaea",
+      "year": 325,
+      "topic": "Fé e História",
+      "trend": "Judas Tadeu",
+      "portugueseArticle": "Primeiro Concílio de Niceia"
+    },
+    {
+      "article": "Battle of Kirina",
+      "year": 1235,
+      "topic": "Impérios da África",
+      "trend": "Lista de presidentes do Brasil",
+      "portugueseArticle": "Batalha de Quirina"
+    },
+    {
+      "article": "Ming treasure voyages",
+      "year": 1405,
+      "topic": "Grandes Navegações",
+      "trend": "Apple",
+      "portugueseArticle": "Viagens do tesouro Ming"
+    },
+    {
+      "article": "Ninety-five Theses",
+      "year": 1517,
+      "topic": "Reforma Protestante",
+      "trend": "Judas Tadeu",
+      "portugueseArticle": "95 Teses"
+    },
+    {
+      "article": "Battle of Cajamarca",
+      "year": 1532,
+      "topic": "Impérios Pré-Colombianos",
+      "trend": "Eleições de meio de mandato nos EUA",
+      "portugueseArticle": "Batalha de Cajamarca"
+    },
+    {
+      "article": "Meiji Restoration",
+      "year": 1868,
+      "topic": "Império do Japão",
+      "trend": "Phantom Blade Zero",
+      "portugueseArticle": "Restauração Meiji"
+    },
+    {
+      "article": "Vaccine Revolt",
+      "year": 1904,
+      "topic": "História do Brasil",
+      "trend": "Biometria facial",
+      "portugueseArticle": "Revolta da Vacina"
+    },
+    {
+      "article": "Christmas truce",
+      "year": 1914,
+      "topic": "Primeira Guerra Mundial",
+      "trend": "Show do BTS",
+      "portugueseArticle": "Trégua de Natal"
+    }
+  ]
+}
