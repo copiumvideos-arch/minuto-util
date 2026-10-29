@@ -21,25 +21,29 @@ public sealed class SmallestVoice(HttpClient http, string apiKey, SmallestOption
     public string Name => $"smallest:{options.VoiceId}";
 
     /// <summary>Writes section-NN.wav for each text into <paramref name="folder"/>, reusing takes of the same text.</summary>
-    public async Task<IReadOnlyList<string>> SpeakAsync(IReadOnlyList<string> spokenTexts, string folder, CancellationToken ct)
+    public Task<IReadOnlyList<string>> SpeakAsync(IReadOnlyList<string> spokenTexts, string folder, CancellationToken ct) =>
+        SpeakAsync(spokenTexts.Select((t, i) => ($"section-{i:00}", t)).ToList(), folder, ct);
+
+    /// <summary>Writes &lt;name&gt;.wav for each take into <paramref name="folder"/>, reusing takes of the same text.</summary>
+    public async Task<IReadOnlyList<string>> SpeakAsync(IReadOnlyList<(string Name, string Text)> takes, string folder, CancellationToken ct)
     {
         Directory.CreateDirectory(folder);
         var paths = new List<string>();
-        for (var i = 0; i < spokenTexts.Count; i++)
+        foreach (var (name, text) in takes)
         {
-            var wav = Path.Combine(folder, $"section-{i:00}.wav");
-            var stamp = Path.Combine(folder, $"section-{i:00}.json");
-            var key = CacheKey(spokenTexts[i]);
+            var wav = Path.Combine(folder, $"{name}.wav");
+            var stamp = Path.Combine(folder, $"{name}.json");
+            var key = CacheKey(text);
             if (File.Exists(wav) && File.Exists(stamp) && await File.ReadAllTextAsync(stamp, ct) == key)
             {
-                Log.Info($"{Name}: section {i} reused from the cache");
+                Log.Info($"{Name}: {name} reused from the cache");
                 paths.Add(wav);
                 continue;
             }
-            var audio = await RequestAsync(spokenTexts[i], ct);
+            var audio = await RequestAsync(text, ct);
             await File.WriteAllBytesAsync(wav, audio, ct);
             await File.WriteAllTextAsync(stamp, key, ct);
-            Log.Info($"{Name}: section {i} spoken ({spokenTexts[i].Length} characters, {audio.Length / 1024} KB)");
+            Log.Info($"{Name}: {name} spoken ({text.Length} characters, {audio.Length / 1024} KB)");
             paths.Add(wav);
         }
         return paths;

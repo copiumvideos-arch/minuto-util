@@ -180,6 +180,13 @@ public sealed record VoiceOptions
     public double SectionPause { get; init; } = 0.4;
     public double MaxPause { get; init; } = 0.55;
 
+    /// <summary>
+    /// The pause after a colon and at a "|" in a script. The voice makes none at a colon, so a section is spoken in
+    /// pieces there (<see cref="Voice.SpeechPieces"/>) and joined with these silences.
+    /// </summary>
+    public double ColonPause { get; init; } = 0.45;
+    public double MarkPause { get; init; } = 0.3;
+
     /// <summary>"whisper" times the words; "none" spreads them evenly over each take (tests, where the voice is a tone).</summary>
     public string Listener { get; init; } = "whisper";
 

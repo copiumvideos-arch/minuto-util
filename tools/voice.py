@@ -1,8 +1,9 @@
 """Narration helpers for Minuto Util, CPU only.
 
 Commands:
-  assemble  Joins one take per section (any WAV from Smallest.ai or Kokoro) into voice.wav: silence at the edges of
-            each take is trimmed, pauses inside a take are capped, and a fixed pause goes between sections. Then
+  assemble  Joins the takes of each section (any WAV from Smallest.ai or Kokoro) into voice.wav: silence at the edges of
+            each take is trimmed, pauses inside a take are capped, a section spoken in pieces gets each piece's set
+            pause after it (the voice reads straight through colons), and a fixed pause goes between sections. Then
             faster-whisper (small, CPU, int8) times every word, matched to the script by align.py, so the captions
             keep the script's spelling with Whisper's timing.
   kokoro    The fallback voice: Kokoro pm_santa speaks each line of --text-file into --out-dir/section-NN.wav.
@@ -12,7 +13,9 @@ Usage:
                            [--section-pause 0.4] [--max-pause 0.55]
   uv run voice.py kokoro --text-file lines.txt --out-dir folder [--voice pm_santa] [--speed 1.0]
 
-plan.json: [{"audio": "section-00.wav", "caption": "script text", "spoken": "text the voice was given"}, ...]
+plan.json: [{"audio": ["section-00-0.wav", "section-00-1.wav"], "pauses": [0.45], "caption": "script text",
+             "spoken": "text the voice was given"}, ...]; "audio" may be one file, and "pauses" (seconds after each
+           piece but the last) may be left out for a single take.
 timings.json: {"duration", "sections": [{"start", "end"}], "words": [{"text", "start", "end", "section"}],
                "checks": [{"section", "score", "words"}]}
 """
@@ -114,6 +117,18 @@ class Listener:
         return [(w.word.strip(), w.start, w.end) for seg in segments for w in seg.words or [] if w.word.strip()]
 
 
+def join_pieces(item: dict, max_pause: float) -> np.ndarray:
+    """One section's audio: each piece trimmed and capped, then followed by its set pause."""
+    files = item["audio"] if isinstance(item["audio"], list) else [item["audio"]]
+    pauses = list(item.get("pauses") or []) + [0.0] * len(files)
+    parts = []
+    for k, (path, pause) in enumerate(zip(files, pauses)):
+        parts.append(shorten_pauses(trim(load_mono(path)), max_pause))
+        if pause > 0 and k < len(files) - 1:
+            parts.append(np.zeros(int(round(pause * SAMPLE_RATE)), dtype=np.float32))
+    return np.concatenate(parts)
+
+
 def assemble(plan: list[dict], listener, section_pause: float, max_pause: float):
     """Returns (audio, timings dict)."""
     parts, words, sections, checks = [], [], [], []
@@ -122,7 +137,7 @@ def assemble(plan: list[dict], listener, section_pause: float, max_pause: float)
         if index > 0:
             parts.append(np.zeros(int(section_pause * SAMPLE_RATE), dtype=np.float32))
             offset += section_pause
-        audio = shorten_pauses(trim(load_mono(item["audio"])), max_pause)
+        audio = join_pieces(item, max_pause)
         length = len(audio) / SAMPLE_RATE
         script_words = item["caption"].split()
         heard = listener.listen(audio) if listener else []

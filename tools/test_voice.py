@@ -61,3 +61,23 @@ def test_align_matches_digits_to_spoken_portuguese_numbers():
     assert score == 1.0
     assert times[1] == (0.2, 1.6)
     assert spoken_parts("24.000", "pt") == ["vinte", "e", "quatro", "mil"]
+
+
+def test_assemble_puts_the_set_pause_between_the_pieces_of_a_section(tmp_path):
+    pieces = []
+    for k in range(2):
+        path = tmp_path / f"section-00-{k}.wav"
+        sf.write(path, tone(1.0), SAMPLE_RATE)
+        pieces.append(str(path))
+    plan = [{"audio": pieces, "pauses": [0.45], "caption": "E o pior: a ideia foi dele.",
+             "spoken": "E o pior: a ideia foi dele."}]
+    plan_path, out, timings_path = tmp_path / "plan.json", tmp_path / "voice.wav", tmp_path / "timings.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    subprocess.run([sys.executable, os.path.join(HERE, "voice.py"), "assemble", "--plan", str(plan_path), "--out", str(out),
+                    "--timings", str(timings_path), "--listener", "none"], check=True)
+    audio, rate = sf.read(out)
+    # The silence between the two tones: the 0.45 s pause plus each piece's 0.05 s edge pad.
+    quiet = np.flatnonzero(np.abs(audio) < 1e-4)
+    runs = np.split(quiet, np.flatnonzero(np.diff(quiet) > 1) + 1)
+    middle = max(len(r) for r in runs if r[0] > 0 and r[-1] < len(audio) - 1) / rate
+    assert 0.5 < middle < 0.6

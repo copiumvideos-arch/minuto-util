@@ -41,7 +41,9 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    take the spares' turn. Workers AI is asked for up to 8,192 reply tokens; its default of 256 cuts a script short.
 4. **Voice** (`Voice/SmallestVoice.cs`, `Voice/Narrator.cs`, `tools/voice.py`): Smallest.ai Waves
    (`lightning_v3.1_pro`, voice `thiago`, 24 kHz WAV), one request per section, each take cached next to its text in
-   `voice/smallest/`. If Smallest fails or runs out of credits, Kokoro `pm_santa` speaks every section instead (never
+   `voice/smallest/`. The voice reads straight through a colon, so a section is spoken in pieces after each colon
+   and at a `|` written into a script by hand (`Voice/SpeechPieces.cs`; `section-NN-K.wav`), joined with
+   `voice.colonPause` (0.45 s) and `voice.markPause` (0.3 s); the captions never show the `|`. If Smallest fails or runs out of credits, Kokoro `pm_santa` speaks every section instead (never
    a mix of voices). `voice.py assemble` trims each take, caps long pauses, joins them with a fixed pause and times
    every word with faster-whisper (a 16 kHz float32 array, not a file path), matched to the script by `align.py`.
    Captions keep the script's spelling; a section Whisper heard poorly is logged.
