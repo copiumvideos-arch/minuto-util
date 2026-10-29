@@ -1,0 +1,14 @@
+{
+  "tag": "20261029-0936",
+  "article": "Battle of Cerro Corá",
+  "year": 1870,
+  "topic": "Guerra do Paraguai",
+  "trend": "sua ideia: guerra do Paraguai",
+  "portugueseArticle": "Batalha de Cerro Corá",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "note": "run failed: LlmException: The run's budget of 5 model requests is spent; not asking openrouter.",
+  "updatedAt": "2026-10-29T09:45:03.69879+00:00"
+}
