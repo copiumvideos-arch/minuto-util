@@ -38,6 +38,11 @@ public static partial class SpokenText
 
     public static bool HasDigits(string text) => text.Any(char.IsAsciiDigit);
 
+    /// <summary>Each whole word in <paramref name="respellings"/> written the way the voice must say it: "GTA seis" becomes "gê tê á seis".</summary>
+    public static string Pronounce(string text, IReadOnlyDictionary<string, string> respellings) =>
+        respellings.Aggregate(text, (current, r) =>
+            Regex.Replace(current, $@"(?<!\w){Regex.Escape(r.Key)}(?!\w)", r.Value.Replace("$", "$$"), RegexOptions.CultureInvariant));
+
     /// <summary>"AU$ 57 mil", "US$1,5 milhão", "AUD 35.000", "R$ 20": a sum with its currency before or after it.</summary>
     [GeneratedRegex(@"(?<![\w$])(?:(R|US|AU|A|CA|C|NZ)\$|(AUD|USD|BRL|CAD|NZD|EUR|GBP|JPY)\b|(€|£|¥)|\$)\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)(\s(?:mil|milhões|milhão|bilhões|bilhão)\b)?|(?<!\w)((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)(\s(?:mil|milhões|milhão|bilhões|bilhão)\b)?\s(AUD|USD|BRL|CAD|NZD|EUR|GBP|JPY)\b")]
     private static partial Regex Money();

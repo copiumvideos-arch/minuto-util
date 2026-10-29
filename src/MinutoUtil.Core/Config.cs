@@ -198,6 +198,12 @@ public sealed record VoiceOptions
 
     /// <summary>Below this share of script words heard back by Whisper, the section is logged as suspect.</summary>
     public double MinAlignScore { get; init; } = 0.8;
+
+    /// <summary>
+    /// Words the voice says wrong, and how to write them for it: "GTA" as "gê tê á", or the voice runs the letters
+    /// together. Whole words, case-sensitive; the captions keep the script's spelling.
+    /// </summary>
+    public Dictionary<string, string> Pronunciations { get; init; } = [];
 }
 
 public sealed record SmallestOptions

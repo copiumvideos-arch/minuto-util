@@ -74,7 +74,11 @@ clássico"), never as the narrator's own words.
   off. Use a colon only where a real pause helps, after a full clause.
 - Correct Brazilian Portuguese spelling with every accent and cedilla (ã, õ, á, é, í, ó, ú, â, ê, ô, ç) in every
   field. Text without accents is read wrong by the voice.
-- Game, studio and character names as they are written in the game (English names stay in English).
+- Game, studio and character names as they are written in the game (English names stay in English), but in `hook`
+  and `sections` a game is called what Brazilian players call it out loud, when that differs from the full title:
+  "GTA seis", never "Grand Theft Auto VI"; "GTA San Andreas", "Red Dead dois", "Zelda Breath of the Wild".
+  When unsure, use the shortest name a Brazilian gamer would recognize. The `title` uses the same short name with
+  digits ("GTA 6"), never a Roman numeral.
 - Never use em dashes or en dashes. Use commas or periods instead.
 - Write every number out in words, the way it is spoken: "dois mil e quinze", "trinta e cinco mil", "oitenta e um
   milhões de dólares". Round when the sources allow it and the exact figure does not matter; keep it exact when the
@@ -111,4 +115,4 @@ Read the hook and sections aloud in order and check:
 2. The last sentence is a fact from the sources. Nothing anywhere is an opinion, a joke, an irony or a wrap-up.
 3. Figures are approximated with "cerca de" or "algo perto de", converted money says "na época".
 4. No release date or launch window of the game anywhere. Every fact is in the source text; the word count is inside the range; no digits, dashes or Roman numerals in the
-   narration.
+   narration, and each game is called by the name players say ("GTA seis", not "Grand Theft Auto VI").

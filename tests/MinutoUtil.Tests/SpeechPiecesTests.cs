@@ -52,4 +52,27 @@ public sealed class SpeechPiecesTests
         var section = timings.Sections[1];
         Assert.InRange(section.End - section.Start, 2 + 0.45, 2 + 0.45 + 0.3);
     }
+
+    [Fact]
+    public async Task TheVoiceGetsRespelledWordsWhileTheCaptionsKeepTheScript()
+    {
+        // The GTA VI video: the voice ran "GTA" together; Brazilians say each letter.
+        using var temp = new TempFolder();
+        var tone = Path.Combine(temp.Path, "tone.wav");
+        await Generated.ToneAsync(tone, 1);
+        var handler = new FakeHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(File.ReadAllBytes(tone)) });
+        var usage = new RunUsage();
+        var options = new VoiceOptions { Listener = "none", Pronunciations = new() { ["GTA"] = "gê tê á" } };
+        var tools = Path.Combine(TestPaths.RepositoryRoot, "tools");
+        var narrator = new Narrator(options, tools, new SmallestVoice(new HttpClient(handler), "k", options.Smallest, usage), new KokoroVoice(tools, options), usage);
+        var script = new VideoScript("GTA 6", "O GTA seis custou caro.", "", "",
+            [new ScriptSection("Fãs de GTAs antigos esperaram.", ["q"], ["q"], "")], "Descrição.", ["games"]);
+
+        var timings = await narrator.NarrateAsync(script, temp.Path, CancellationToken.None);
+
+        var texts = handler.Requests.Select(r => JsonDocument.Parse(r.Body).RootElement.GetProperty("text").GetString()).ToList();
+        // Whole words only: "GTAs" is left alone.
+        Assert.Equal(["O gê tê á seis custou caro.", "Fãs de GTAs antigos esperaram."], texts);
+        Assert.Equal(["O", "GTA", "seis", "custou", "caro."], timings.Words.Where(w => w.Section == 0).Select(w => w.Text));
+    }
 }

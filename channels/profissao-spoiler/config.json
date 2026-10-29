@@ -31,7 +31,8 @@
     "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },
     "kokoroVoice": "pm_santa",
     "sectionPause": 0.4,
-    "maxPause": 0.55
+    "maxPause": 0.55,
+    "pronunciations": { "GTA": "gê tê á" }
   },
   "media": { "footage": "trailers", "trailers": 3, "commons": false, "libraryOfCongress": false, "internetArchive": false },
   "video": {

@@ -28,11 +28,11 @@ public sealed class Narrator(VoiceOptions options, string toolsDirectory, Smalle
     public async Task<SpeechTimings> NarrateAsync(VideoScript script, string runFolder, CancellationToken ct)
     {
         var captions = script.SpokenSections.Select(t => KokoroVoice.OneLine(SpeechPieces.WithoutMarks(t))).ToList();
-        // The voice hears numbers in words and gets each section in pieces where it must pause (SpeechPieces); the
+        // The voice hears numbers in words, words it says wrong respelled (voice.pronunciations), and gets each section in pieces where it must pause (SpeechPieces); the
         // captions show the script as written.
         var pieces = script.SpokenSections
             .Select(t => SpeechPieces.Split(KokoroVoice.OneLine(t), options.ColonPause, options.MarkPause)
-                .Select(p => p with { Text = SpokenText.SpellNumbers(p.Text) }).ToList())
+                .Select(p => p with { Text = SpokenText.SpellNumbers(SpokenText.Pronounce(p.Text, options.Pronunciations)) }).ToList())
             .ToList();
         // A section in one piece keeps the name section-NN, so takes cached before pieces existed are reused.
         var takes = pieces.SelectMany((section, i) => section.Select((p, k) => (Name: section.Count == 1 ? $"section-{i:00}" : $"section-{i:00}-{k}", p.Text)))
