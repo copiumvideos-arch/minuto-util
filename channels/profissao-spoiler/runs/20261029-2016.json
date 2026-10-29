@@ -1,0 +1,14 @@
+{
+  "tag": "20261029-2016",
+  "article": "Grand Theft Auto VI",
+  "year": 2023,
+  "topic": "Bastidores dos games",
+  "trend": "sua ideia: Grand Theft Auto VI",
+  "portugueseArticle": "Grand Theft Auto VI",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "note": "run failed: MediaException: Steam has no game named \"Grand Theft Auto VI\" (found: Grand Theft Auto: Vice City - The Definitive Edition); set its app id with --steam-app. None of the YouTube trailers could be downloaded.",
+  "updatedAt": "2026-10-29T20:18:56.0341908+00:00"
+}
