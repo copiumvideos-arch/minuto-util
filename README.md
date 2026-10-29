@@ -222,7 +222,7 @@ free Actions minutes on a 4-core runner; secrets stay in Actions secrets, tokens
 but run logs and the release videos waiting for review can be seen by anyone with the link):
 
 ```
-render.yml (07:00, 11:00, 15:00 and 19:00 Brasília, or "/novo" on Telegram)
+render.yml (11:00 and 19:00 Brasília, or "/novo" on Telegram)
   -> next topic from config/topics.json -> make -> video kept as a GitHub release "run-<tag>"
   -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
 tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
@@ -271,8 +271,8 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
 - **TikTok check**: when a draft never shows up in the app, run `publish.yml` with the action `tiktok-check` (no tag).
   It sends to Telegram the TikTok account the sign-in belongs to (the drafts go only there; in Sandbox it must be a
   target user) and TikTok's current status of the last 5 drafts (waiting in the inbox, posted, or failed with the reason).
-- **Volume**: four renders a day. TikTok accepts 5 inbox drafts per 24 hours, so post the drafts daily. The trend
-  scan queues up to 4 topics a day and the backlog covers days without picks.
+- **Volume**: two renders a day (the owner's choice; `/novo` makes more). TikTok accepts 5 inbox drafts per 24 hours,
+  so post the drafts daily. The trend scan can queue more topics than that; the queue simply lasts longer.
 
 ### Setting it up, once
 

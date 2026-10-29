@@ -17,7 +17,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         TopPrefix = "qt:", RemovePrefix = "qd:";
 
     /// <summary>The scheduled renders in UTC hours; keep in step with the cron lines in .github/workflows/render.yml.</summary>
-    public static readonly int[] ScheduleUtcHours = [10, 14, 18, 22];
+    public static readonly int[] ScheduleUtcHours = [14, 22];
 
     private static readonly TimeSpan Brasilia = TimeSpan.FromHours(-3);
 

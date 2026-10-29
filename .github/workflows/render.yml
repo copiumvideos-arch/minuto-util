@@ -6,11 +6,9 @@ name: render
 
 on:
   schedule:
-    # 07:00, 11:00, 15:00 and 19:00 in Brasília (UTC-3). GitHub may start scheduled runs some minutes late.
-    # Four a day keeps one of TikTok's five daily inbox drafts spare. Skipped while paused (/pausar).
-    - cron: "0 10 * * *"
+    # 11:00 and 19:00 in Brasília (UTC-3), the lunch and evening peaks. GitHub may start scheduled runs some minutes
+    # late. Two a day, by the owner's choice; /novo adds more. Skipped while paused (/pausar).
     - cron: "0 14 * * *"
-    - cron: "0 18 * * *"
     - cron: "0 22 * * *"
   workflow_dispatch:
     inputs:
