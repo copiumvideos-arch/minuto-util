@@ -9,9 +9,10 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 
 - `README.md`: the pipeline step by step, output files, how to run and test.
 - `prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words) and the
-  storytelling rules under "Story" (one protagonist, a hook that opens a gap paid off at the end, beats linked by "mas"
-  or "por isso", every sentence with a job). Anything new that tells a story (other formats, longer videos, titles)
-  follows them too.
+  storytelling rules under "How the explanation moves" (one question opened by the hook and answered at the end, the
+  common version turned, steps that cause or complicate each other in spoken links, sources named, doubt admitted,
+  the idea closed with "Ou seja"), modeled on the Estranha História channel (`docs/scriptwriting.md` section 18).
+  Anything new that tells a story (other formats, titles) follows them too.
 - `docs/scriptwriting.md`: the why behind `prompts/writer.md` (the Brazilian viewer, what the platforms reward,
   hooks, structure, writing for the voice, how to measure and test). Read it before changing a prompt or the word
   range; a lesson becomes a rule in the prompt and its reason goes in the guide.

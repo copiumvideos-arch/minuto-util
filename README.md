@@ -1,7 +1,7 @@
 # Minuto Útil
 
-Prototype of a faceless Brazilian Portuguese history channel for YouTube Shorts and TikTok: one real event, under a
-minute, calm narration over archive photos and footage. This repository renders a video locally; a separate `publish` command uploads a finished one.
+Prototype of a faceless Brazilian Portuguese history channel for YouTube Shorts and TikTok: one real event, one
+question about it explained and closed in 1.5 to 2.5 minutes, narration over archive photos and footage. This repository renders a video locally; a separate `publish` command uploads a finished one.
 Everything is free: Wikipedia, free model tiers, Smallest.ai's free plan, public domain and Creative Commons media,
 and CPU-only local tools (no GPU anywhere, so it can run on a GitHub Actions free runner).
 
@@ -27,7 +27,9 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    source text, and must copy, for each section, one sentence of the source that backs it (`sourceQuote`); the app
    checks every quote is really in the text and logs the ones that are not. Dashes are replaced with commas, digits
    left in the narration are flagged and spelled out for the voice (`Scripts/SpokenText.cs`, pt-BR numbers). Only a
-   script far outside the word range costs a second request.
+   script far outside the word range (`writer.minWords` 220 to `writer.maxWords` 380, 6 to 12 sections) costs a
+   second request. The style (open with a question, turn the common version, explain step by step, close with
+   "Ou seja") is modeled on the Estranha História channel; `docs/scriptwriting.md` section 18 has the analysis.
 3. **Model requests**: the Gemini key's free quota is shared with the live Flopômetro channel. Each Gemini model
    (`gemini.models`, the same ids as Flopômetro) is asked once at most, never retried; a busy model hands over to the
    next, a daily quota is remembered in `data/quota-state.json`, and Flopômetro's own quota file is read (read only,
@@ -97,10 +99,11 @@ and the watermark text. The two colors are `textColor` and `highlightColor` in `
 | Thumbnail | `thumbnail.jpg`, 1080x1920 JPEG under 2 MB: the first still of the video (cropped to 9:16) with the same grade, a soft dark band, the year in big red (or "44 A.C."), the script's `thumbnailText` in cream Roboto Serif Black with the word between asterisks in red, and the watermark. The text block sits around y=900, inside the 3:4 crop TikTok's profile grid shows. Old scripts without `thumbnailText` show the title. Set as the YouTube thumbnail by `publish`, and sent on Telegram after the review video for the TikTok cover | `thumbnail` (true) |
 | Painted cover picture | With `thumbnailPicture` "ai", the picture behind the thumbnail text is a painting of the script's `thumbnailScene` (one English sentence: place, time, objects, no named people or faces) made by Cloudflare Workers AI (`cloudflareAi.imageModel`, FLUX.2 klein 4B at 864x1536, about 160 of the free 10,000 daily neurons, one request per video) in the fixed style `cloudflareAi.imageStyle` (vintage oil painting, no text). Saved as `cover-art.jpg` with `cover-art.json` and reused while the scene is the same. The description's credits say the cover is an AI illustration, not a picture of the time. No scene, no Cloudflare key or a failed request: the archive picture, with a warning | `thumbnailPicture` ("archive"; "ai" in `config/minuto-util.json`) |
 | Cover as first frame | The thumbnail replaces the video's first frame (over the captions, after the grade; the length and the sync stay), so in TikTok's cover picker the owner leaves the selection at the start instead of uploading an image. One frame is a 1/30 s flash. The thumbnail is rendered before the video for this | `coverFrames` (1; 0 for none) |
-| Looping ending | the writer ends on a line that leads back into the hook, so the Short loops (`prompts/writer.md`) | prompt rule |
+| Closed ending | the writer answers the hook and lands one last line (a callback, an irony), instead of forcing a loop (`prompts/writer.md`) | prompt rule |
 | No music, no sound effects | narration only; the owner finds music and effects distracting | none: there is no music path |
 
-The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideoKbps` (4500).
+The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideoKbps` (4500), lowered for longer
+videos so the whole file fits in `video.maxFileMegabytes` (45): about 2,200 kbit/s at 2.5 minutes.
 
 ## Output
 

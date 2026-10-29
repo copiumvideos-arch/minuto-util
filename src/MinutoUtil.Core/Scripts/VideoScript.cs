@@ -5,7 +5,7 @@ namespace MinutoUtil.Core.Scripts;
 
 /// <summary>One narration section and what to show while it is spoken.</summary>
 public sealed record ScriptSection(
-    [property: Description("Narration in Brazilian Portuguese: 1-3 short sentences, numbers written out in words.")]
+    [property: Description("Narration in Brazilian Portuguese: 1-4 sentences, one step of the explanation, numbers written out in words.")]
     string Text,
     [property: Description("2-3 English search queries for archive photos or footage of exactly what this section says, concrete nouns (\"Omaha Beach landing craft 1944\").")]
     IReadOnlyList<string> SearchEn,
@@ -18,7 +18,7 @@ public sealed record ScriptSection(
 public sealed record VideoScript(
     [property: Description("Title for YouTube Shorts and TikTok, Portuguese, at most 70 characters, no hashtags.")]
     string Title,
-    [property: Description("The first spoken sentence: a curious question or surprising fact that makes the viewer stay. At most 14 words.")]
+    [property: Description("The first spoken sentence: the question the video answers, or the strange fact behind it, that makes the viewer stay. At most 20 words.")]
     string Hook,
     [property: Description("Date shown on the first shot, Portuguese, digits allowed: \"6 de junho de 1944\".")]
     string EraStamp,

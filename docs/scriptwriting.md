@@ -27,6 +27,7 @@ stays here.
 15. [Measuring and learning](#15-measuring-and-learning)
 16. [Open questions](#16-open-questions)
 17. [Sources](#17-sources)
+18. [The reference channel](#18-the-reference-channel)
 
 ## 1. How sure we are
 
@@ -77,10 +78,13 @@ matters at all.
 **Then whether they act (Platform, Practice).** Comments, shares, likes, follows. Comments matter for this channel
 because Brazilian audiences comment a lot and argue in good humor; the `question` field is there to start that.
 
-**Length (Practice, conflicting).** Shorter videos finish more often; longer videos that hold attention earn more
-total watch time. Vendor numbers on the "ideal length" disagree. We use 130 to 170 words (about 52 to 68 seconds at
-the narrator's speed). Whether shorter (for example 90 to 110 words) does better for us is an open question worth
-testing (section 16).
+**Length (Practice, conflicting; owner's decision).** Shorter videos finish more often; longer videos that hold
+attention earn more total watch time. Vendor numbers on the "ideal length" disagree. Until 2026-10-29 we used 130 to
+170 words (about a minute), and too many scripts felt like summaries that opened an idea and never closed it. The owner
+asked for whatever length it takes to introduce and finish one idea, up to the three minutes YouTube still treats as
+a Short. We now use 220 to 380 words (about 1.5 to 2.5 minutes at the narrator's 150 words a minute), close to the
+Shorts of the reference channel in section 18 (median 318 words). Files stay under Telegram's 50 MB because the
+render lowers the bitrate cap for longer videos (`video.maxFileMegabytes`).
 
 **Originality (Platform).** Since July 2025, YouTube's monetization policy excludes "inauthentic content": videos
 that look made from a template with little variation, or easily replicated at scale. AI tools are allowed; sameness
@@ -122,23 +126,22 @@ hint at is not an angle; it becomes bait, and the comments will catch it.
 **A quick test (Hypothesis).** Say the angle as one sentence a friend would repeat at lunch. "O faraó que mudou os
 deuses do Egito e depois foi apagado da história" works. "A importância do Egito Antigo" does not.
 
-## 5. The shape of a minute
+## 5. The shape of two minutes
 
-At about 150 words a minute, every 2.5 words is a second. A 150 word script, in time:
+At about 150 words a minute, every 2.5 words is a second. A 300 word script, in time:
 
 | Time | Words | Job | Prompt field |
 | --- | --- | --- | --- |
-| 0 to 5 s | up to 14 | Hook: open the gap. The strange part in the first 8 words. | `hook` |
-| 5 to 10 s | 10 to 15 | Stakes: what can be lost, won or changed. | first section |
-| 10 to 40 s | 60 to 80 | Rising middle: each beat a "mas" or a "por isso", with a small new question every 10 seconds or so. | middle sections |
-| 40 to 52 s | 20 to 30 | The turn: short, hard sentences, the strongest true detail. | next to last section |
-| 52 to 60 s | 15 to 25 | Payoff that answers the hook, ending into the loop or the question. | last section |
+| 0 to 7 s | up to 20 | Hook: the question, or the strange fact behind it. The strange part in the first 8 words. | `hook` |
+| 7 to 20 s | 20 to 35 | The common version, then the turn ("Mas a história é mais complicada"), when the sources support one. | first section |
+| 20 to 95 s | 180 to 200 | The explanation, one step per section, each causing or complicating the next; a question answered on the spot now and then. | middle sections |
+| 95 to 120 s | 40 to 60 | Close the idea: "Ou seja," answers the hook, then one line that lands (callback, irony, bigger point). | last section |
 
 The year card and map insert play over the first seconds; the hook must work under them, so it is never the only
 place a date or place is said.
 
-**Every section is a beat (Practice).** One section, one thing changes. A section is 1 to 3 sentences, about five to
-eight seconds, and the shot plan gives each section its own pictures. If a section has two beats, split it; if it
+**Every section is a step (Practice).** One section, one thing changes. A section is 1 to 4 sentences, about ten to
+fifteen seconds, and the shot plan gives each section its own pictures. If a section has two beats, split it; if it
 has none, cut it.
 
 ## 6. The hook
@@ -186,10 +189,11 @@ that people absorbed in a story pay more attention, remember more and argue less
 attention, emotion and mental imagery: the viewer has to picture a person in a place doing something. Armies,
 treaties and "the economy" do not get pictured; a captain on a deck does.
 
-**"Mas" and "por isso", never "e depois" (Practice).** Each section either creates a new problem (mas) or follows
-from the one before (por isso). A list of events in order ("e depois... e então...") is a summary, and viewers swipe
-summaries. Before finishing, read the sections in order and name the link between each pair. If a link is "and
-then", rewrite or cut. The words themselves need not appear; the logic must.
+**Cause and complication, never "e depois" (Practice, reference channel).** Each section either creates a new
+problem or follows from the one before. A list of events in order ("e depois... e então...") is a summary, and viewers
+swipe summaries. The logic matters more than the words: the reference channel (section 18) says "mas" nine times per
+thousand words but "por isso" almost never; it links steps with "então", "só que", "aí", "daí", "ou seja", "porque".
+The prompt lists those spoken links instead of asking for "por isso".
 
 **Small gaps along the way (Practice).** The hook opens the big question. The middle keeps attention with small ones
 that close quickly: "Só havia um problema.", "Ninguém esperava o que veio a seguir." (sparingly, at most once per
@@ -221,6 +225,12 @@ rhythm speeding up tells the ear something is coming.
 why. Not a moral ("e isso mostra como a história é fascinante"), not a teaser ("mas essa é outra história"), not a
 "follow for part two".
 
+**Close the idea (owner's decision, reference channel).** Since 2026-10-29 the ending closes the idea instead of
+looping: it answers the hook in plain words, often starting "Ou seja," and then lands one last line: a callback to
+the opening image or words, a light true irony, or the bigger point the story makes. In a two minute video a rewatch
+is rarer, and a forced loop line made endings feel cut off. The loop below stays as an option when the last line
+happens to run into the hook naturally.
+
 **The loop (Platform logic, Practice).** Shorts and TikTok replay automatically. If the last words flow into the hook,
 part of the audience watches the start again before noticing, and a rewatch counts. Ways to build it:
 
@@ -247,9 +257,18 @@ hard to follow by ear and harder for the voice to phrase.
 not "Ele desconhecia". "Pegou", not "apoderou-se". Use proclisis the Brazilian way ("me disse", "se escondeu"), not
 the European "disse-me". Present tense is allowed for drama.
 
-**Register.** A friend telling something fascinating: warm, calm, a little conspiratorial. No slang that dates fast
-or belongs to one region or one age group ("mano", "tipo assim", "véi"). "A gente" is fine in moderation; "você"
-for the viewer, never "tu" or "vós".
+**Register (reference channel).** Someone who knows the subject explaining it to a friend: relaxed, clear, a little
+funny. The reference channel says "né" about nineteen times per thousand words and leans on "a gente", "você",
+"os caras", "pra caramba", "inclusive", "por exemplo", "pelo menos". A synthetic voice cannot carry that much filler,
+so the prompt allows "né?" a few times per script and the other words in small doses. No slang that belongs to one
+region or one age group ("mano", "tipo assim", "véi"); "você" for the viewer, never "tu" or "vós". The narrator never
+says "eu acho": the host of the reference channel gives opinions as a known historian, a faceless channel cannot.
+
+**Write it as it is said.** The first scripts under the new rules still read like a textbook ("interveio para depor
+o governo", "por considerar que contrariava seus interesses") and opened sections with a date. The prompt now shows
+formal-to-spoken rewrites and an example script in the target voice; models copy an example more reliably than they
+follow a rule. The example is about Julius Caesar on purpose, far from the Brazil topics, and the prompt says not to
+reuse its phrases, so it shapes the tone without becoming a template.
 
 **Every accent and cedilla.** Text without them is read wrong by the voice ("decisao" is not "decisão").
 
@@ -405,13 +424,16 @@ Why it works:
 
 **After writing** (also the owner's review in Telegram)
 
-- [ ] The hook opens one specific gap in its first eight words, with no greeting, no "você sabia".
-- [ ] Section 1 says what is at stake.
-- [ ] Every pair of sections is a "mas" or a "por isso".
+- [ ] The hook asks one specific question (or states the strange fact behind it) in its first eight words, with no
+  greeting, no "você sabia".
+- [ ] The common version is told and turned, when the sources support it.
+- [ ] Every section causes or complicates the next; no "e depois" lists.
 - [ ] Every sentence has a job; no background for its own sake.
 - [ ] Two or three names at most, each explained the first time, or replaced by a role.
 - [ ] The strongest true detail comes near the end, and the last section does not lose energy.
-- [ ] The end answers exactly the hook's question, and loops into it (or asks the question out loud, if divisive).
+- [ ] The end answers exactly the hook's question ("Ou seja, ...") and lands one last line (or asks the question out
+  loud, if divisive).
+- [ ] It sounds spoken: casual words in small doses, sources named where the sources do, doubt admitted.
 - [ ] Read aloud: no stumbles, numbers in words, accents everywhere, no Roman numerals or abbreviations.
 - [ ] Neutral: no current politics, no side taken, religion told as history.
 - [ ] The hook type, the protagonist type and the ending differ from the last few videos.
@@ -450,17 +472,19 @@ evidence, marked **Channel data** with the dates and video count). Keep the prom
 
 Worth testing, roughly in order of expected impact:
 
-1. **Length.** Does 90 to 110 words (about 40 seconds) beat 130 to 170 on average percentage viewed and total
-   reach? Shorter videos finish more often; the question is whether the story survives the cut.
+1. **Length.** Do the 220 to 380 word videos (since 2026-10-29) earn more total watch time and follows than the
+   130 to 170 word ones, despite a lower average percentage viewed? Compare the two groups once each has ten videos.
 2. **Hook types.** Which of the types in section 6 has the lowest swipe-away for this audience?
 3. **Brazil bridge.** Do videos with a sourced link to Brazil or to the school curriculum hold better?
 4. **Era.** The topics are Brazil only for now, mixed over the colony, the Empire and the Republic. Which period
    holds best, and do world stories with a Brazil bridge do as well as Brazilian ones when they come back?
-5. **Loop vs. question ending.** Does the loop raise rewatches enough to beat the comment boost of an out-loud
-   question, on subjects where either would fit?
+5. **Closed ending vs. loop.** Does closing the idea lose the rewatches the loop used to bring, and does it gain
+   comments or follows?
 6. **Scale comparisons.** Should the prompt allow "do tamanho de dois Maracanãs"-style comparisons, given the facts
    rule? If yes, with what limits?
-7. **Hook length.** The prompt allows 14 words. Do hooks of 8 words or fewer do better?
+7. **Hook length.** The prompt allows 20 words. Do hooks of 8 words or fewer do better?
+8. **Voice speed.** The reference channel speaks at about 177 words a minute; our narrator at about 150. Does a
+   slightly faster voice (Smallest `speed` 1.1) hold attention better in longer videos?
 
 ## 17. Sources
 
@@ -492,3 +516,34 @@ Practice (creator and vendor guides; useful patterns, unverified numbers)
 - [Kineclip, three acts for 60 second stories](https://kineclip.com/blog/three-act-structure-for-60-second-stories-2026/)
   and [ending a short video](https://kineclip.com/blog/how-to-end-a-short-video-payoff-loop-cta-2026/)
 - [TikTok completion rate by video length, estimates](https://ttcalculator.net/learn/completion-rate-by-video-length/)
+
+## 18. The reference channel
+
+On 2026-10-29 the owner asked for scripts that phrase, open, explain and close the way
+[Estranha História](https://www.youtube.com/@henriquecaldeira) does: a Brazilian history channel by the historian
+Henrique Caldeira, around 800 thousand subscribers. We read the Portuguese captions of his 30 most viewed Shorts and
+20 most viewed long videos (one Short had none, so 49 transcripts). The transcripts were only read for this analysis
+and are not kept in the repository; the prompt borrows patterns and common spoken words, never his lines or his
+catchphrases, so the channel sounds like itself and not like a copy.
+
+**Numbers (Channel data, his).** Shorts: 100 to 563 words, median 318 (about two minutes). Long videos: about 177
+words a minute. Per thousand words in the Shorts: "né" 19, "mas" 9, "então" 5, "a gente" 4, "só que" 1, "ou seja"
+1, "por isso" 0.3.
+
+**How he opens.** Straight into the subject, never a greeting in Shorts. Four shapes: a direct "por que" question
+about something familiar ("why do we say OK"); pointing at a strange picture ("this haircut is odd, right?"); a claim
+that sounds wrong ("one of the most important kings in history probably never existed"); a playful hypothetical to
+the viewer. Long videos then say in one line what the video will cover.
+
+**How he explains.** Often first the common version or the popular theories, then the turn ("but the story is much
+stranger than that"). Then step by step in time order, joined by spoken links. He names his source when a fact is
+striking ("according to Plutarch", "a seventeenth century etiquette manual says, quote"), says plainly what cannot be
+known, and makes a hard idea land with a comparison from today (Cleopatra lived closer to the iPhone than to the
+building of the pyramids). Humor comes from the facts: dry understatement, irony, an absurd detail taken seriously.
+
+**How he closes.** He answers the opening question in plain words, often with "ou seja", and lands a last line that
+calls back to the start or turns it with a joke (after explaining why clocks show IIII: "now you can never unsee
+it"). Sometimes a question to the comments. No moral, no summary of everything said.
+
+**What we did not copy.** His first person opinions ("eu acho"), his sign-offs and channel lines, his on-camera
+asides, and the amount of filler a live speaker gets away with.

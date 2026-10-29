@@ -111,6 +111,23 @@ public sealed class BrandTests
         Assert.DoesNotContain("[emblem]", plain[plain.ToList().IndexOf("-filter_complex") + 1]);
     }
 
+    [Theory]
+    [InlineData(60, 4500)]
+    [InlineData(150, 2208)]
+    [InlineData(175, 1865)]
+    public void The_bitrate_cap_keeps_a_long_video_under_the_telegram_limit(double seconds, int expectedKbps)
+    {
+        var options = new VideoOptions();
+        var renderer = new FinalRenderer(options, new Ffmpeg(options));
+        Shot[] shots = [new(0, 0, 0, 90, ShotEffect.KenBurns, 0, false)];
+
+        var args = renderer.Arguments(shots, ["a.mp4"], "voice.wav", seconds, 0, "out.mp4").ToList();
+
+        Assert.Equal($"{expectedKbps}k", args[args.IndexOf("-maxrate") + 1]);
+        // Video at the cap plus the audio, for the whole length, stays under the file budget.
+        Assert.True((expectedKbps + FinalRenderer.AudioKbps) * seconds / 8000 <= options.MaxFileMegabytes);
+    }
+
     /// <summary>
     /// The widest real chunks and a 21-letter word, rendered by libass with the repository's fonts: every chunk stays
     /// inside the caption area (centered, at most <see cref="Layout.CaptionMaxWidth"/> plus the outline), clear of the

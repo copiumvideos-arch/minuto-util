@@ -227,6 +227,12 @@ public sealed record VideoOptions
 
     /// <summary>Peak video bitrate. 4500 kbit/s keeps a 75 s video near 43 MB, under Telegram's 50 MB bot upload limit.</summary>
     public int MaxVideoKbps { get; init; } = 4500;
+
+    /// <summary>
+    /// The largest file a render may make, in MB (10^6 bytes), with room under the 50 MB a Telegram bot can send.
+    /// Longer videos get a lower bitrate cap than <see cref="MaxVideoKbps"/> so they still fit.
+    /// </summary>
+    public double MaxFileMegabytes { get; init; } = 45;
 }
 
 /// <summary>

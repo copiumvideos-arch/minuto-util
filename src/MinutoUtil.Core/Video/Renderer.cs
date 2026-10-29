@@ -138,6 +138,12 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
         await ProcessRunner.RunCheckedAsync(options.FfmpegPath, arguments, workFolder, TimeSpan.FromMinutes(20), ct);
     }
 
+    internal const int AudioKbps = 192;
+
+    /// <summary>The video bitrate cap: <see cref="VideoOptions.MaxVideoKbps"/>, or less when the whole file would not fit in <see cref="VideoOptions.MaxFileMegabytes"/>.</summary>
+    internal int VideoKbps(double duration) =>
+        Math.Min(options.MaxVideoKbps, (int)(options.MaxFileMegabytes * 8000 / Math.Max(duration, 1)) - AudioKbps);
+
     internal IReadOnlyList<string> Arguments(IReadOnlyList<Shot> shots, IReadOnlyList<string> shotFiles, string voicePath,
         double duration, double gainDb, string outputPath, string? emblemPath = null, string? coverPath = null)
     {
@@ -151,11 +157,12 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
         args.AddRange(["-filter_complex", FilterGraph(shots, duration, gainDb, emblemPath is not null, cover)]);
         args.AddRange(["-map", "[vout]", "-map", "[aout]", "-r", options.Fps.ToString(CultureInfo.InvariantCulture)]);
         // CRF 18 with a peak cap: grainy archive footage otherwise needs ~6 Mbit/s, and the file must stay under the
-        // 50 MB a Telegram bot can send (video.maxVideoKbps 4500 is about 35 MB a minute).
-        var kbps = options.MaxVideoKbps.ToString(CultureInfo.InvariantCulture);
-        args.AddRange(["-c:v", options.Encoder, "-preset", "medium", "-crf", "18", "-maxrate", $"{kbps}k", "-bufsize", $"{options.MaxVideoKbps * 2}k",
+        // 50 MB a Telegram bot can send (video.maxVideoKbps 4500 is about 35 MB a minute, so longer videos get less).
+        var cap = VideoKbps(duration);
+        var kbps = cap.ToString(CultureInfo.InvariantCulture);
+        args.AddRange(["-c:v", options.Encoder, "-preset", "medium", "-crf", "18", "-maxrate", $"{kbps}k", "-bufsize", $"{cap * 2}k",
             "-profile:v", "high", "-pix_fmt", "yuv420p"]);
-        args.AddRange(["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-t", ShotRenderer.Num(duration), "-movflags", "+faststart", Path.GetFullPath(outputPath)]);
+        args.AddRange(["-c:a", "aac", "-b:a", $"{AudioKbps}k", "-ar", "48000", "-ac", "2", "-t", ShotRenderer.Num(duration), "-movflags", "+faststart", Path.GetFullPath(outputPath)]);
         return args;
     }
 
