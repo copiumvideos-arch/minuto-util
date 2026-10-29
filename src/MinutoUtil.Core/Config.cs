@@ -97,6 +97,12 @@ public sealed record StoryOptions
 
     /// <summary>Characters of each article given to the writer. The intro and the first sections carry the key facts.</summary>
     public int MaxSourceChars { get; init; } = 16000;
+
+    /// <summary>
+    /// How many years ago a subject from the daily idea list must have happened at least: 25 keeps a history channel
+    /// away from current events; a games channel takes this year's games too (0).
+    /// </summary>
+    public int MinYearsAgo { get; init; } = 25;
 }
 
 public sealed record GeminiOptions
@@ -223,6 +229,21 @@ public sealed record MediaOptions
 
     /// <summary>Length of the real footage clip, no audio.</summary>
     public double ClipSeconds { get; init; } = 4.5;
+
+    /// <summary>
+    /// Where the pictures come from: "archive" (public domain and CC pictures and footage, the Minuto Útil look) or
+    /// "trailers" (the game's official Steam trailers, cut fast on the narration; <see cref="Media.SteamTrailers"/>).
+    /// </summary>
+    public string Footage { get; init; } = "archive";
+
+    /// <summary>The Steam app of the game when its name does not find it; usually set per run with --steam-app.</summary>
+    public int? SteamAppId { get; init; }
+
+    /// <summary>Trailers downloaded per video: enough shots that none repeats in a minute of fast cuts.</summary>
+    public int Trailers { get; init; } = 3;
+
+    /// <summary>The most of each trailer that is kept, in seconds.</summary>
+    public int MaxTrailerSeconds { get; init; } = 240;
 
     /// <summary>Title words that point at graphic images (dead or wounded people); such files are never used.</summary>
     public IReadOnlyList<string> BlockedWords { get; init; } =

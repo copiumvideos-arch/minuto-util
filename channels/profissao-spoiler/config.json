@@ -1,0 +1,80 @@
+{
+  "channel": {
+    "name": "Profissão Spoiler",
+    "language": "pt",
+    "envPrefix": "SPOILER",
+    "tokenFolder": "%LOCALAPPDATA%/MinutoUtil/channels/profissao-spoiler",
+    "stateFolder": "channels/profissao-spoiler",
+    "releasePrefix": "run-profissao-spoiler-",
+    "scheduleUtcHours": [],
+    "ideasUtcHours": []
+  },
+  "story": {
+    "topic": "Curiosidades de games",
+    "englishArticle": "The Witcher 3: Wild Hunt",
+    "eventYear": 2015,
+    "maxSourceChars": 16000,
+    "minYearsAgo": 0
+  },
+  "gemini": {
+    "models": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"],
+    "apiKeyEnvVar": "GEMINI_API_KEY"
+  },
+  "openRouter": {
+    "writerModels": ["nvidia/nemotron-3.5-super-vl:free", "thinkingmachines/inkling:free"],
+    "apiKeyEnvVar": "OPENROUTER_API_KEY"
+  },
+  "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
+  "writer": { "maxRequests": 5, "minWords": 120, "maxWords": 170, "minSections": 4, "maxSections": 6, "hardWordMargin": 30 },
+  "voice": {
+    "engine": "smallest",
+    "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },
+    "kokoroVoice": "pm_santa",
+    "sectionPause": 0.4,
+    "maxPause": 0.55
+  },
+  "media": { "footage": "trailers", "trailers": 3, "commons": false, "libraryOfCongress": false, "internetArchive": false },
+  "video": {
+    "voiceLufs": -14,
+    "maxVideoKbps": 6000,
+    "fontFile": "assets/fonts/Montserrat-Black.ttf",
+    "fontName": "Montserrat Black",
+    "stampFontFile": "assets/fonts/Montserrat-ExtraBold.ttf",
+    "stampFontName": "Montserrat ExtraBold",
+    "style": {
+      "vintage": false,
+      "grain": 0,
+      "vignette": 0,
+      "denoise": false,
+      "sharpen": 0,
+      "contrast": 1.06,
+      "saturation": 1.12,
+      "lightLeaks": false,
+      "yearCard": false,
+      "mapInsert": false,
+      "watermark": true,
+      "watermarkImage": "",
+      "thumbnail": false,
+      "wordPop": true,
+      "keyWords": true,
+      "textColor": "#FFFFFF",
+      "highlightColor": "#FF303B"
+    }
+  },
+  "youtube": {
+    "channelId": "",
+    "categoryId": "20",
+    "language": "pt-BR",
+    "audioLanguage": "pt-BR",
+    "privacyStatus": "public",
+    "madeForKids": false,
+    "containsSyntheticMedia": false,
+    "appendShortsTag": true
+  },
+  "tiktok": {
+    "redirectUri": "http://localhost:8723/callback/",
+    "maxCaptionChars": 2200,
+    "statusWaitSeconds": 300,
+    "discoveryHashtags": ["games", "curiosidadesgames", "gamer"]
+  }
+}

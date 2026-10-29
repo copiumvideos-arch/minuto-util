@@ -35,7 +35,8 @@ public sealed class Pipeline(
     Func<ScriptWriter> writer,
     Narrator narrator,
     MediaGatherer gatherer,
-    ICoverPainter? painter = null)
+    ICoverPainter? painter = null,
+    SteamTrailers? trailers = null)
 {
     private string Tools => Path.Combine(repositoryRoot, "tools");
 
@@ -55,6 +56,7 @@ public sealed class Pipeline(
         // Whole frames, so the shots, the captions and the audio all end on the same frame.
         var duration = Math.Ceiling((timings.Duration + video.TailSeconds) * video.Fps) / video.Fps;
         Log.Info($"voice: {timings.Voice}, {timings.Duration:0.00}s spoken, alignment {string.Join(" ", timings.Checks.Select(c => c.Score.ToString("0.00")))}");
+        if (config.Media.Footage == "trailers") return await TrailerVideoAsync(folder, script, sources, timings, writerName, duration, ct);
 
         var clipSeconds = config.Media.ClipSeconds;
         // The map shot needs the place on the map; scripts written before the field existed simply go without.
@@ -149,6 +151,89 @@ public sealed class Pipeline(
 
         return new RunResult(folder, videoPath, sheet, duration, timings.Voice, probe, lufs);
     }
+
+    /// <summary>
+    /// The rest of a run whose footage is the game's trailers (media.footage "trailers"): the trailers from Steam,
+    /// tools/trailer.py cuts them on the narration into one silent picture track, then the same final render as the
+    /// archive look (captions, voice, loudness), with the channel's own style switches. No map, year card or cover.
+    /// </summary>
+    private async Task<RunResult> TrailerVideoAsync(string folder, VideoScript script, IReadOnlyList<SourceArticle> sources,
+        SpeechTimings timings, string writerName, double duration, CancellationToken ct)
+    {
+        if (trailers is null) throw new InvalidOperationException("media.footage is \"trailers\" but no Steam trailer source was given.");
+        var video = config.Video;
+        var found = await trailers.GatherAsync(config.Story.EnglishArticle, config.Media.SteamAppId, Path.Combine(folder, "media"), ct);
+
+        var frames = (int)Math.Round(duration * video.Fps);
+        var footage = Path.Combine(folder, "footage.mp4");
+        var cutsPath = Path.Combine(folder, "cuts.json");
+        var speech = Path.Combine(folder, "voice", "speech-words.json");
+        var words = JsonSerializer.Serialize(new { words = timings.Words.Select(w => new { text = w.Text, start = w.Start, end = w.End }) }, Json.Options);
+        // Reused while the trailers, the words and the length are the same.
+        var key = $"{TrailerVersion}|{frames}|{video.Width}x{video.Height}@{video.Fps}|{words}|" +
+                  string.Join('|', found.Select(t => $"{Path.GetFileName(t.LocalPath)}:{new FileInfo(t.LocalPath!).Length}"));
+        var keyPath = Path.Combine(folder, "footage.key");
+        if (File.Exists(footage) && File.Exists(cutsPath) && File.Exists(keyPath) && await File.ReadAllTextAsync(keyPath, ct) == key)
+        {
+            Log.Info("footage: reused footage.mp4");
+        }
+        else
+        {
+            await File.WriteAllTextAsync(speech, words, ct);
+            await ProcessRunner.RunCheckedAsync("uv",
+            [
+                "run", "--quiet", "trailer.py", "--trailers", Path.GetFullPath(Path.Combine(folder, "media", "trailers")),
+                "--timings", Path.GetFullPath(speech), "--frames", Invariant(frames),
+                "--out", Path.GetFullPath(footage), "--cuts", Path.GetFullPath(cutsPath),
+                "--fps", Invariant(video.Fps), "--width", Invariant(video.Width), "--height", Invariant(video.Height),
+                "--ffmpeg", video.FfmpegPath,
+            ], Tools, TimeSpan.FromMinutes(30), ct);
+            await File.WriteAllTextAsync(keyPath, key, ct);
+        }
+        var cuts = JsonSerializer.Deserialize<List<TrailerCut>>(await File.ReadAllTextAsync(cutsPath, ct), Json.Options) ?? [];
+        Log.Info($"footage: {cuts.Count} cuts from {found.Count} trailer(s)");
+
+        CopyFonts(folder);
+        await File.WriteAllTextAsync(Path.Combine(folder, "captions.ass"),
+            CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, "", "", 0, video.Style, emblem: false, icon: false), ct);
+        var shots = new List<Shot> { new(0, 0, 0, frames, ShotEffect.Clip, 0, false) { MediaId = "footage" } };
+        var videoPath = Path.Combine(folder, "video.mp4");
+        var final = new FinalRenderer(video, new Ffmpeg(video));
+        await final.RenderAsync(shots, [footage], Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct);
+        // An old cover from an archive render of the same folder must not be uploaded.
+        if (File.Exists(Path.Combine(folder, Thumbnail.FileName))) File.Delete(Path.Combine(folder, Thumbnail.FileName));
+
+        var ffmpeg = new Ffmpeg(video);
+        var probe = await ffmpeg.ProbeAsync(videoPath, ct);
+        var lufs = await ffmpeg.LoudnessAsync(videoPath, ct);
+        Log.Info($"video: {probe}, {lufs:0.0} LUFS");
+        if (probe.Width != video.Width || probe.Height != video.Height || !probe.HasAudio || Math.Abs(probe.Duration - duration) > 0.3)
+            throw new ToolException($"The rendered video looks wrong: {probe}");
+        var sheet = Path.Combine(folder, "contact-sheet.png");
+        await ContactSheet.MakeAsync(video, videoPath, duration, "fonts", Path.GetFileName(video.StampFontFile), sheet, ct);
+
+        var byFile = found.ToDictionary(t => Path.GetFileName(t.LocalPath!));
+        var timingsFile = new TimingsFile(duration, timings.Duration, timings.Sections, timings.Words, timings.Checks,
+            cuts.Select((c, i) => new ShotTiming(i, SectionAt(timings, c.Slot[0]), c.Slot[0], c.Slot[1], "trailer",
+                byFile.TryGetValue(c.File, out var t) ? t.Id : c.File)).ToList());
+        await File.WriteAllTextAsync(Path.Combine(folder, "timings.json"), JsonSerializer.Serialize(timingsFile, Json.Options), ct);
+
+        var used = found.Where(t => cuts.Any(c => c.File == Path.GetFileName(t.LocalPath))).ToList();
+        var metadata = Metadata(script, sources, used, duration, timings.Voice, writerName, folder);
+        await File.WriteAllTextAsync(Path.Combine(folder, "metadata.json"), JsonSerializer.Serialize(metadata, Json.Options), ct);
+        return new RunResult(folder, videoPath, sheet, duration, timings.Voice, probe, lufs);
+    }
+
+    /// <summary>Bump when trailer.py cuts differently, so footage.mp4 is made again.</summary>
+    private const string TrailerVersion = "1";
+
+    /// <summary>One cut of trailer.py's plan (cuts.json): the trailer file and the slot it fills, in seconds.</summary>
+    private sealed record TrailerCut(string File, IReadOnlyList<double> Slot);
+
+    private static int SectionAt(SpeechTimings timings, double time) =>
+        Math.Max(0, timings.Sections.ToList().FindLastIndex(s => s.Start <= time + 0.01));
+
+    private static string Invariant(int value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task<IReadOnlyList<SourceArticle>> SourcesAsync(string folder, CancellationToken ct)
     {

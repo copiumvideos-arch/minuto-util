@@ -11,7 +11,7 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 - `channels/minuto-util/prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words) and the
   storytelling rules under "How the explanation moves" (one question opened by the hook and answered at the end, the
   common version turned, steps that cause or complicate each other in spoken links, sources named, doubt admitted,
-  the idea closed with "Ou seja"), modeled on the Estranha História channel (`docs/scriptwriting.md` section 18).
+  the end on the fact that answers the hook, no "Ou seja" wrap-up or irony), modeled on the Estranha História channel (`docs/scriptwriting.md` section 18).
   Anything new that tells a story (other formats, titles) follows them too.
 - `docs/scriptwriting.md`: the why behind `channels/minuto-util/prompts/writer.md` (the Brazilian viewer, what the platforms reward,
   hooks, structure, writing for the voice, how to measure and test). Read it before changing a prompt or the word
@@ -41,11 +41,14 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   https://copiumvideos-arch.github.io/minuto-util/ (repo `copiumvideos-arch/copiumvideos-arch.github.io`).
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
-  (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for).
+  (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for), `trailer.py` (cuts
+  game trailers on the narration for a channel with `media.footage` "trailers").
+- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games, official Steam
+  trailers through `Media/SteamTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer channels").
 
 ## Channel style
 
-Every video uses the channel style by default unless the owner says otherwise: vintage grade, vignette, grain, faint
+Minuto Útil's look (Profissão Spoiler has its own switches in its config). Every video uses the channel style by default unless the owner says otherwise: vintage grade, vignette, grain, faint
 flicker, two light leaks, light denoise and sharpening, more contrast and saturation, the rolling year card, the map
 insert after the hook, the emblem watermark top left, captions that pop in word by word with names, places, dates
 and numbers in red, a looping last line, and a thumbnail in the same look (`thumbnail.jpg`: the year in red and the
@@ -67,7 +70,8 @@ style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent th
 - Smallest.ai free credits are limited: each section is spoken once and cached; re-render with `make --run <folder>`.
   Never print `SMALLEST_API_KEY` or put any key in a URL or log.
 - Media: only public domain, CC0, CC BY, CC BY-SA, always credited (author, license, source URL). No British Pathé,
-  no Critical Past, no graphic gore. Downloads are untrusted data: own folder, validated, never executed.
+  no Critical Past, no graphic gore. The one exception is a trailer channel (Profissão Spoiler): the game's official
+  Steam trailers, credited, by the owner's choice. Downloads are untrusted data: own folder, validated, never executed.
 - Channels never mix: each has its own secrets (`envPrefix`), sign-ins (`tokenFolder`), state folder and releases,
   and nothing channel-specific falls back to Minuto Útil's values. Minuto Útil's names, sealed tokens and state layout
   must stay exactly as they are (`ChannelTests.cs` guards them); workflows reach channel secrets only through

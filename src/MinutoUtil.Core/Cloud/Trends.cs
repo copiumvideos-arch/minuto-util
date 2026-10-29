@@ -123,11 +123,11 @@ public sealed record ApprovedIdea(string Id, BacklogTopic Topic, bool FromText, 
 /// or else the English page's link, becomes the second source) and against the channel's history and rules.
 /// The model's answer is only a suggestion; nothing it says is used without these checks.
 /// </summary>
-public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTemplate, string channelName, TimeProvider time)
+/// <param name="minYearsAgo">How old a pick must be at least (story.minYearsAgo): 25 years for history, 0 for games.</param>
+public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTemplate, string channelName, TimeProvider time, int minYearsAgo = 25)
 {
     /// <summary>Ideas in the daily list sent to the owner.</summary>
     public const int Count = 10;
-    public const int MinYearsAgo = 25;
     /// <summary>The earliest year a pick may have: the first pharaohs (negative years are before Christ).</summary>
     public const int MinYear = -3200;
 
@@ -175,7 +175,7 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     {
         var system = promptTemplate.Replace("{CHANNEL}", channelName).Replace("{COUNT}", Count.ToString());
         var answer = await llm.CompleteJsonAsync<TrendIdeas>(system, user, ct);
-        var latestYear = time.GetUtcNow().Year - MinYearsAgo;
+        var latestYear = time.GetUtcNow().Year - minYearsAgo;
         var ideas = answer.Ideas
             .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Article.Length <= 120 && (i.PortugueseArticle ?? "").Length <= 120
                         && i.Year != 0 && i.Year >= MinYear && i.Year <= latestYear)

@@ -293,7 +293,7 @@ internal static class CloudCommands
             models.Add(OpenRouterClient.ForCloudflare(llmHttp, cloudflare, account, config.CloudflareAi.Models, usage, quota));
         if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
         return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(channel.TrendsPromptFile),
-            config.Channel.Name, TimeProvider.System);
+            config.Channel.Name, TimeProvider.System, config.Story.MinYearsAgo);
     }
 
     /// <summary>

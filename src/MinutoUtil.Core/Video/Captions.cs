@@ -49,24 +49,45 @@ public static partial class CaptionBuilder
     private const int CaptionOutline = 8;
 
     /// <summary>
-    /// Advance of each uppercase Roboto Serif Black character as libass draws it, as a share of the font size, without
-    /// the style's spacing. Measured with libass (FFmpeg's ass filter): the width of "I" + 20 copies + "I" minus
-    /// "I" + 10 copies + "I", over 10. One average does not work for a serif: M (0.744) and W (0.792) are more than
-    /// twice as wide as I (0.312), so "MONTGOMERY ROMMEL" overflowed an average that fit "DESEMBARCARAM NAS".
-    /// Accented letters take their base letter's width.
+    /// Advance of each uppercase character as libass draws it, as a share of the font size, without the style's
+    /// spacing, per caption font. libass scales a font so its Windows ascent plus descent (OS/2 usWinAscent +
+    /// usWinDescent) is the font size, so a width is the glyph's advance over that sum. Roboto Serif Black was measured
+    /// with libass (FFmpeg's ass filter: "I" + 20 copies + "I" minus "I" + 10 copies + "I", over 10), and the advances
+    /// from the font file match it to 0.005; Montserrat Black comes from its font file the same way. One average does not
+    /// work for a serif: M (0.744) and W (0.792) are more than twice as wide as I (0.312), so "MONTGOMERY ROMMEL"
+    /// overflowed an average that fit "DESEMBARCARAM NAS". Accented letters take their base letter's width.
     /// </summary>
-    private static readonly Dictionary<char, double> CharWidths = new()
+    private static readonly Dictionary<string, FontWidths> Fonts = new()
     {
-        ['A'] = 0.568, ['B'] = 0.576, ['C'] = 0.528, ['D'] = 0.640, ['E'] = 0.504, ['F'] = 0.488, ['G'] = 0.592,
-        ['H'] = 0.632, ['I'] = 0.312, ['J'] = 0.488, ['K'] = 0.632, ['L'] = 0.496, ['M'] = 0.744, ['N'] = 0.568,
-        ['O'] = 0.632, ['P'] = 0.552, ['Q'] = 0.632, ['R'] = 0.600, ['S'] = 0.480, ['T'] = 0.568, ['U'] = 0.568,
-        ['V'] = 0.552, ['W'] = 0.792, ['X'] = 0.560, ['Y'] = 0.540, ['Z'] = 0.496, [' '] = 0.180, ['.'] = 0.240,
-        [','] = 0.248, ['!'] = 0.248, ['?'] = 0.456, [':'] = 0.240, [';'] = 0.248, ['-'] = 0.356, ['"'] = 0.344,
-        ['('] = 0.280, [')'] = 0.280, ['%'] = 0.584,
+        ["Roboto Serif Black"] = new(new Dictionary<char, double>
+        {
+            ['A'] = 0.568, ['B'] = 0.576, ['C'] = 0.528, ['D'] = 0.640, ['E'] = 0.504, ['F'] = 0.488, ['G'] = 0.592,
+            ['H'] = 0.632, ['I'] = 0.312, ['J'] = 0.488, ['K'] = 0.632, ['L'] = 0.496, ['M'] = 0.744, ['N'] = 0.568,
+            ['O'] = 0.632, ['P'] = 0.552, ['Q'] = 0.632, ['R'] = 0.600, ['S'] = 0.480, ['T'] = 0.568, ['U'] = 0.568,
+            ['V'] = 0.552, ['W'] = 0.792, ['X'] = 0.560, ['Y'] = 0.540, ['Z'] = 0.496, [' '] = 0.180, ['.'] = 0.240,
+            [','] = 0.248, ['!'] = 0.248, ['?'] = 0.456, [':'] = 0.240, [';'] = 0.248, ['-'] = 0.356, ['"'] = 0.344,
+            ['('] = 0.280, [')'] = 0.280, ['%'] = 0.584,
+        }, Digit: 0.432, Unknown: 0.792),
+        ["Montserrat Black"] = new(new Dictionary<char, double>
+        {
+            ['A'] = 0.516, ['B'] = 0.495, ['C'] = 0.472, ['D'] = 0.529, ['E'] = 0.431, ['F'] = 0.412, ['G'] = 0.492,
+            ['H'] = 0.515, ['I'] = 0.224, ['J'] = 0.367, ['K'] = 0.490, ['L'] = 0.395, ['M'] = 0.611, ['N'] = 0.515,
+            ['O'] = 0.543, ['P'] = 0.476, ['Q'] = 0.543, ['R'] = 0.477, ['S'] = 0.421, ['T'] = 0.419, ['U'] = 0.502,
+            ['V'] = 0.503, ['W'] = 0.772, ['X'] = 0.488, ['Y'] = 0.455, ['Z'] = 0.440, [' '] = 0.192, ['.'] = 0.195,
+            [','] = 0.195, ['!'] = 0.201, ['?'] = 0.388, [':'] = 0.195, [';'] = 0.195, ['-'] = 0.250, ['"'] = 0.313,
+            ['('] = 0.244, [')'] = 0.244, ['%'] = 0.587,
+        }, Digit: 0.456, Unknown: 0.772),
     };
 
-    /// <summary>Digits all share one width; anything not measured counts as wide as a W, to stay on the safe side.</summary>
-    private const double DigitWidth = 0.432, UnknownWidth = 0.792;
+    /// <summary>
+    /// One font's widths. Digits all count as the widest digit; anything not measured counts as wide as a W, to stay on
+    /// the safe side.
+    /// </summary>
+    private sealed record FontWidths(Dictionary<char, double> Chars, double Digit, double Unknown);
+
+    private static FontWidths WidthsOf(string fontName) => Fonts.TryGetValue(fontName, out var widths)
+        ? widths
+        : throw new ArgumentException($"No caption widths for the font \"{fontName}\"; measure it like the fonts in CaptionBuilder.Fonts.", nameof(fontName));
 
     /// <summary>The caption style's letter spacing, in pixels per character (the Spacing field of the Caption style).</summary>
     private const int CaptionSpacing = 1;
@@ -78,8 +99,9 @@ public static partial class CaptionBuilder
     /// <param name="emblem">
     /// The emblem picture is overlaid by the renderer, so only its text goes here; false draws the vector hourglass.
     /// </param>
+    /// <param name="icon">False: the watermark is the channel's name alone, with no emblem and no hourglass.</param>
     public static string Build(SpeechTimings timings, double duration, string fontName, string stampFontName,
-        string eraStamp, string placeStamp, double stampEnd, StyleOptions? style = null, bool emblem = false)
+        string eraStamp, string placeStamp, double stampEnd, StyleOptions? style = null, bool emblem = false, bool icon = true)
     {
         style ??= new StyleOptions { YearCard = false, Watermark = false, WordPop = false, KeyWords = false };
         var colors = new Colors(AssColor(style.TextColor), AssColor(style.HighlightColor));
@@ -117,13 +139,13 @@ public static partial class CaptionBuilder
             if (Clean(placeStamp).Length > 0)
                 Event(sb, 1, 0.35, end, "Place", $"{{\\an8\\pos({Layout.Width / 2},{Layout.StampY + 108})\\fad(300,300)}}{Clean(placeStamp).ToUpperInvariant()}");
         }
-        if (style.Watermark) AppendWatermark(sb, duration, highlight, emblem, Clean(style.WatermarkText));
+        if (style.Watermark) AppendWatermark(sb, duration, highlight, emblem, icon, Clean(style.WatermarkText));
 
         var keys = style.KeyWords ? KeyWords(timings.Words) : [];
         foreach (var chunk in Chunk(timings.Words))
         {
-            if (style.WordPop) AppendRevealChunk(sb, chunk, keys, colors);
-            else AppendChunk(sb, chunk, keys, colors);
+            if (style.WordPop) AppendRevealChunk(sb, chunk, keys, colors, fontName);
+            else AppendChunk(sb, chunk, keys, colors, fontName);
         }
         return sb.ToString();
     }
@@ -180,9 +202,14 @@ public static partial class CaptionBuilder
     /// of TikTok's and Shorts' top buttons (top center and top right). The renderer overlays the emblem picture left of
     /// it; without the picture a small hourglass is drawn here as ASS vectors.
     /// </summary>
-    private static void AppendWatermark(StringBuilder sb, double duration, string highlight, bool emblem, string mark)
+    private static void AppendWatermark(StringBuilder sb, double duration, string highlight, bool emblem, bool icon, string mark)
     {
         var (left, top) = (Layout.WatermarkLeft, Layout.WatermarkTop);
+        if (!icon)
+        {
+            Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left},{top + 22})\\alpha&H58&}}{mark}");
+            return;
+        }
         if (emblem)
         {
             Event(sb, 5, 0, duration, "Mark", $"{{\\an4\\pos({left + Layout.EmblemSize + 14},{top + 22})\\alpha&H58&}}{mark}");
@@ -303,32 +330,38 @@ public static partial class CaptionBuilder
     private static int Length(List<SpokenWord> words) => words.Sum(w => w.Text.Length) + words.Count - 1;
 
     /// <summary>Long chunks are squeezed horizontally to stay clear of the right-hand buttons.</summary>
-    internal static int Squeeze(CaptionChunk chunk)
+    internal static int Squeeze(CaptionChunk chunk, string fontName = DefaultFont)
     {
-        var estimated = CaptionWidth(string.Join(' ', chunk.Words.Select(w => Clean(w.Text).ToUpperInvariant())));
+        var estimated = CaptionWidth(string.Join(' ', chunk.Words.Select(w => Clean(w.Text).ToUpperInvariant())), fontName);
         return estimated > Layout.CaptionMaxWidth ? (int)Math.Floor(100 * Layout.CaptionMaxWidth / estimated) : 100;
     }
 
     /// <summary>How wide libass draws an uppercase caption line at full width, in pixels, without the outline.</summary>
-    internal static double CaptionWidth(string text) => TextWidth(text, CaptionFontSize, CaptionSpacing);
+    internal static double CaptionWidth(string text, string fontName = DefaultFont) => TextWidth(text, CaptionFontSize, CaptionSpacing, fontName);
 
-    /// <summary>How wide libass draws an uppercase Roboto Serif Black line at <paramref name="fontSize"/>, in pixels, without the outline.</summary>
-    internal static double TextWidth(string text, int fontSize, int spacing) =>
-        text.Sum(c => CharWidth(c) * fontSize + spacing);
+    /// <summary>The font of Minuto Útil's captions and thumbnail, the default of the width helpers.</summary>
+    internal const string DefaultFont = "Roboto Serif Black";
 
-    private static double CharWidth(char c)
+    /// <summary>How wide libass draws an uppercase line in <paramref name="fontName"/> at <paramref name="fontSize"/>, in pixels, without the outline.</summary>
+    internal static double TextWidth(string text, int fontSize, int spacing, string fontName = DefaultFont)
     {
-        if (char.IsAsciiDigit(c)) return DigitWidth;
-        if (CharWidths.TryGetValue(c, out var width)) return width;
+        var widths = WidthsOf(fontName);
+        return text.Sum(c => CharWidth(c, widths) * fontSize + spacing);
+    }
+
+    private static double CharWidth(char c, FontWidths widths)
+    {
+        if (char.IsAsciiDigit(c)) return widths.Digit;
+        if (widths.Chars.TryGetValue(c, out var width)) return width;
         // "Ã" is "A" plus a combining tilde.
         var bare = c.ToString().Normalize(NormalizationForm.FormD)[0];
-        return CharWidths.TryGetValue(bare, out width) ? width : UnknownWidth;
+        return widths.Chars.TryGetValue(bare, out width) ? width : widths.Unknown;
     }
 
     /// <summary>Version 1's captions: the whole chunk shown, the spoken word highlighted (key words too).</summary>
-    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors)
+    private static void AppendChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors, string fontName)
     {
-        var squeeze = Squeeze(chunk);
+        var squeeze = Squeeze(chunk, fontName);
         for (var i = 0; i < chunk.Words.Count; i++)
         {
             var start = i == 0 ? chunk.Start : chunk.Words[i].Start;
@@ -354,9 +387,9 @@ public static partial class CaptionBuilder
     /// yet spoken are already in the line but invisible, so the line does not jump sideways as it fills. Key words
     /// are in the highlight color, the rest in the text color.
     /// </summary>
-    private static void AppendRevealChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors)
+    private static void AppendRevealChunk(StringBuilder sb, CaptionChunk chunk, HashSet<SpokenWord> keys, Colors colors, string fontName)
     {
-        var squeeze = Squeeze(chunk);
+        var squeeze = Squeeze(chunk, fontName);
         var pop = squeeze * 125 / 100;
         for (var i = 0; i < chunk.Words.Count; i++)
         {

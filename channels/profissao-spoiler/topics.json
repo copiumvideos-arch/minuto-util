@@ -1,0 +1,30 @@
+{
+  "comment": "The backlog the cloud runs take in order: one English Wikipedia article per video, about a game sold on Steam (its official trailers are the footage, found by the article's name), the year it came out and the series name given to the writer. An article already rendered (state branch, channels/profissao-spoiler/runs/*.json) is skipped. Mix big hits, indies and classics, genres and studios, so no stretch of the queue stays on one series. Add new games at the end.",
+  "topics": [
+    { "article": "Hollow Knight", "year": 2017, "topic": "Curiosidades de games" },
+    { "article": "Cyberpunk 2077", "year": 2020, "topic": "Bastidores dos games" },
+    { "article": "Stardew Valley", "year": 2016, "topic": "Curiosidades de games" },
+    { "article": "Elden Ring", "year": 2022, "topic": "Curiosidades de games" },
+    { "article": "Portal 2", "year": 2011, "topic": "Bastidores dos games" },
+    { "article": "Among Us", "year": 2018, "topic": "Curiosidades de games" },
+    { "article": "Red Dead Redemption 2", "year": 2018, "topic": "Bastidores dos games" },
+    { "article": "Undertale", "year": 2015, "topic": "Curiosidades de games" },
+    { "article": "Black Myth: Wukong", "year": 2024, "topic": "Recordes dos games" },
+    { "article": "Half-Life 2", "year": 2004, "topic": "Bastidores dos games" },
+    { "article": "Cuphead", "year": 2017, "topic": "Curiosidades de games" },
+    { "article": "Baldur's Gate 3", "year": 2023, "topic": "Bastidores dos games" },
+    { "article": "Terraria", "year": 2011, "topic": "Curiosidades de games" },
+    { "article": "Grand Theft Auto V", "year": 2013, "topic": "Recordes dos games" },
+    { "article": "Hades (video game)", "year": 2020, "topic": "Curiosidades de games" },
+    { "article": "Sekiro: Shadows Die Twice", "year": 2019, "topic": "Curiosidades de games" },
+    { "article": "Subnautica", "year": 2018, "topic": "Bastidores dos games" },
+    { "article": "The Elder Scrolls V: Skyrim", "year": 2011, "topic": "Curiosidades de games" },
+    { "article": "Celeste (video game)", "year": 2018, "topic": "Bastidores dos games" },
+    { "article": "God of War (2018 video game)", "year": 2018, "topic": "Bastidores dos games" },
+    { "article": "Palworld", "year": 2024, "topic": "Recordes dos games" },
+    { "article": "Fallout 4", "year": 2015, "topic": "Curiosidades de games" },
+    { "article": "Hollow Knight: Silksong", "year": 2025, "topic": "Bastidores dos games" },
+    { "article": "Dark Souls III", "year": 2016, "topic": "Curiosidades de games" },
+    { "article": "Hogwarts Legacy", "year": 2023, "topic": "Recordes dos games" }
+  ]
+}

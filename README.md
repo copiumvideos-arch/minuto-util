@@ -28,8 +28,8 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    checks every quote is really in the text and logs the ones that are not. Dashes are replaced with commas, digits
    left in the narration are flagged and spelled out for the voice (`Scripts/SpokenText.cs`, pt-BR numbers). Only a
    script far outside the word range (`writer.minWords` 220 to `writer.maxWords` 380, 6 to 12 sections) costs a
-   second request. The style (open with a question, turn the common version, explain step by step, close with
-   "Ou seja") is modeled on the Estranha História channel; `docs/scriptwriting.md` section 18 has the analysis.
+   second request. The style (open with a question, turn the common version, explain step by step, end on the
+   fact that answers it) is modeled on the Estranha História channel; `docs/scriptwriting.md` section 18 has the analysis.
 3. **Model requests**: the Gemini key's free quota is shared with the live Flopômetro channel. Each Gemini model
    (`gemini.models`, the same ids as Flopômetro) is asked once at most, never retried; a busy model hands over to the
    next, a daily quota is remembered in `data/quota-state.json`, and Flopômetro's own quota file is read (read only,
@@ -250,6 +250,29 @@ The variable names and sign-in files under `youtube`, `tiktok` and `telegram` ar
 `CLOUDFLARE_*`) are shared by every channel. Sign-ins are bound to their channel: the DPAPI entropy and the sealed
 files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` exactly what they were before channels).
 `youtube.channelId` is required for publishing: an empty or wrong one refuses every sign-in.
+
+### Trailer channels (Profissão Spoiler)
+
+`media.footage` picks where the pictures come from: `archive` (Minuto Útil: public domain and CC pictures, the
+vintage look) or `trailers` (Profissão Spoiler, a games channel). A trailer run writes and voices the script the same
+way (Wikipedia sources, the channel's `writer.md`), then:
+
+1. **Trailers** (`Media/SteamTrailers.cs`): the game is found on Steam by its Wikipedia article's name (the exact
+   name first, then a later edition that starts with it; anything else is refused, and `make --steam-app <id>` names
+   the app). Up to `media.trailers` (3) official trailers, highlighted ones first, are read from their HLS streams at
+   the best size up to 1080p, video only, into `media/trailers/`; only https streams on `*.steamstatic.com` are
+   followed. `media/trailers.json` keeps the list for a re-render.
+2. **Cuts** (`tools/trailer.py`): shots are found in each trailer (cached in `shots.json` next to them), the narration
+   is cut into 1.3 to 2.6 s slots on word starts (1.0 to 1.6 s in the first five seconds), each slot gets an unused
+   high-motion shot from a different trailer than the one before, cropped to 9:16 on the action with a slow push in.
+   The result is `footage.mp4` (silent, exactly the video's frames) and `cuts.json`.
+3. **Final render**: the same as the archive look (captions, voice at `video.voiceLufs`, size cap), with the
+   channel's style switches: Montserrat captions in white with key words in red, the channel's name as a text-only
+   watermark, no vintage layers, year card, map or cover. No music: trending sounds are added in the TikTok app.
+
+Its scripts state facts only and end on the last fact (no opinions, ironies or "Ou seja" wrap-ups), see
+`channels/profissao-spoiler/prompts/writer.md`. The trailers are the studios' own promotional videos, credited in
+the description; this is the owner's choice for this channel and does not change Minuto Útil's media rules.
 
 ## Cloud runs (no PC needed)
 

@@ -6,7 +6,7 @@ using MinutoUtil.Core.Sources;
 using MinutoUtil.Core.Video;
 using MinutoUtil.Core.Voice;
 
-// minuto-util make [--run <folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>] [--quota-file <path>]
+// minuto-util make [--run <folder>] [--article "<English Wikipedia title>" [--year <yyyy>]] [--topic <series>] [--steam-app <id>] [--quota-file <path>]
 //   Makes one video into output/<yyyy-MM-dd>/<HHmm>/, or finishes/re-renders an existing run folder, reusing
 //   everything already in it (sources, script, voice takes, media, shots). Nothing is uploaded.
 // minuto-util publish --run <folder> [--youtube] [--tiktok] [--dry-run] [--force]
@@ -60,6 +60,7 @@ if (command is not "make")
           --portuguese-article  The Portuguese Wikipedia article to use with it (default: the English page's link).
           --year        The year of that event (pictures from it rank higher, and the year card shows it).
           --topic       The series name given to the writer (default: story.topic).
+          --steam-app   A trailer channel: the game's Steam app id, when the article's name does not find it.
           --script-only Stop after writing the script (a later make --run of the folder goes on from there).
           check-script  Prints a run's script after the local fixes and checks; changes nothing, calls nothing.
           youtube-login Signs in to YouTube once (browser); only the channel's youtube.channelId is accepted.
@@ -80,6 +81,15 @@ if (Option("--article") is { } article)
     config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year != 0 ? year : null } };
 if (Option("--portuguese-article") is { Length: > 0 } portuguese) config = config with { Story = config.Story with { PortugueseArticle = portuguese } };
 if (Option("--topic") is { Length: > 0 } topic) config = config with { Story = config.Story with { Topic = topic } };
+if (Option("--steam-app") is { Length: > 0 } steamApp)
+{
+    if (!int.TryParse(steamApp, out var steamAppId) || steamAppId <= 0)
+    {
+        Console.Error.WriteLine($"--steam-app must be a Steam app id (a number), not \"{steamApp}\".");
+        return 1;
+    }
+    config = config with { Media = config.Media with { SteamAppId = steamAppId } };
+}
 
 var now = DateTime.Now;
 var folder = Option("--run") is { } run ? Path.GetFullPath(run) : Path.Combine(root, "output", now.ToString("yyyy-MM-dd"), now.ToString("HHmm"));
@@ -132,8 +142,10 @@ var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader
 ICoverPainter? painter = Key(config.CloudflareAi.TokenEnvVar) is { } paintToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } paintAccount
     ? new CloudflareCoverPainter(apiHttp, paintToken, paintAccount, config.CloudflareAi, usage)
     : null;
+// The game's official trailers, for a channel whose footage is trailers (media.footage).
+var trailers = config.Media.Footage == "trailers" ? new SteamTrailers(http, ffmpeg, config.Media) : null;
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
-    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter);
+    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter, trailers);
 try
 {
     var result = await pipeline.RunAsync(folder, cts.Token, scriptOnly: args.Contains("--script-only"));
