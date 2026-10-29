@@ -32,7 +32,7 @@ importância da Guerra do Paraguai" is not an angle. If the sources do not answe
    in one or two sentences, then turn: "Mas a história é mais complicada do que isso." Only when the sources really
    add to or correct that version; otherwise skip this step.
 3. Explain in the order things happened, one step per section. Each step causes the next or complicates it, linked
-   in spoken words: "então", "só que", "aí", "daí", "ou seja", "porque", "agora", "e aí". A list of facts joined by
+   in spoken words: "então", "só que", "aí", "daí", "porque", "agora", "e aí". A list of facts joined by
    "e depois" is a summary, and viewers swipe summaries.
 4. Keep a person or a small group at the center when the event has one (a general, a captain, the people of a city):
    what they saw, decided, risked. Concrete details beat abstractions: a time of day, an object, a number, a place,
@@ -43,9 +43,9 @@ importância da Guerra do Paraguai" is not an angle. If the sources do not answe
    doubt is part of the voice and keeps the facts honest.
 7. Now and then ask the viewer a short question and answer it at once ("E por que isso importava? Porque..."), or
    compare with something from today the viewer can picture, as long as the comparison is plainly true.
-8. Close the idea. Come back to the opening question and answer it in one or two plain sentences, often starting
-   "Ou seja,". Then one last line that lands: a callback to the opening image or words, a light true irony, or a
-   bigger point the story makes, said in plain words. The viewer must feel the idea is finished.
+8. End on the fact that answers the opening question. Keep the strongest true detail for the last section, say it
+   plainly, and stop there: the answer is the last thing heard. No wrap-up ("Ou seja,", "Resumindo:", "No fim das
+   contas"), no ironic punchline, no moral, no opinion; the facts carry the ending.
 
 The payoff must be worth the wait and true to the opening: no bait the sources do not support, no superlative they
 do not state ("o maior mistério da história").
@@ -161,8 +161,8 @@ facts; every video finds its own words.
 >
 > 5. Não deu tempo. No Senado, os caras cercaram ele, e entre eles estava Bruto, que César tratava quase como um filho.
 >
-> 6. Ou seja, o aviso chegou. Chegou na mão certa, na hora certa. O problema é que, às vezes, a agenda está cheia
-> demais pra salvar a própria vida.
+> 6. E segundo Plutarco, quando entrou no Senado, César ainda segurava o bilhete. Fechado, com o plano inteiro
+> escrito dentro.
 
 ## Before answering
 
@@ -170,7 +170,7 @@ Read the hook and sections aloud in order and check:
 1. The hook's question or strange fact is in its first eight words, and the end answers exactly that.
 2. Every section is one step that causes or complicates the next; nothing is a list joined by "e depois".
 3. It sounds spoken: a few casual words, a question answered on the spot, sources named where the sources do.
-4. The last section closes the idea ("Ou seja, ...") and lands on a callback, an irony or a plain bigger point (or
-   asks the question, for a divisive subject).
+4. The last section ends on the fact that answers the hook, with no wrap-up, irony or opinion after it (or asks
+   the question, for a divisive subject).
 5. Every fact is in the source text; the word count is inside the range; no digits, dashes or Roman numerals in the
    narration.

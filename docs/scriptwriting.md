@@ -135,7 +135,7 @@ At about 150 words a minute, every 2.5 words is a second. A 300 word script, in 
 | 0 to 7 s | up to 20 | Hook: the question, or the strange fact behind it. The strange part in the first 8 words. | `hook` |
 | 7 to 20 s | 20 to 35 | The common version, then the turn ("Mas a história é mais complicada"), when the sources support one. | first section |
 | 20 to 95 s | 180 to 200 | The explanation, one step per section, each causing or complicating the next; a question answered on the spot now and then. | middle sections |
-| 95 to 120 s | 40 to 60 | Close the idea: "Ou seja," answers the hook, then one line that lands (callback, irony, bigger point). | last section |
+| 95 to 120 s | 40 to 60 | End on the fact that answers the hook, the strongest detail kept for last; nothing after it. | last section |
 
 The year card and map insert play over the first seconds; the hook must work under them, so it is never the only
 place a date or place is said.
@@ -225,11 +225,12 @@ rhythm speeding up tells the ear something is coming.
 why. Not a moral ("e isso mostra como a história é fascinante"), not a teaser ("mas essa é outra história"), not a
 "follow for part two".
 
-**Close the idea (owner's decision, reference channel).** Since 2026-10-29 the ending closes the idea instead of
-looping: it answers the hook in plain words, often starting "Ou seja," and then lands one last line: a callback to
-the opening image or words, a light true irony, or the bigger point the story makes. In a two minute video a rewatch
-is rarer, and a forced loop line made endings feel cut off. The loop below stays as an option when the last line
-happens to run into the hook naturally.
+**End on the answering fact (owner's decision).** The ending answers the hook with a fact and stops: no "Ou
+seja," wrap-up, no ironic last line, no moral or opinion. The owner wants both channels to state facts only; a summary
+line repeats what was just heard and a punchline reads as the narrator's opinion. The strongest true detail is kept for
+the last section so the ending still lands. (Before this, from the reference channel, the ending said "Ou seja," and
+added a callback or irony line.) The loop below stays as an option when the last fact happens to run into the hook
+naturally.
 
 **The loop (Platform logic, Practice).** Shorts and TikTok replay automatically. If the last words flow into the hook,
 part of the audience watches the start again before noticing, and a rewatch counts. Ways to build it:
@@ -431,8 +432,8 @@ Why it works:
 - [ ] Every sentence has a job; no background for its own sake.
 - [ ] Two or three names at most, each explained the first time, or replaced by a role.
 - [ ] The strongest true detail comes near the end, and the last section does not lose energy.
-- [ ] The end answers exactly the hook's question ("Ou seja, ...") and lands one last line (or asks the question out
-  loud, if divisive).
+- [ ] The end answers exactly the hook's question with a fact, and nothing follows it: no wrap-up, irony or opinion
+  (or it asks the question out loud, if divisive).
 - [ ] It sounds spoken: casual words in small doses, sources named where the sources do, doubt admitted.
 - [ ] Read aloud: no stumbles, numbers in words, accents everywhere, no Roman numerals or abbreviations.
 - [ ] Neutral: no current politics, no side taken, religion told as history.
@@ -543,7 +544,8 @@ building of the pyramids). Humor comes from the facts: dry understatement, irony
 
 **How he closes.** He answers the opening question in plain words, often with "ou seja", and lands a last line that
 calls back to the start or turns it with a joke (after explaining why clocks show IIII: "now you can never unsee
-it"). Sometimes a question to the comments. No moral, no summary of everything said.
+it"). Sometimes a question to the comments. No moral, no summary of everything said. (We dropped his "ou seja"
+close and the joke line: the owner wants facts only, ending on the last fact.)
 
 **What we did not copy.** His first person opinions ("eu acho"), his sign-offs and channel lines, his on-camera
 asides, and the amount of filler a live speaker gets away with.
