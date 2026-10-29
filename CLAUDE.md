@@ -8,18 +8,23 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 ## Read first
 
 - `README.md`: the pipeline step by step, output files, how to run and test.
-- `prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words) and the
+- `channels/minuto-util/prompts/writer.md`: the script rules (facts only from Wikipedia, word range, style, numbers in words) and the
   storytelling rules under "How the explanation moves" (one question opened by the hook and answered at the end, the
   common version turned, steps that cause or complicate each other in spoken links, sources named, doubt admitted,
   the idea closed with "Ou seja"), modeled on the Estranha História channel (`docs/scriptwriting.md` section 18).
   Anything new that tells a story (other formats, titles) follows them too.
-- `docs/scriptwriting.md`: the why behind `prompts/writer.md` (the Brazilian viewer, what the platforms reward,
+- `docs/scriptwriting.md`: the why behind `channels/minuto-util/prompts/writer.md` (the Brazilian viewer, what the platforms reward,
   hooks, structure, writing for the voice, how to measure and test). Read it before changing a prompt or the word
   range; a lesson becomes a rule in the prompt and its reason goes in the guide.
-- `config/minuto-util.json`: overrides of the defaults in `src/MinutoUtil.Core/Config.cs`.
+- `channels/minuto-util/config.json`: overrides of the defaults in `src/MinutoUtil.Core/Config.cs`.
+- README "Channels": one engine, several channels. Each channel's files are in `channels/<id>/` (config.json,
+  topics.json, prompts/), every command takes `--channel <id>` (default `minuto-util`), and the `channel` block of its
+  config names its secrets (`envPrefix`), sign-in folder, state folder, releases and schedule.
 
 ## Layout
 
+- `channels/<id>/`: one folder per channel; `src/MinutoUtil.Core/Channel.cs` loads it and fills the names derived
+  from the channel (environment variables, token files, watermark text).
 - `src/MinutoUtil.Core`: `Sources` (Wikipedia) -> `Scripts` (writer, local checks) -> `Voice` (Smallest.ai, Kokoro,
   alignment) -> `Media` (Commons, Library of Congress, Internet Archive) -> `Video` (shot plan, motion, captions,
   render); `Llm` (Gemini, OpenRouter, quota tracker); `Pipeline.cs` runs a whole video in a run folder.
@@ -28,14 +33,15 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 - `src/MinutoUtil.Cli/Program.cs`: `make` wires config, keys and clients; `PublishingCommands.cs`: `youtube-login`,
   `tiktok-login`, `publish`.
 - `src/MinutoUtil.Core/Cloud` and `src/MinutoUtil.Cli/CloudCommands.cs`: the cloud runs (topic queue from
-  `config/topics.json`, run records on the `state` branch, Telegram review with buttons, publish/reject/retry).
-  `.github/workflows/render.yml` and `publish.yml` run them; `relay/` is the Cloudflare Worker that turns the
-  Telegram button taps into `publish.yml` runs. README "Cloud runs" has the flow and the setup.
+  `channels/minuto-util/topics.json`, run records on the `state` branch, Telegram review with buttons, publish/reject/retry).
+  `.github/workflows/render.yml`, `publish.yml` and `ideas.yml` run them for one channel per job
+  (`tools/channels.py` picks it, `.github/scripts/cli.sh` passes its secrets); `relay/` is the Cloudflare Worker that
+  turns each channel bot's taps into workflow runs for that channel. README "Cloud runs" has the flow and the setup.
 - `site/`: privacy policy and terms for the TikTok app, published by the owner under
   https://copiumvideos-arch.github.io/minuto-util/ (repo `copiumvideos-arch/copiumvideos-arch.github.io`).
 - `tools/`: `voice.py` (joins takes, faster-whisper timing, Kokoro fallback), `align.py` (copied from canal-dark),
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
-  (the round watermark cut from the emblem).
+  (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for).
 
 ## Channel style
 
@@ -48,7 +54,7 @@ AI, or the archive picture when that fails; set on YouTube, and also the video's
 finds it at the start). The brand is the owner's logo (`assets/brand/`): black, cream `#F7E2C7`,
 red `#DC010A`, heavy serif type (Roboto Serif Black and ExtraBold in `assets/fonts`); no yellow anywhere. If the
 emblem changes, rebuild `assets/brand/watermark.png` with `tools/watermark.py`. No music and no sound effects. Each
-layer is a switch under `video.style` in `config/minuto-util.json`; the table with defaults is in README.md ("Channel
+layer is a switch under `video.style` in `channels/minuto-util/config.json`; the table with defaults is in README.md ("Channel
 style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent through a Telegram bot.
 
 ## Rules
@@ -62,8 +68,12 @@ style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent th
   Never print `SMALLEST_API_KEY` or put any key in a URL or log.
 - Media: only public domain, CC0, CC BY, CC BY-SA, always credited (author, license, source URL). No British Pathé,
   no Critical Past, no graphic gore. Downloads are untrusted data: own folder, validated, never executed.
-- Publishing: only to YouTube channel `UCNath7BzjeX3ehJCA7cNYAA` (Minuto Útil; the app checks it). Never use
-  Flopômetro's token file; Minuto's tokens live in `%LOCALAPPDATA%\MinutoUtil`. Never print tokens or client
+- Channels never mix: each has its own secrets (`envPrefix`), sign-ins (`tokenFolder`), state folder and releases,
+  and nothing channel-specific falls back to Minuto Útil's values. Minuto Útil's names, sealed tokens and state layout
+  must stay exactly as they are (`ChannelTests.cs` guards them); workflows reach channel secrets only through
+  `secrets[format('{0}_...', prefix)]`.
+- Publishing: each channel only to its own `youtube.channelId` (Minuto Útil: `UCNath7BzjeX3ehJCA7cNYAA`; the app
+  checks it). Never use Flopômetro's token file; Minuto's tokens live in `%LOCALAPPDATA%\MinutoUtil`. Never print tokens or client
   secrets, never put them in URLs or logs. Never call the real upload endpoints from tests; use `publish --dry-run` to
   check copy. TikTok gets drafts only (scope `video.upload`), never Direct Post.
 - Plain, specific comments and docs; no em dashes anywhere (code, docs, scripts, prompts).

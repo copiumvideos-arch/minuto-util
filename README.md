@@ -23,7 +23,7 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
 1. **Sources** (`Sources/Wikipedia.cs`): the English article from `story.englishArticle` and its Portuguese twin
    (by language link), as plain text from the MediaWiki Action API, with a descriptive User-Agent. Reference sections
    are cut off. Saved as `sources.json`.
-2. **Script** (`Scripts/ScriptWriter.cs`, `prompts/writer.md`): one request. The writer may only use facts from the
+2. **Script** (`Scripts/ScriptWriter.cs`, `channels/minuto-util/prompts/writer.md`): one request. The writer may only use facts from the
    source text, and must copy, for each section, one sentence of the source that backs it (`sourceQuote`); the app
    checks every quote is really in the text and logs the ones that are not. Dashes are replaced with commas, digits
    left in the narration are flagged and spelled out for the voice (`Scripts/SpokenText.cs`, pt-BR numbers). Only a
@@ -73,7 +73,7 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
 ## Channel style (the standard look)
 
 Every Minuto Útil video uses this style by default, unless the owner says otherwise. Each layer is a switch in
-`video.style` in `config/minuto-util.json` (defaults in `StyleOptions`, `src/MinutoUtil.Core/Config.cs`). Picture
+`video.style` in `channels/minuto-util/config.json` (defaults in `StyleOptions`, `src/MinutoUtil.Core/Config.cs`). Picture
 layers sit under the captions and the watermark; captions, year card and watermark are drawn last, untouched.
 
 The brand comes from the owner's logo (`assets/brand/emblem.png`, `assets/brand/youtube-banner.png`): black, cream
@@ -97,9 +97,9 @@ and the watermark text. The two colors are `textColor` and `highlightColor` in `
 | Caption pop | each word appears as it is spoken and pops from 125% to 100% in 0.11 s; the line does not shift as it fills | `wordPop` (true) |
 | Red key words | names, places, dates, months and numbers in the brand red, the rest cream, all with a thick black outline so red stays readable on dark footage. Long lines are squeezed using per-letter widths measured from libass, so they never cross the safe margins | `keyWords` (true), `textColor` (#F7E2C7), `highlightColor` (#DC010A) |
 | Thumbnail | `thumbnail.jpg`, 1080x1920 JPEG under 2 MB: the first still of the video (cropped to 9:16) with the same grade, a soft dark band, the year in big red (or "44 A.C."), the script's `thumbnailText` in cream Roboto Serif Black with the word between asterisks in red, and the watermark. The text block sits around y=900, inside the 3:4 crop TikTok's profile grid shows. Old scripts without `thumbnailText` show the title. Set as the YouTube thumbnail by `publish`, and sent on Telegram after the review video for the TikTok cover | `thumbnail` (true) |
-| Painted cover picture | With `thumbnailPicture` "ai", the picture behind the thumbnail text is a painting of the script's `thumbnailScene` (one English sentence: place, time, objects, no named people or faces) made by Cloudflare Workers AI (`cloudflareAi.imageModel`, FLUX.2 klein 4B at 864x1536, about 160 of the free 10,000 daily neurons, one request per video) in the fixed style `cloudflareAi.imageStyle` (vintage oil painting, no text). Saved as `cover-art.jpg` with `cover-art.json` and reused while the scene is the same. The description's credits say the cover is an AI illustration, not a picture of the time. No scene, no Cloudflare key or a failed request: the archive picture, with a warning | `thumbnailPicture` ("archive"; "ai" in `config/minuto-util.json`) |
+| Painted cover picture | With `thumbnailPicture` "ai", the picture behind the thumbnail text is a painting of the script's `thumbnailScene` (one English sentence: place, time, objects, no named people or faces) made by Cloudflare Workers AI (`cloudflareAi.imageModel`, FLUX.2 klein 4B at 864x1536, about 160 of the free 10,000 daily neurons, one request per video) in the fixed style `cloudflareAi.imageStyle` (vintage oil painting, no text). Saved as `cover-art.jpg` with `cover-art.json` and reused while the scene is the same. The description's credits say the cover is an AI illustration, not a picture of the time. No scene, no Cloudflare key or a failed request: the archive picture, with a warning | `thumbnailPicture` ("archive"; "ai" in `channels/minuto-util/config.json`) |
 | Cover as first frame | The thumbnail replaces the video's first frame (over the captions, after the grade; the length and the sync stay), so in TikTok's cover picker the owner leaves the selection at the start instead of uploading an image. One frame is a 1/30 s flash. The thumbnail is rendered before the video for this | `coverFrames` (1; 0 for none) |
-| Closed ending | the writer answers the hook and lands one last line (a callback, an irony), instead of forcing a loop (`prompts/writer.md`) | prompt rule |
+| Closed ending | the writer answers the hook and lands one last line (a callback, an irony), instead of forcing a loop (`channels/minuto-util/prompts/writer.md`) | prompt rule |
 | No music, no sound effects | narration only; the owner finds music and effects distracting | none: there is no music path |
 
 The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideoKbps` (4500), lowered for longer
@@ -157,7 +157,7 @@ dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-
   one "Mais N itens de domínio público" line, CC BY and CC BY-SA credits are never dropped: the command refuses
   instead), the hashtags as tags, category 27 (Education), `pt-BR`, public, not made for kids, no "altered or synthetic
   content" flag (archive photos with an AI narrator reading facts are not realistic synthetic depictions). All of these
-  are under `youtube` in `config/minuto-util.json`. Before uploading, the token's channel is read
+  are under `youtube` in `channels/minuto-util/config.json`. Before uploading, the token's channel is read
   (`channels?mine=true`) and anything but `youtube.channelId` (`UCNath7BzjeX3ehJCA7cNYAA`, Minuto Útil) is refused,
   so a Flopômetro sign-in can never post here. YouTube may lock uploads as private while the Google Cloud project has
   not passed its API audit; the command warns when the answered privacy is not "public". After the upload,
@@ -218,6 +218,37 @@ printed account name is the channel's. The refresh token (365 days; TikTok may r
 new one is saved) goes DPAPI-encrypted to `%LOCALAPPDATA%\MinutoUtil\tiktok-token.bin`. If the local listener cannot
 start, `tiktok-login --paste` asks you to paste the address the browser ends on (with `?code=`) instead.
 
+## Channels
+
+One engine runs several channels. Each channel is a folder in `channels/` with everything that is its own:
+
+```
+channels/<id>/config.json          settings (overrides of src/MinutoUtil.Core/Config.cs), with the "channel" block below
+channels/<id>/topics.json          the topic backlog
+channels/<id>/prompts/writer.md    the script rules
+channels/<id>/prompts/trends.md    the daily idea picker
+```
+
+Every command takes `--channel <id>`; the default is `minuto-util`, so every command line in this README works as
+written for Minuto Útil. The `channel` block of `config.json` names everything that must never mix between channels
+(`src/MinutoUtil.Core/Channel.cs` checks it; `tools/channels.py` reads the same fields for the workflows):
+
+| Field | Minuto Útil | A new channel |
+|---|---|---|
+| `name` | `Minuto Útil`: watermark text, `/status` header, sign-in hints | its name |
+| `envPrefix` | `MINUTO`: `MINUTO_TELEGRAM_BOT_TOKEN`, `MINUTO_YOUTUBE_REFRESH_TOKEN`, `MINUTO_STATE_KEY`... | e.g. `SPOILER`: `SPOILER_TELEGRAM_BOT_TOKEN`... |
+| `tokenFolder` | `%LOCALAPPDATA%/MinutoUtil` (DPAPI sign-ins, `client_secret.json`) | e.g. `%LOCALAPPDATA%/MinutoUtil/channels/<id>` |
+| `stateFolder` | `.`: the root of the `state` branch, where its files always were | `channels/<id>` (required) |
+| `releasePrefix` | `run-` | `run-<id>-` (required) |
+| `scheduleUtcHours` | `[14, 22]` | its render hours; `render.yml` needs a cron line for each (a test checks) |
+| `ideasUtcHours` | `[9]` | its idea list hours, or `[]`; `ideas.yml` cron lines likewise |
+
+The variable names and sign-in files under `youtube`, `tiktok` and `telegram` are filled in from `envPrefix` and
+`tokenFolder` unless a config names them. The free keys (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `SMALLEST_API_KEY`,
+`CLOUDFLARE_*`) are shared by every channel. Sign-ins are bound to their channel: the DPAPI entropy and the sealed
+files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` exactly what they were before channels).
+`youtube.channelId` is required for publishing: an empty or wrong one refuses every sign-in.
+
 ## Cloud runs (no PC needed)
 
 The public GitHub repository `copiumvideos-arch/minuto-util` renders and publishes on its own (public: unlimited
@@ -226,14 +257,22 @@ but run logs and the release videos waiting for review can be seen by anyone wit
 
 ```
 render.yml (11:00 and 19:00 Brasília, or "/novo" on Telegram)
-  -> next topic from config/topics.json -> make -> video kept as a GitHub release "run-<tag>"
+  -> next topic from channels/minuto-util/topics.json -> make -> video kept as a GitHub release "run-<tag>"
   -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
 tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   -> Publicar: YouTube public Short + TikTok inbox draft, caption and YouTube link on Telegram
   -> Rejeitar: the release is deleted, the topic is not tried again
 ```
 
-- **Topics**: `config/topics.json`, taken in order. For now the channel tells Brazil's history only: events in Brazil,
+Every workflow takes a `channel` input (default `minuto-util`). A scheduled run is for every channel whose
+`scheduleUtcHours` (render) or `ideasUtcHours` (ideas) has that hour, one matrix job each, so two channels at the same
+hour render side by side. `tools/channels.py` picks them; `.github/scripts/cli.sh` runs the app for one channel. Each
+step gets the channel's secrets as `secrets[format('{0}_TELEGRAM_BOT_TOKEN', prefix)]` under a fixed name
+(`CH_TELEGRAM_BOT_TOKEN`), and `cli.sh` hands them to the app under the channel's own name
+(`MINUTO_TELEGRAM_BOT_TOKEN`). Renders are one at a time per channel (`render-<id>`), publish runs per channel and
+tag; channels never wait for or cancel each other.
+
+- **Topics**: `channels/minuto-util/topics.json`, taken in order. For now the channel tells Brazil's history only: events in Brazil,
   the wars Brazil fought in South America and Brazil's part in the World Wars, mixed over the colony, the Empire and
   the Republic (negative years still work for anything before Christ: the Telegram lists show "44 a.C.", and the year
   card gives way to the plain date stamp). An article that was rendered
@@ -241,7 +280,7 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   Telegram, `/novo` renders the next topic now and `/novo <English Wikipedia article>` renders that article.
 - **Ideas (the owner chooses)**: every day at 06:00 Brasília, `ideas.yml` reads Google Trends Brazil (daily searches
   with a headline each) and the most read pages on Portuguese Wikipedia, and asks the writer models (one request,
-  `prompts/trends.md`) for 10 events from Brazil's history (at least two each from the colony, the Empire and the
+  `channels/minuto-util/prompts/trends.md`) for 10 events from Brazil's history (at least two each from the colony, the Empire and the
   Republic, every region of the country, at most two from the same war), with the news only as a loose inspiration:
   an election in the news can become the Republic's first vote, a football final the Maracanazo. Never the current news itself, a living
   politician or a party, and only events at least 25 years old. Every pick is checked on Wikipedia (English article, not a disambiguation
@@ -249,7 +288,7 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   lists and waiting ideas. The list goes to Telegram with buttons 1 to 10: a tap approves that idea (`approved/` on
   the state branch). Any text the owner sends the bot (or `/ideia <text>`) is an idea of its own, for example "por que
   só o Brasil usa urna eletrônica?": the picker turns it into the history that answers it and it goes first in line.
-  `/novo [text]` makes a video right away. Renders take text ideas first, then tapped ideas, then `config/topics.json`.
+  `/novo [text]` makes a video right away. Renders take text ideas first, then tapped ideas, then `channels/minuto-util/topics.json`.
 - **The queue on Telegram**: `/fila` (or `/queue`) lists the next videos with a ⏫ (to the top) and a 🗑 (remove) button
   per item; `/mover 5 2` puts item 5 second; `/remover 3` takes item 3 out; `/adicionar <text>` (or `/add`, or plain
   text) adds an idea, which becomes the next video. The owner's order is kept in `order.json` on the state branch
@@ -262,15 +301,19 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
   `/status` (switches, what waits for the owner, recent results, next topics), `/stats` (views, likes and comments of
   the published Shorts, YouTube `videos.list`). A reply to a review video with a line of text becomes its title.
 - **State**: the `state` branch holds `runs/<tag>.json` (topic, status, title, links), `quota-state.json` (the Gemini
-  quota tracker, `make --quota-file`), `ideas/<date>.json`, `approved/*.json` and the sealed token files. Every job commits it with
-  `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.
+  quota tracker, `make --quota-file`), `ideas/<date>.json`, `approved/*.json`, `order.json`, `removed/`,
+  `settings.json` and the sealed token files. Minuto Útil's are at the root of the branch, as they always were; every
+  other channel has the same files under `channels/<id>/` (`channel.stateFolder`), so two channels never share one.
+  Every job commits it with `.github/scripts/save-state.sh`; each run has its own file, so concurrent jobs never conflict.
 - **Tokens on the runner**: the refresh tokens start from the Actions secrets. When a platform hands back a new refresh
-  token (TikTok may on every refresh), it is written AES-256-GCM encrypted to `state/<platform>-token.enc` with the key
-  in the `MINUTO_STATE_KEY` secret, and that file wins from then on (`SealedFileTokenStore`). Signing in again locally
-  and running `cloud secrets` again makes a new key, so the runner starts over from the new sign-in.
-- **No double posts**: the relay removes the buttons after the first tap, publish runs for the same tag never overlap,
-  publish runs for different videos wait for each other (they share the TikTok token), and `published.json` is kept
-  with the release, so a retry (the "🔁 Tentar de novo" button after a failure) only sends what is missing.
+  token (TikTok may on every refresh), it is written AES-256-GCM encrypted to `<channel state folder>/<platform>-token.enc`
+  with the key in the channel's `<PREFIX>_STATE_KEY` secret (`MINUTO_STATE_KEY`), and that file wins from then on
+  (`SealedFileTokenStore`). Signing in again locally and running `cloud secrets` again makes a new key, so the runner
+  starts over from the new sign-in.
+- **No double posts**: the relay removes the buttons after the first tap, publish runs for the same channel and tag
+  never overlap, publish runs for different videos of one channel wait for each other (they share its TikTok token),
+  and `published.json` is kept with the release, so a retry (the "🔁 Tentar de novo" button after a failure) only
+  sends what is missing.
 - **TikTok check**: when a draft never shows up in the app, run `publish.yml` with the action `tiktok-check` (no tag).
   It sends to Telegram the TikTok account the sign-in belongs to (the drafts go only there; in Sandbox it must be a
   target user) and TikTok's current status of the last 5 drafts (waiting in the inbox, posted, or failed with the reason).
@@ -292,8 +335,25 @@ tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml
    relay answers only the owner's chat and checks Telegram's secret header on every call.
 3. Send `/novo` to the bot (or start `render.yml` from the Actions tab) and watch the first run.
 
+### Adding a channel
+
+1. `channels/<id>/` with `config.json` (the `channel` block above, `youtube.channelId`), `topics.json` and
+   `prompts/writer.md`, `prompts/trends.md`. Add a cron line to `render.yml` (and `ideas.yml`) for each new hour.
+2. Its own Telegram bot (BotFather), YouTube sign-in and TikTok app: `youtube-login --channel <id>`,
+   `tiktok-login --channel <id>`, with the keys in the Windows user environment under its prefix
+   (`<PREFIX>_TELEGRAM_BOT_TOKEN`, `<PREFIX>_TELEGRAM_CHAT_ID`, `<PREFIX>_TIKTOK_CLIENT_KEY`,
+   `<PREFIX>_TIKTOK_CLIENT_SECRET`; the Google client file goes in its `tokenFolder`).
+3. `dotnet run --project src/MinutoUtil.Cli -- cloud secrets --repo copiumvideos-arch/minuto-util --channel <id>`:
+   its secrets and a new `<PREFIX>_STATE_KEY` into the Actions secrets (the shared free keys are copied again, same
+   values).
+4. `bash relay/setup.sh <id>`: deploys the Worker, gives it `TELEGRAM_BOT_TOKEN_<ID>` and `TELEGRAM_WEBHOOK_SECRET_<ID>`
+   (`<ID>`: the id in upper case, `-` as `_`) and points the new bot's webhook at `<worker>/telegram/<id>`. Minuto Útil's
+   bot keeps `/telegram` and its secrets.
+
 Tests: `cd relay && npm test` (node:test, GitHub and Telegram replaced by a fake fetch); `CloudTests.cs` for the topic
-queue, the sealed token store, the publish/retry/reject flow and the review video upload.
+queue, the sealed token store, the publish/retry/reject flow and the review video upload; `ChannelTests.cs` for the
+channel split (Minuto Útil's settings, secret names and sealed files unchanged, two channels kept apart, the cron
+lines matching `scheduleUtcHours`); `tools/test_channels.py` for the workflows' channel picking.
 
 ## Known limits
 
@@ -305,15 +365,15 @@ queue, the sealed token store, the publish/retry/reject flow and the review vide
   scanned negative or a modern photo without a date can slip through: review the contact sheet.
 - The crop aims at the near-pixel centroid of the depth map; sometimes that is a foreground helmet, not a face.
 
-Settings live in `config/minuto-util.json` (defaults in `src/MinutoUtil.Core/Config.cs`), the writer's instructions in
-`prompts/writer.md`, and the reasoning behind them (audience, hooks, structure, how to measure what works) in
+Settings live in `channels/minuto-util/config.json` (defaults in `src/MinutoUtil.Core/Config.cs`), the writer's instructions in
+`channels/minuto-util/prompts/writer.md`, and the reasoning behind them (audience, hooks, structure, how to measure what works) in
 `docs/scriptwriting.md`.
 
 ## Tests
 
 ```powershell
 dotnet test                       # about 80 s; the render test needs FFmpeg and the tools/ environment
-cd tools; uv run pytest           # motion and voice tools
+cd tools; uv run pytest           # motion, voice, map and watermark tools, and the workflows' channel picking
 ```
 
 The render test runs the whole pipeline on real files with real FFmpeg and the real motion tool, replacing only the

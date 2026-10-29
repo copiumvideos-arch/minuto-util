@@ -1,10 +1,10 @@
 # Writing scripts for Minuto Útil
 
 How to write a history script that a Brazilian viewer, scrolling on a phone, watches to the end and wants to see
-again. This is the reasoning and the craft behind `prompts/writer.md`. The prompt holds the rules the model must
+again. This is the reasoning and the craft behind `channels/minuto-util/prompts/writer.md`. The prompt holds the rules the model must
 follow; this guide explains why they exist, how to apply them well, and how to find out what works for this channel.
 
-Read it before changing `prompts/writer.md`, `prompts/trends.md`, the word range in `config/minuto-util.json`, or
+Read it before changing `channels/minuto-util/prompts/writer.md`, `channels/minuto-util/prompts/trends.md`, the word range in `channels/minuto-util/config.json`, or
 anything else that shapes a story. When a lesson here turns into a rule, the rule goes into the prompt and the reason
 stays here.
 
@@ -98,7 +98,7 @@ not the same skeleton with a new name. In practice:
 
 ## 4. Choosing the angle
 
-The topic is picked by `prompts/trends.md`; the angle is picked by the writer. A good event with a weak angle makes
+The topic is picked by `channels/minuto-util/prompts/trends.md`; the angle is picked by the writer. A good event with a weak angle makes
 a weak video. Most bad scripts fail here, before the first sentence.
 
 **An angle is one surprising thing inside the event (Practice).** Not "the Battle of Hastings", but "the king who
@@ -465,7 +465,7 @@ loud), word count, number of names. Most of this can be tagged by the writer as 
 Short's numbers swing wildly with the luck of its first audience. Ten videos per group is a bare minimum before
 drawing a conclusion. Good first tests are in section 16.
 
-**How to update.** When a result is clear, change `prompts/writer.md` (the rule) and this guide (the reason and the
+**How to update.** When a result is clear, change `channels/minuto-util/prompts/writer.md` (the rule) and this guide (the reason and the
 evidence, marked **Channel data** with the dates and video count). Keep the prompt short: rules there, reasons here.
 
 ## 16. Open questions
