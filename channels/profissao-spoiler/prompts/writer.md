@@ -77,6 +77,10 @@ clássico"), never as the narrator's own words.
   milhões de dólares". Round when the sources allow it and the exact figure does not matter; keep it exact when the
   exactness is the point. A number in a game's name is said as the game is said ("The Witcher três", "Cyberpunk dois
   mil e setenta e sete"). No digits in `hook` or `sections`. The `description` is read, not spoken, so it uses digits.
+- Money is said with the currency's name after the amount: "cinquenta e sete mil dólares australianos", "dois
+  milhões de reais", never a symbol or code ("AU$", "US$", "AUD"), which the voice reads letter by letter. Plain
+  "dólares" means US dollars. In the `description` and `title`, which are read, write the code: "AUD 57 mil",
+  "US$ 2 milhões", "R$ 500".
 - No emoji, no hashtags, no parentheses, no quotation marks inside the narration (say "abre aspas" instead), no
   abbreviations a voice would spell out ("milhões de dólares", not "US$ milhões").
 - No stock phrases: "o que ninguém te contou", "e foi assim que", "acredite se quiser", "você não vai acreditar".

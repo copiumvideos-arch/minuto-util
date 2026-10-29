@@ -38,8 +38,46 @@ public static partial class SpokenText
 
     public static bool HasDigits(string text) => text.Any(char.IsAsciiDigit);
 
-    /// <summary>The text with each number written out: "Em 1944, 24.000 soldados" becomes "Em mil novecentos e quarenta e quatro, vinte e quatro mil soldados".</summary>
+    /// <summary>"AU$ 57 mil", "US$1,5 milhão", "AUD 35.000", "R$ 20": a sum with its currency before or after it.</summary>
+    [GeneratedRegex(@"(?<![\w$])(?:(R|US|AU|A|CA|C|NZ)\$|(AUD|USD|BRL|CAD|NZD|EUR|GBP|JPY)\b|(€|£|¥)|\$)\s?((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)(\s(?:mil|milhões|milhão|bilhões|bilhão)\b)?|(?<!\w)((?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?)(\s(?:mil|milhões|milhão|bilhões|bilhão)\b)?\s(AUD|USD|BRL|CAD|NZD|EUR|GBP|JPY)\b")]
+    private static partial Regex Money();
+
+    /// <summary>How a narrator names each currency after the amount; a code or symbol is never read aloud ("AU dólares").</summary>
+    private static readonly Dictionary<string, (string One, string Many)> Currencies = new()
+    {
+        ["R"] = ("real", "reais"), ["BRL"] = ("real", "reais"),
+        ["US"] = ("dólar", "dólares"), ["USD"] = ("dólar", "dólares"), [""] = ("dólar", "dólares"),
+        ["AU"] = ("dólar australiano", "dólares australianos"), ["A"] = ("dólar australiano", "dólares australianos"),
+        ["AUD"] = ("dólar australiano", "dólares australianos"),
+        ["CA"] = ("dólar canadense", "dólares canadenses"), ["C"] = ("dólar canadense", "dólares canadenses"),
+        ["CAD"] = ("dólar canadense", "dólares canadenses"),
+        ["NZ"] = ("dólar neozelandês", "dólares neozelandeses"), ["NZD"] = ("dólar neozelandês", "dólares neozelandeses"),
+        ["€"] = ("euro", "euros"), ["EUR"] = ("euro", "euros"),
+        ["£"] = ("libra", "libras"), ["GBP"] = ("libra", "libras"),
+        ["¥"] = ("iene", "ienes"), ["JPY"] = ("iene", "ienes"),
+    };
+
+    /// <summary>
+    /// Sums of money in words with the currency after them: "AU$ 57 mil" becomes "cinquenta e sete mil dólares
+    /// australianos", "US$ 1,5 milhão" "um vírgula cinco milhão de dólares". Then the remaining numbers are spelled out.
+    /// </summary>
     public static string SpellNumbers(string text) =>
+        SpellPlainNumbers(Money().Replace(text, m =>
+        {
+            var before = m.Groups[4].Success;
+            var currency = before ? m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value
+                : m.Groups[8].Value;
+            var amount = before ? m.Groups[4].Value : m.Groups[6].Value;
+            var scale = (before ? m.Groups[5].Value : m.Groups[7].Value).Trim();
+            var (one, many) = Currencies[currency];
+            var single = scale.Length == 0 && amount == "1";
+            // "um milhão de dólares", "dois bilhões de reais", but "cinquenta mil dólares".
+            var of = scale is "milhão" or "milhões" or "bilhão" or "bilhões" ? " de" : "";
+            return $"{amount}{(scale.Length > 0 ? " " + scale : "")}{of} {(single ? one : many)}";
+        }));
+
+    /// <summary>The text with each number written out: "Em 1944, 24.000 soldados" becomes "Em mil novecentos e quarenta e quatro, vinte e quatro mil soldados".</summary>
+    private static string SpellPlainNumbers(string text) =>
         Number().Replace(text, m =>
         {
             var whole = long.Parse(m.Groups[1].Value.Replace(".", ""), CultureInfo.InvariantCulture);

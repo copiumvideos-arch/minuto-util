@@ -105,6 +105,10 @@ do not state ("o maior mistério da história").
   does not matter ("quase três mil"); keep it exact when the exactness is the point. Roman numerals in words too:
   "Dom Pedro Segundo", "Luís Dezesseis", "século dezesseis". No digits in `hook` or `sections`. The `description` is
   read, not spoken, so it uses digits ("em 1912").
+- Money is said with the currency's name after the amount: "cinquenta e sete mil dólares australianos", "dois
+  milhões de reais", never a symbol or code ("AU$", "US$", "AUD"), which the voice reads letter by letter. Plain
+  "dólares" means US dollars. In the `description` and `title`, which are read, write the code: "AUD 57 mil",
+  "US$ 2 milhões", "R$ 500".
 - No emoji, no hashtags, no parentheses, no quotation marks inside the narration (say "abre aspas" instead), no
   abbreviations a voice would spell out (write "Estados Unidos", not "EUA"; "general", not "gen."; "antes de Cristo",
   not "a.C.").

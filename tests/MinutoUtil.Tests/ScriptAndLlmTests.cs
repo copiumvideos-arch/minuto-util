@@ -228,6 +228,14 @@ public sealed class ScriptAndLlmTests
     [InlineData("2.500.000", "dois milhões e quinhentos mil")]
     [InlineData("2,5%", "dois vírgula cinco por cento")]
     [InlineData("em 6 de junho", "em seis de junho")]
+    // Money: the currency is named after the sum, never read as a code ("AU dólares", Hollow Knight's first cloud run).
+    [InlineData("arrecadou cerca de AU$57 mil, acima da meta de AU$ 35 mil.", "arrecadou cerca de cinquenta e sete mil dólares australianos, acima da meta de trinta e cinco mil dólares australianos.")]
+    [InlineData("A$ 57.000", "cinquenta e sete mil dólares australianos")]
+    [InlineData("35 mil AUD", "trinta e cinco mil dólares australianos")]
+    [InlineData("US$ 1,5 milhão", "um vírgula cinco milhão de dólares")]
+    [InlineData("R$ 1", "um real")]
+    [InlineData("vendeu por $ 10 mil", "vendeu por dez mil dólares")]
+    [InlineData("€ 2 bilhões", "dois bilhões de euros")]
     public void SpellsNumbersInBrazilianPortuguese(string text, string expected) =>
         Assert.Equal(expected, SpokenText.SpellNumbers(text));
 
