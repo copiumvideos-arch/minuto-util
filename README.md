@@ -92,6 +92,9 @@ and the watermark text. The two colors are `textColor` and `highlightColor` in `
 | Watermark | the channel emblem (96 px, cut out round from `emblem.png` by `tools/watermark.py` into `assets/brand/watermark.png`, overlaid by FFmpeg) and "Minuto Útil" in cream serif, both about 65% opaque, top left (clear of the TikTok and Shorts buttons). If the picture is missing, a vector hourglass is drawn instead | `watermark` (true), `watermarkImage` |
 | Caption pop | each word appears as it is spoken and pops from 125% to 100% in 0.11 s; the line does not shift as it fills | `wordPop` (true) |
 | Red key words | names, places, dates, months and numbers in the brand red, the rest cream, all with a thick black outline so red stays readable on dark footage. Long lines are squeezed using per-letter widths measured from libass, so they never cross the safe margins | `keyWords` (true), `textColor` (#F7E2C7), `highlightColor` (#DC010A) |
+| Thumbnail | `thumbnail.jpg`, 1080x1920 JPEG under 2 MB: the first still of the video (cropped to 9:16) with the same grade, a soft dark band, the year in big red (or "44 A.C."), the script's `thumbnailText` in cream Roboto Serif Black with the word between asterisks in red, and the watermark. The text block sits around y=900, inside the 3:4 crop TikTok's profile grid shows. Old scripts without `thumbnailText` show the title. Set as the YouTube thumbnail by `publish`, and sent on Telegram after the review video for the TikTok cover | `thumbnail` (true) |
+| Painted cover picture | With `thumbnailPicture` "ai", the picture behind the thumbnail text is a painting of the script's `thumbnailScene` (one English sentence: place, time, objects, no named people or faces) made by Cloudflare Workers AI (`cloudflareAi.imageModel`, FLUX.2 klein 4B at 864x1536, about 160 of the free 10,000 daily neurons, one request per video) in the fixed style `cloudflareAi.imageStyle` (vintage oil painting, no text). Saved as `cover-art.jpg` with `cover-art.json` and reused while the scene is the same. The description's credits say the cover is an AI illustration, not a picture of the time. No scene, no Cloudflare key or a failed request: the archive picture, with a warning | `thumbnailPicture` ("archive"; "ai" in `config/minuto-util.json`) |
+| Cover as first frame | The thumbnail replaces the video's first frame (over the captions, after the grade; the length and the sync stay), so in TikTok's cover picker the owner leaves the selection at the start instead of uploading an image. One frame is a 1/30 s flash. The thumbnail is rendered before the video for this | `coverFrames` (1; 0 for none) |
 | Looping ending | the writer ends on a line that leads back into the hook, so the Short loops (`prompts/writer.md`) | prompt rule |
 | No music, no sound effects | narration only; the owner finds music and effects distracting | none: there is no music path |
 
@@ -108,6 +111,8 @@ The file stays under 50 MB (Telegram's bot upload limit) through `video.maxVideo
 | `metadata.json` | title, description with "Fonte: Wikipedia" and a "Créditos" list of every media item, hashtags |
 | `timings.json` | every word, section and shot in seconds, and Whisper's alignment score per section |
 | `contact-sheet.png` | one frame every 3 seconds, for review |
+| `thumbnail.jpg` | the cover image for YouTube and TikTok (see "Channel style") |
+| `cover-art.jpg`, `cover-art.json` | the AI painting behind the cover text and the prompt it was painted from (`thumbnailPicture` "ai") |
 | `run.log` | the run's log, ending with model requests and Smallest characters used |
 | `published.json`, `tiktok-caption.txt` | written by `publish`: where the video went, and the caption to paste in TikTok |
 | `sources.json`, `voice/`, `media/`, `shots/`, `captions.ass` | intermediate files, reused by a re-run |
@@ -150,12 +155,17 @@ dotnet run --project src/MinutoUtil.Cli -- publish --run output/2026-10-27/1114-
   are under `youtube` in `config/minuto-util.json`. Before uploading, the token's channel is read
   (`channels?mine=true`) and anything but `youtube.channelId` (`UCNath7BzjeX3ehJCA7cNYAA`, Minuto Útil) is refused,
   so a Flopômetro sign-in can never post here. YouTube may lock uploads as private while the Google Cloud project has
-  not passed its API audit; the command warns when the answered privacy is not "public".
+  not passed its API audit; the command warns when the answered privacy is not "public". After the upload,
+  `thumbnail.jpg` is set as the custom thumbnail (`thumbnails.set`, 50 quota units, allowed by the `youtube.upload`
+  scope). YouTube takes custom thumbnails only from a channel with a verified phone number (youtube.com/verify); a
+  refusal is only a warning, written to `published.json` and to the Telegram message. On Shorts the custom thumbnail
+  shows on the channel page, in search and in shared links; the Shorts feed itself starts the video.
 - **TikTok** (`Publishing/TikTokUploader.cs`, Content Posting API, upload to inbox, scope `video.upload`): init with
   `FILE_UPLOAD`, the file PUT to the returned `upload_url` (one chunk up to 64,000,000 bytes, otherwise 20,000,000-byte
   chunks with the remainder on the last one), then the status is polled every 5 s until TikTok says
   `SEND_TO_USER_INBOX` (up to `tiktok.statusWaitSeconds`). The owner opens the inbox notification in the TikTok app and
-  finishes the post (caption, sound, visibility). The inbox flow has no caption field, so the caption (title plus
+  finishes the post (caption, cover, sound, visibility). The inbox flow takes no cover image either, so the review on
+  Telegram sends `thumbnail.jpg` as a photo right after the video: save it and pick it as the cover in the app. The inbox flow has no caption field, so the caption (title plus
   hashtags, at most 2200 characters) is written to `tiktok-caption.txt` and, when `MINUTO_TELEGRAM_BOT_TOKEN` and
   `MINUTO_TELEGRAM_CHAT_ID` are set, sent to the owner's Telegram as its own message to copy
   (`Publishing/TelegramNotifier.cs`; a Telegram failure is only a warning). TikTok allows 5 drafts waiting in the

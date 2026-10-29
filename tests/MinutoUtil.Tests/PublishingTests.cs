@@ -37,6 +37,15 @@ internal static class PublishData
         return temp.Path;
     }
 
+    /// <summary>A stand-in thumbnail.jpg in the run folder; returns its bytes.</summary>
+    public static byte[] Thumbnail(string folder)
+    {
+        var bytes = new byte[5000];
+        new Random(9).NextBytes(bytes);
+        File.WriteAllBytes(Path.Combine(folder, MinutoUtil.Core.Video.Thumbnail.FileName), bytes);
+        return bytes;
+    }
+
     public static YouTubeOptions YouTubeConfig => AppConfig.Load(Path.Combine(TestPaths.RepositoryRoot, "config", "minuto-util.json")).YouTube;
 }
 
@@ -264,6 +273,9 @@ internal sealed class FakeYouTube : HttpMessageHandler
     public string StartBody { get; init; } = "";
     public HttpStatusCode? FailNextChunkWith { get; set; }
     public int KeepPartOfFailedChunk { get; init; }
+    public HttpStatusCode ThumbnailStatus { get; init; } = HttpStatusCode.OK;
+    public string ThumbnailBody { get; init; } = """{"items":[{"default":{"url":"https://i.ytimg.com/vi/vid123/default.jpg"}}]}""";
+    public byte[]? Thumbnail { get; private set; }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
@@ -276,6 +288,11 @@ internal sealed class FakeYouTube : HttpMessageHandler
         {
             var items = ChannelId is null ? "[]" : $$$"""[{"id":"{{{ChannelId}}}","snippet":{"title":"{{{ChannelTitle}}}"}}]""";
             return FakeHandler.Json(HttpStatusCode.OK, $$$"""{"items":{{{items}}}}""");
+        }
+        if (request.Method == HttpMethod.Post && request.RequestUri!.ToString().StartsWith(YouTubeUploader.ThumbnailEndpoint, StringComparison.Ordinal))
+        {
+            Thumbnail = body;
+            return new HttpResponseMessage(ThumbnailStatus) { Content = new StringContent(ThumbnailBody) };
         }
         if (request.Method == HttpMethod.Post)
         {
@@ -900,6 +917,112 @@ public sealed class PublisherTests
         Assert.Equal("v_inbox_file~v2.123", Publisher.LoadRecord(folder).TikTok!.PublishId);
         Assert.Contains("chat not found", summary);
         Assert.DoesNotContain("secret", summary);
+    }
+
+    [Fact]
+    public async Task The_thumbnail_is_set_on_the_uploaded_video_and_recorded()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        var jpeg = PublishData.Thumbnail(folder);
+        var youtube = new FakeYouTube();
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => new YouTubeUploader(new HttpClient(youtube), _ => Task.FromResult("token-1"), TimeSpan.Zero),
+            () => throw new InvalidOperationException("TikTok must not be reached"),
+            new FakeTimeProvider(PublishData.Now));
+
+        var plan = await publisher.PublishAsync(folder, Platforms.YouTube, dryRun: true, force: false, CancellationToken.None);
+        Assert.Contains("thumbnail: thumbnail.jpg", plan);
+        Assert.Empty(youtube.Requests);
+
+        var summary = await publisher.PublishAsync(folder, Platforms.YouTube, false, false, CancellationToken.None);
+
+        // After the video, to the video it created, with the image bytes as they are.
+        var set = youtube.Requests[^1];
+        Assert.Equal(HttpMethod.Post, set.Method);
+        Assert.Equal(YouTubeUploader.ThumbnailEndpoint + "vid123", set.Url);
+        Assert.Equal("Bearer token-1", set.Authorization);
+        Assert.Equal("image/jpeg", set.ContentType);
+        Assert.Equal(jpeg, youtube.Thumbnail);
+        Assert.Equal("set", Publisher.LoadRecord(folder).YouTube!.Thumbnail);
+        Assert.Contains("YouTube thumbnail: set", summary);
+    }
+
+    [Fact]
+    public async Task A_refused_thumbnail_keeps_the_published_video_and_says_why()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        PublishData.Thumbnail(folder);
+        var youtube = new FakeYouTube
+        {
+            ThumbnailStatus = HttpStatusCode.Forbidden,
+            ThumbnailBody = """{"error":{"code":403,"errors":[{"reason":"forbidden","message":"The thumbnail can't be set"}]}}""",
+        };
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => new YouTubeUploader(new HttpClient(youtube), _ => Task.FromResult("t"), TimeSpan.Zero),
+            () => throw new InvalidOperationException("TikTok must not be reached"),
+            new FakeTimeProvider(PublishData.Now));
+
+        await publisher.PublishAsync(folder, Platforms.YouTube, false, false, CancellationToken.None);
+
+        var record = Publisher.LoadRecord(folder).YouTube!;
+        Assert.Equal("vid123", record.VideoId);
+        Assert.StartsWith("failed: ", record.Thumbnail);
+        Assert.Contains("verified phone number", record.Thumbnail);
+    }
+
+    [Fact]
+    public async Task Without_a_thumbnail_file_only_the_video_goes_up()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        var youtube = new FakeYouTube();
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => new YouTubeUploader(new HttpClient(youtube), _ => Task.FromResult("t"), TimeSpan.Zero),
+            () => throw new InvalidOperationException("TikTok must not be reached"),
+            new FakeTimeProvider(PublishData.Now));
+
+        await publisher.PublishAsync(folder, Platforms.YouTube, false, false, CancellationToken.None);
+
+        Assert.Null(youtube.Thumbnail);
+        Assert.DoesNotContain(youtube.Requests, r => r.Url.StartsWith(YouTubeUploader.ThumbnailEndpoint, StringComparison.Ordinal));
+        Assert.Null(Publisher.LoadRecord(folder).YouTube!.Thumbnail);
+    }
+
+    [Fact]
+    public async Task A_new_cover_goes_on_the_published_video_and_only_on_this_channel()
+    {
+        using var temp = new TempFolder();
+        var folder = PublishData.RunFolder(temp);
+        var youtube = new FakeYouTube();
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions(),
+            () => new YouTubeUploader(new HttpClient(youtube), _ => Task.FromResult("t"), TimeSpan.Zero),
+            () => throw new InvalidOperationException("TikTok must not be reached"),
+            new FakeTimeProvider(PublishData.Now));
+        // Published before covers existed: no thumbnail then.
+        await publisher.PublishAsync(folder, Platforms.YouTube, false, false, CancellationToken.None);
+        var uploads = youtube.Requests.Count;
+
+        var jpeg = PublishData.Thumbnail(folder);
+        Assert.Equal("set", await publisher.ReplaceThumbnailAsync(folder, CancellationToken.None));
+
+        // Only the thumbnail call, to the video already up; nothing uploaded again.
+        var set = Assert.Single(youtube.Requests.Skip(uploads));
+        Assert.Equal(YouTubeUploader.ThumbnailEndpoint + "vid123", set.Url);
+        Assert.Equal(jpeg, youtube.Thumbnail);
+        Assert.Equal("set", Publisher.LoadRecord(folder).YouTube!.Thumbnail);
+
+        // A record from another channel is refused before any request.
+        var record = Publisher.LoadRecord(folder);
+        File.WriteAllText(Path.Combine(folder, Publisher.RecordFile), System.Text.Json.JsonSerializer.Serialize(
+            record with { YouTube = record.YouTube! with { ChannelId = "UCsomeoneElse000000000000" } }, Json.Options));
+        await Assert.ThrowsAsync<PublishRefusedException>(() => publisher.ReplaceThumbnailAsync(folder, CancellationToken.None));
+        Assert.Equal(uploads + 1, youtube.Requests.Count);
+
+        // A run never published has nothing to put a cover on.
+        File.Delete(Path.Combine(folder, Publisher.RecordFile));
+        await Assert.ThrowsAsync<PublishRefusedException>(() => publisher.ReplaceThumbnailAsync(folder, CancellationToken.None));
     }
 
     [Fact]

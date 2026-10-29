@@ -49,6 +49,8 @@
       "mapDataDirectory": "assets/cache/naturalearth",
       "watermark": true,
       "watermarkImage": "assets/brand/watermark.png",
+      "thumbnail": true,
+      "thumbnailPicture": "ai",
       "wordPop": true,
       "keyWords": true,
       "textColor": "#F7E2C7",

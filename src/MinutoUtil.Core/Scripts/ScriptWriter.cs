@@ -78,6 +78,8 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         PlaceStamp = SpokenText.WithoutDashes(script.PlaceStamp),
         Description = SpokenText.WithoutDashes(script.Description),
         Question = SpokenText.WithoutDashes(script.Question ?? "").Trim(),
+        ThumbnailText = SpokenText.WithoutDashes(script.ThumbnailText ?? "").Trim(),
+        ThumbnailScene = SpokenText.WithoutDashes(script.ThumbnailScene ?? "").Trim(),
         Hashtags = script.Hashtags.Select(h => h.Trim().TrimStart('#').Replace(" ", "")).Where(h => h.Length > 0).Distinct().ToList(),
         Sections = script.Sections.Select(s => s with
         {

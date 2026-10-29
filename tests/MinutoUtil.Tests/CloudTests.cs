@@ -208,6 +208,25 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public async Task A_refused_youtube_thumbnail_still_publishes_and_tells_the_owner()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        PublishData.Thumbnail(folder);
+        var youtube = new FakeYouTube { ThumbnailStatus = HttpStatusCode.Forbidden, ThumbnailBody = """{"error":{"errors":[{"reason":"forbidden"}]}}""" };
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now));
+
+        Assert.Equal(0, await flow.PublishAsync(Tag, folder, Publisher(youtube, new TikTokTests.FakeTikTok(), messages), CancellationToken.None));
+
+        Assert.Equal(RunStatus.Published, state.Find(Tag)!.Status);
+        Assert.Contains("A capa não foi para o YouTube", messages.Sent[^1].Text);
+        Assert.Contains("verified phone number", messages.Sent[^1].Text);
+        // The TikTok notice points at the cover sent with the review.
+        Assert.Contains(messages.Sent, m => m.Text.Contains("Para a capa, em Capa deixe a seleção no começo", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Tiktok_check_names_the_signed_in_account_and_where_each_latest_draft_is()
     {
         using var temp = new TempFolder();
@@ -362,6 +381,24 @@ public sealed class TelegramVideoTests
         var ex = await Assert.ThrowsAsync<HttpRequestException>(() => failing.SendVideoAsync(video, "x", [], CancellationToken.None));
         Assert.Contains("Too Large", ex.Message);
         Assert.DoesNotContain("secret", ex.Message);
+    }
+
+    [Fact]
+    public async Task The_cover_goes_up_as_a_photo_with_how_to_use_it_on_tiktok()
+    {
+        using var temp = new TempFolder();
+        var cover = Path.Combine(temp.Path, MinutoUtil.Core.Video.Thumbnail.FileName);
+        File.WriteAllBytes(cover, Encoding.ASCII.GetBytes("fake-jpeg-bytes"));
+        var telegram = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.OK, """{"ok":true}"""));
+        var notifier = new TelegramNotifier(new HttpClient(telegram), "123:secret", "42");
+
+        await notifier.SendPhotoAsync(cover, CloudFlow.CoverCaption, CancellationToken.None);
+
+        var (request, body) = Assert.Single(telegram.Requests);
+        Assert.Equal("https://api.telegram.org/bot123:secret/sendPhoto", request.RequestUri!.AbsoluteUri);
+        Assert.Contains("fake-jpeg-bytes", body);
+        Assert.Contains("name=photo; filename=thumbnail.jpg", body);
+        Assert.Contains("No TikTok ela é o primeiro quadro", body);
     }
 }
 
@@ -718,6 +755,26 @@ public sealed class BotFeatureTests
         Assert.Equal(Script.Sections[0], edited.Sections[0]);
         Assert.Equal("Você prefere urna ou papel?", edited.Question);
         Assert.Equal(0, ScriptReview.Apply(Script, "ficou ótimo").Changed);
+    }
+
+    [Fact]
+    public void The_cover_text_is_shown_and_can_be_edited_like_the_other_lines()
+    {
+        var script = Script with { ThumbnailText = "A urna *sem* internet" };
+        Assert.Contains("\nCapa: A urna *sem* internet\n", ScriptReview.Message(Run, script).ReplaceLineEndings("\n"));
+        // A script without the field (written before it existed) shows no empty line.
+        Assert.DoesNotContain("\nCapa:", ScriptReview.Message(Run, Script).ReplaceLineEndings("\n"));
+
+        var (edited, changed) = ScriptReview.Apply(script, "Capa: A urna que *ninguém* invadiu");
+
+        Assert.Equal(1, changed);
+        Assert.Equal("A urna que *ninguém* invadiu", edited.ThumbnailText);
+        Assert.Equal(script.Title, edited.Title);
+
+        // The painted picture's scene too.
+        var painted = script with { ThumbnailScene = "A voting booth in a school gym" };
+        Assert.Contains("\nCena: A voting booth in a school gym\n", ScriptReview.Message(Run, painted).ReplaceLineEndings("\n"));
+        Assert.Equal("A quiet town square at dusk", ScriptReview.Apply(painted, "Cena: A quiet town square at dusk").Script.ThumbnailScene);
     }
 
     [Fact]

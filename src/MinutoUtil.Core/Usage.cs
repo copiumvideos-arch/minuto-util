@@ -33,6 +33,13 @@ public sealed class RunUsage(int maxModelRequests = 3)
         }
     }
 
+    private int _coverImages;
+
+    /// <summary>Painted thumbnail pictures asked of Cloudflare Workers AI (not part of the writer's budget).</summary>
+    public int CoverImages => _coverImages;
+
+    public void AddCoverImage() => Interlocked.Increment(ref _coverImages);
+
     public void AddSmallest(int characters)
     {
         Interlocked.Increment(ref _smallestRequests);
@@ -41,5 +48,5 @@ public sealed class RunUsage(int maxModelRequests = 3)
 
     public string Summary() =>
         $"usage: gemini requests {GeminiRequests}, openrouter requests {OpenRouterRequests} (budget {maxModelRequests}), " +
-        $"smallest requests {SmallestRequests}, smallest characters {SmallestCharacters}, voice {Voice ?? "none"}";
+        $"smallest requests {SmallestRequests}, smallest characters {SmallestCharacters}, cover images {CoverImages}, voice {Voice ?? "none"}";
 }

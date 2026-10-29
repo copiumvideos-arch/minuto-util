@@ -68,6 +68,7 @@ jobs:
           mkdir -p "output/$TAG"
           gh release download "run-$TAG" -D "output/$TAG" -p video.mp4 -p metadata.json -p run.log
           gh release download "run-$TAG" -D "output/$TAG" -p published.json || true
+          gh release download "run-$TAG" -D "output/$TAG" -p thumbnail.jpg || true
 
       - name: Publish
         if: inputs.action == 'publish'

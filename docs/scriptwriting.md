@@ -324,6 +324,20 @@ profiles, not in the feed itself, so it matters most for search and for the prof
 gap as the hook in different words, never a fact the video does not deliver. Good: "O bilhete que Júlio César não
 leu". Bad: "A INCRÍVEL história de Júlio César!!!".
 
+**Thumbnail text (Practice).** Two to five words on the cover image, one of them in red. Like the title, the cover is
+seen on the profile grid, the Shorts shelf, search and shared links, not in the feed, where the video starts playing
+at once. It is read in about a second at the size of a stamp, so it carries the gap in the fewest concrete words and
+does not repeat the title (both are often seen side by side). The red word is the one that makes the gap: the
+contradiction, the number, the strange object. The year sits above it in the channel's red, like the year card.
+
+**Thumbnail scene (Practice).** Behind the text, a painting made from the script's `thumbnailScene`. Every cover gets
+the same fixed style (a vintage oil painting) so the profile grid looks like one series, and a painting, unlike a
+realistic image, is not mistaken for an archive photo on a channel built on real sources; the description also says
+the cover is an AI illustration. The scene shows the place, the time and the objects of the story with one clear
+subject in the middle, where the text goes. People stay distant or seen from behind and are never named: a painted
+face of a real person would be invented, and image models get famous faces, uniforms and writing wrong. Viewers of
+history channels notice wrong details, so the scene asks only for what the sources support.
+
 **Question.** Short, open, neutral, about this story, answerable in one word or one line. "E você, teria ido ao
 Senado naquele dia?" It goes in the caption, and out loud in the last section only for divisive subjects.
 

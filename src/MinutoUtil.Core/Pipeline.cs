@@ -34,7 +34,8 @@ public sealed class Pipeline(
     WikipediaClient wikipedia,
     Func<ScriptWriter> writer,
     Narrator narrator,
-    MediaGatherer gatherer)
+    MediaGatherer gatherer,
+    ICoverPainter? painter = null)
 {
     private string Tools => Path.Combine(repositoryRoot, "tools");
 
@@ -104,8 +105,28 @@ public sealed class Pipeline(
             CaptionBuilder.Build(timings, duration, video.FontName, video.StampFontName, script.EraStamp, script.PlaceStamp, stampEnd, video.Style,
                 emblem is not null), ct);
 
+        // Before the video: its first frame is the thumbnail (style.coverFrames).
+        var thumbnailPath = Path.Combine(folder, Thumbnail.FileName);
+        PaintedCover? coverArt = null;
+        if (video.Style.Thumbnail)
+        {
+            // The first still the viewer sees (the hook's picture when the hook is not footage).
+            var cover = shots.FirstOrDefault(s => s.Effect is ShotEffect.KenBurns or ShotEffect.Parallax) is { } still
+                ? byId[still.MediaId!]
+                : manifest.Images[0];
+            var text = string.IsNullOrWhiteSpace(script.ThumbnailText) ? script.Title : script.ThumbnailText;
+            coverArt = await CoverArtAsync(folder, script, ct);
+            await Thumbnail.RenderAsync(video, coverArt?.Path ?? cover.LocalPath!, text, script.EraStamp, folder, emblem, thumbnailPath, ct);
+        }
+        else if (File.Exists(thumbnailPath))
+        {
+            // Switched off after an earlier render: an old file must not be uploaded.
+            File.Delete(thumbnailPath);
+        }
+
         var videoPath = Path.Combine(folder, "video.mp4");
-        await final.RenderAsync(shots, shotFiles, Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct, emblem);
+        await final.RenderAsync(shots, shotFiles, Path.Combine(folder, "voice.wav"), duration, folder, videoPath, ct, emblem,
+            video.Style.Thumbnail ? thumbnailPath : null);
         var ffmpeg = new Ffmpeg(video);
         var probe = await ffmpeg.ProbeAsync(videoPath, ct);
         var lufs = await ffmpeg.LoudnessAsync(videoPath, ct);
@@ -123,7 +144,7 @@ public sealed class Pipeline(
 
         var used = shots.Where(s => s.Effect != ShotEffect.Map).Select(s => byId[s.MediaId!]).DistinctBy(m => m.Id).ToList();
         if (shots.Any(s => s.Effect == ShotEffect.Map)) used.Add(NaturalEarth(Path.Combine(repositoryRoot, video.Style.MapDataDirectory)));
-        var metadata = Metadata(script, sources, used, duration, timings.Voice, writerName, folder);
+        var metadata = Metadata(script, sources, used, duration, timings.Voice, writerName, folder, coverArt?.Model);
         await File.WriteAllTextAsync(Path.Combine(folder, "metadata.json"), JsonSerializer.Serialize(metadata, Json.Options), ct);
 
         return new RunResult(folder, videoPath, sheet, duration, timings.Voice, probe, lufs);
@@ -171,6 +192,29 @@ public sealed class Pipeline(
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(written.Script, Json.Options), ct);
         await File.WriteAllTextAsync(writerPath, JsonSerializer.Serialize(new { writer = written.Writer, warnings = written.Warnings }, Json.Options), ct);
         return (written.Script, written.Writer);
+    }
+
+    /// <summary>
+    /// The AI painting behind the thumbnail text when style.thumbnailPicture is "ai": one request per video, saved as
+    /// cover-art.* with cover-art.json and reused while the prompt is the same (an edited scene paints again). Null,
+    /// with a warning, when there is no scene or no Cloudflare key, or the request fails: the thumbnail then uses the
+    /// archive picture.
+    /// </summary>
+    private async Task<PaintedCover?> CoverArtAsync(string folder, VideoScript script, CancellationToken ct)
+    {
+        if (!string.Equals(config.Video.Style.ThumbnailPicture, "ai", StringComparison.OrdinalIgnoreCase)) return null;
+        if (string.IsNullOrWhiteSpace(script.ThumbnailScene))
+        {
+            Log.Warn("thumbnail: the script has no thumbnailScene, so the cover uses the archive picture");
+            return null;
+        }
+        if (painter is null)
+        {
+            Log.Warn("thumbnail: no Cloudflare key for the painted cover, so it uses the archive picture");
+            return null;
+        }
+
+        return await CoverArtFile.PaintOrReuseAsync(folder, script.ThumbnailScene, config.CloudflareAi, painter, ct);
     }
 
     /// <summary>
@@ -243,7 +287,7 @@ public sealed class Pipeline(
     }
 
     internal static VideoMetadata Metadata(VideoScript script, IReadOnlyList<SourceArticle> sources, IReadOnlyList<MediaItem> media,
-        double duration, string voice, string writer, string folder)
+        double duration, string voice, string writer, string folder, string? coverArtModel = null)
     {
         // The question closes the first paragraph, which is also the TikTok caption's text: the comments start there.
         var description = new StringBuilder(script.Description.Trim());
@@ -254,6 +298,9 @@ public sealed class Pipeline(
         description.AppendLine("Créditos:");
         foreach (var item in media)
             description.AppendLine($"- {item.Title}. {item.Author}. {item.License}. {item.Source}: {item.SourceUrl}");
+        // Said plainly, so nobody takes the painting for a picture of the time.
+        if (coverArtModel is not null)
+            description.AppendLine($"- Capa: ilustração gerada por IA ({coverArtModel}), não é uma imagem da época.");
         description.AppendLine();
         description.Append(string.Join(' ', script.Hashtags.Select(h => "#" + h)));
         return new VideoMetadata(script.Title, description.ToString(), script.Hashtags, duration, voice, writer,

@@ -196,6 +196,8 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           files=("output/$TAG/video.mp4" "output/$TAG/metadata.json" "output/$TAG/run.log" "output/$TAG/contact-sheet.png")
+          # The cover (video.style.thumbnail): set as the YouTube thumbnail when the run is published.
+          if [ -f "output/$TAG/thumbnail.jpg" ]; then files+=("output/$TAG/thumbnail.jpg"); fi
           if gh release view "run-$TAG" >/dev/null 2>&1; then
             gh release upload "run-$TAG" "${files[@]}" --clobber
             gh release edit "run-$TAG" --title "$(jq -r .title "output/$TAG/metadata.json")"

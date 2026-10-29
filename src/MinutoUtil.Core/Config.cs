@@ -70,6 +70,25 @@ public sealed record CloudflareAiOptions
     public IReadOnlyList<string> Models { get; init; } = ["@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
     public string TokenEnvVar { get; init; } = "CLOUDFLARE_AI_TOKEN";
     public string AccountIdEnvVar { get; init; } = "CLOUDFLARE_ACCOUNT_ID";
+
+    /// <summary>
+    /// The image model for the painted thumbnail (style.thumbnailPicture "ai"). FLUX.2 klein 4B takes a size and costs
+    /// about 160 of the 10,000 free daily neurons at 864x1536.
+    /// </summary>
+    public string ImageModel { get; init; } = "@cf/black-forest-labs/flux-2-klein-4b";
+
+    /// <summary>9:16 and multiples of 16; the thumbnail scales it up to 1080x1920.</summary>
+    public int ImageWidth { get; init; } = 864;
+    public int ImageHeight { get; init; } = 1536;
+
+    /// <summary>
+    /// Put before every scene, so each cover looks like the same series whatever the story: a painting, never a fake
+    /// photo, with room in the middle for the text.
+    /// </summary>
+    public string ImageStyle { get; init; } =
+        "Vintage oil painting in the style of a nineteenth century history painting, visible brush strokes, muted earthy " +
+        "colors with deep shadows and warm dramatic light, tall vertical composition with one clear subject in the middle. " +
+        "No text, no letters, no logos, no modern objects, no close-up faces.";
 }
 
 public sealed record OpenRouterOptions
@@ -252,6 +271,24 @@ public sealed record StyleOptions
     /// tools/watermark.py. When the file is missing, a vector hourglass is drawn instead.
     /// </summary>
     public string WatermarkImage { get; init; } = "assets/brand/watermark.png";
+
+    /// <summary>
+    /// thumbnail.jpg next to the video: the first still with the same grade, the year, the script's thumbnail text and
+    /// the emblem. Set as the YouTube thumbnail and sent on Telegram for the TikTok cover.
+    /// </summary>
+    public bool Thumbnail { get; init; } = true;
+
+    /// <summary>
+    /// The picture behind the thumbnail text: "archive" (the first still of the video) or "ai" (a painting of the
+    /// script's thumbnailScene from Cloudflare Workers AI, one request per video; the archive picture when it fails).
+    /// </summary>
+    public string ThumbnailPicture { get; init; } = "archive";
+
+    /// <summary>
+    /// Frames at the very start of the video replaced by the thumbnail (needs <see cref="Thumbnail"/>), so the owner
+    /// picks the cover in TikTok's cover picker by leaving it at the start. 1 is a 1/30 s flash; 0 for none.
+    /// </summary>
+    public int CoverFrames { get; init; } = 1;
 
     /// <summary>Caption words appear one by one as they are spoken, each with a quick pop.</summary>
     public bool WordPop { get; init; } = true;

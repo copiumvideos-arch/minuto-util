@@ -11,6 +11,8 @@ using MinutoUtil.Core.Voice;
 //   everything already in it (sources, script, voice takes, media, shots). Nothing is uploaded.
 // minuto-util publish --run <folder> [--youtube] [--tiktok] [--dry-run] [--force]
 //   Sends a finished run to YouTube (public Short) and to the owner's TikTok inbox (draft); see PublishingCommands.cs.
+// minuto-util cover --run <folder> [--text ..] [--scene ..] [--date ..] [--youtube] [--telegram] [--caption "<text>"]
+//   A new painted thumbnail for a run, set on its published Short; see CoverCommand.cs.
 // minuto-util cloud next|review|publish|reject|failed|secrets ...
 //   The steps of the GitHub Actions runs; see CloudCommands.cs.
 
@@ -32,6 +34,8 @@ if (command is "check-script" && Option("--run") is { } checkFolder)
 }
 if (command is "cloud")
     return await CloudCommands.RunAsync(args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), FindRepositoryRoot(), Key);
+if (command is "cover")
+    return await CoverCommand.RunAsync(args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), FindRepositoryRoot(), Key);
 if (command is "youtube-login" or "tiktok-login" or "publish")
     return await PublishingCommands.RunAsync(command, args, AppConfig.Load(Path.Combine(FindRepositoryRoot(), "config", "minuto-util.json")), Key);
 if (command is not "make")
@@ -42,6 +46,7 @@ if (command is not "make")
                minuto-util youtube-login [--no-browser]
                minuto-util tiktok-login [--no-browser] [--paste]
                minuto-util publish --run <run folder> [--youtube] [--tiktok] [--dry-run] [--force]
+               minuto-util cover --run <run folder> [--text "<words>"] [--scene "<scene>"] [--date "<date>"] [--youtube] [--telegram] [--caption "<text>"]
                minuto-util cloud secrets --repo <owner/name>
 
           make          Writes, voices and renders one video into output/<yyyy-MM-dd>/<HHmm>/.
@@ -56,6 +61,8 @@ if (command is not "make")
           tiktok-login  Signs in to TikTok once (browser). --paste: paste the address the browser ends on instead.
           publish       Uploads a run's video.mp4: a public YouTube Short and a TikTok inbox draft (both unless one
                         is named). --dry-run prints what would be sent and calls nothing. --force posts a folder again.
+          cover         Paints a new thumbnail for a run (words, scene and date from its script.json or the options);
+                        --youtube sets it on the published Short, --telegram sends it to the owner (with --caption, if given).
           cloud secrets Copies this PC's keys and sign-ins into the GitHub repository's Actions secrets (never printed).
         """);
     return command is "help" or "--help" or "-h" ? 0 : 1;
@@ -116,8 +123,12 @@ if (config.Media.Commons) videoSources.Add(new CommonsSource(http, config.Media)
 var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader(http, ffmpeg, config.Media),
     new ClipExtractor(ffmpeg, config.Video), config.Media, config.Story.EventYear, new CommonsSource(http, config.Media));
 
+// The painted thumbnail picture (style.thumbnailPicture "ai") uses the same free Cloudflare account as the spare writer.
+ICoverPainter? painter = Key(config.CloudflareAi.TokenEnvVar) is { } paintToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } paintAccount
+    ? new CloudflareCoverPainter(apiHttp, paintToken, paintAccount, config.CloudflareAi, usage)
+    : null;
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
-    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer);
+    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter);
 try
 {
     var result = await pipeline.RunAsync(folder, cts.Token, scriptOnly: args.Contains("--script-only"));

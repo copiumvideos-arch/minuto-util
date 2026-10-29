@@ -37,6 +37,7 @@ public sealed class YouTubeUploader(HttpClient http, Func<CancellationToken, Tas
 {
     internal const string UploadEndpoint = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
     internal const string ChannelsEndpoint = "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true";
+    internal const string ThumbnailEndpoint = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set?uploadType=media&videoId=";
 
     /// <summary>Chunks must be a multiple of 256 KiB.</summary>
     internal const int ChunkSize = 32 * 256 * 1024;
@@ -125,6 +126,23 @@ public sealed class YouTubeUploader(HttpClient http, Func<CancellationToken, Tas
             if (status.Done is not null) return status.Done;
             offset = status.Offset;
         }
+    }
+
+    /// <summary>
+    /// Sets a custom thumbnail (thumbnails.set, 50 quota units; the youtube.upload scope allows it). YouTube accepts it
+    /// only from a channel that has verified a phone number, and takes JPEG or PNG up to 2 MB.
+    /// </summary>
+    public async Task SetThumbnailAsync(string videoId, string imagePath, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, ThumbnailEndpoint + Uri.EscapeDataString(videoId))
+        {
+            Content = new ByteArrayContent(await File.ReadAllBytesAsync(imagePath, ct)),
+        };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(
+            Path.GetExtension(imagePath).Equals(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await accessToken(ct));
+        using var response = await http.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode) throw await ErrorAsync("setting the thumbnail", response, ct);
     }
 
     private async Task<Uri> StartSessionAsync(VideoDetails details, long total, CancellationToken ct)
@@ -229,6 +247,8 @@ public sealed class YouTubeUploader(HttpClient http, Func<CancellationToken, Tas
         {
             "quotaExceeded" => " The daily API quota is used up; it resets at midnight Pacific time.",
             "uploadLimitExceeded" => " The channel hit YouTube's daily upload limit.",
+            "forbidden" => " Custom thumbnails need a channel with a verified phone number (youtube.com/verify).",
+            "mediaBodyRequired" or "invalidImage" => " YouTube did not accept the image (JPEG or PNG up to 2 MB).",
             "youtubeSignupRequired" => " The signed-in Google account has no YouTube channel. Sign in with the channel's account.",
             _ => "",
         };

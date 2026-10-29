@@ -115,6 +115,15 @@ Antigo" is not an angle.
 
 - `title`: under 70 characters, Portuguese, promises the same gap as the hook in other words ("O bilhete que Júlio
   César não leu"). No clickbait lies, no words in all capitals, no exclamation marks, no emoji.
+- `thumbnailText`: the words on the cover image, 2 to 5 words in Portuguese that open the same gap as the hook and the
+  title, shorter than both and not a copy of either ("O bilhete que *ninguém* leu", "O faraó *apagado*"). It is read
+  in a second on a small picture, so concrete words, no full sentence. Put the one word that matters most between
+  asterisks; it is shown in red. Same honesty rule as the title: no bait the sources do not support.
+- `thumbnailScene`: one English sentence, at most 40 words, for the painted picture behind the cover text: the place,
+  the time of day, the weather, the objects of the story (ships, a palace, a printing press), true to the period in
+  the sources. People only as distant figures, silhouettes or seen from behind; never name a person or ask for a face,
+  since a painted face of a real person would be made up. No text, signs, flags with writing or logos. Keep it simple:
+  one clear subject in the middle of a tall frame.
 - `location`: the place on a map, `name` in Portuguese as a viewer knows it ("Normandia"), `latitude` and
   `longitude` in decimal degrees (south and west negative), from the source text or general geography.
 - `eraStamp` and `placeStamp`: the date and the place of the event as shown on screen ("6 de junho de 1944",

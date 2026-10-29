@@ -7,6 +7,7 @@ using MinutoUtil.Core.Llm;
 using MinutoUtil.Core.Scripts;
 using MinutoUtil.Core.Sources;
 using MinutoUtil.Core.Publishing;
+using MinutoUtil.Core.Video;
 
 /// <summary>
 /// The steps the GitHub Actions workflows (.github/workflows) run around `make` and `publish`, plus `cloud secrets`,
@@ -149,6 +150,7 @@ internal static class CloudCommands
                     var log = Path.Combine(folder, "run.log");
                     var caption = CloudFlow.ReviewCaption(run, metadata, File.Exists(log) ? File.ReadLines(log) : []);
                     await telegram.SendVideoAsync(Path.Combine(folder, "video.mp4"), caption, CloudFlow.ReviewButtons(tag), cts.Token);
+                    await SendCoverAsync(telegram, Path.Combine(folder, Thumbnail.FileName), cts.Token);
                     state.Save(run with { Status = RunStatus.Review, Title = metadata.Title, UpdatedAt = DateTimeOffset.UtcNow });
                     Log.Info($"review: {tag} sent to Telegram");
                     return 0;
@@ -232,6 +234,23 @@ internal static class CloudCommands
         Console.WriteLine(JsonSerializer.Serialize(new { article = next.Article, portugueseArticle = next.PortugueseArticle ?? "", year = next.Year,
             topic = next.Topic, trend = next.Trend, left, review }));
         return 0;
+    }
+
+    /// <summary>
+    /// The cover image under the review video, for the owner to save and pick in the TikTok app (the inbox upload takes
+    /// no cover). The video is already there to review, so a failure here is only a warning.
+    /// </summary>
+    private static async Task SendCoverAsync(TelegramNotifier telegram, string thumbnailPath, CancellationToken ct)
+    {
+        if (!File.Exists(thumbnailPath)) return;
+        try
+        {
+            await telegram.SendPhotoAsync(thumbnailPath, CloudFlow.CoverCaption, ct);
+        }
+        catch (Exception ex) when ((ex is HttpRequestException or TaskCanceledException) && !ct.IsCancellationRequested)
+        {
+            Log.Warn($"review: the cover image was not sent: {ex.Message}");
+        }
     }
 
     private static T ReadJson<T>(string path) =>

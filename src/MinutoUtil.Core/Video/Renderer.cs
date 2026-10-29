@@ -129,24 +129,26 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
     /// <param name="workFolder">Holds captions.ass and fonts/: FFmpeg runs there so the filter graph needs no Windows paths.</param>
     /// <param name="emblemPath">The watermark emblem (a small RGBA PNG) to overlay top left, or null for none.</param>
     public async Task RenderAsync(IReadOnlyList<Shot> shots, IReadOnlyList<string> shotFiles, string voicePath, double duration,
-        string workFolder, string outputPath, CancellationToken ct, string? emblemPath = null)
+        string workFolder, string outputPath, CancellationToken ct, string? emblemPath = null, string? coverPath = null)
     {
         var loudness = await ffmpeg.LoudnessAsync(voicePath, ct) ?? throw new ToolException("The narration is silent.");
         var gain = Math.Round(options.VoiceLufs - loudness, 2);
-        var arguments = Arguments(shots, shotFiles, voicePath, duration, gain, outputPath, emblemPath);
+        var arguments = Arguments(shots, shotFiles, voicePath, duration, gain, outputPath, emblemPath, coverPath);
         Log.Info($"render: {shots.Count} shots, {duration:0.00}s, voice {loudness:0.0} LUFS, gain {gain:+0.0;-0.0} dB");
         await ProcessRunner.RunCheckedAsync(options.FfmpegPath, arguments, workFolder, TimeSpan.FromMinutes(20), ct);
     }
 
     internal IReadOnlyList<string> Arguments(IReadOnlyList<Shot> shots, IReadOnlyList<string> shotFiles, string voicePath,
-        double duration, double gainDb, string outputPath, string? emblemPath = null)
+        double duration, double gainDb, string outputPath, string? emblemPath = null, string? coverPath = null)
     {
         var args = new List<string> { "-y", "-hide_banner", "-loglevel", "error", "-nostdin" };
         foreach (var file in shotFiles) args.AddRange(["-i", Path.GetFullPath(file)]);
         args.AddRange(["-i", Path.GetFullPath(voicePath)]);
         // One still frame: overlay keeps showing its last frame to the end of the video.
         if (emblemPath is not null) args.AddRange(["-i", Path.GetFullPath(emblemPath)]);
-        args.AddRange(["-filter_complex", FilterGraph(shots, duration, gainDb, emblemPath is not null)]);
+        var cover = coverPath is not null && Style.CoverFrames > 0;
+        if (cover) args.AddRange(["-i", Path.GetFullPath(coverPath!)]);
+        args.AddRange(["-filter_complex", FilterGraph(shots, duration, gainDb, emblemPath is not null, cover)]);
         args.AddRange(["-map", "[vout]", "-map", "[aout]", "-r", options.Fps.ToString(CultureInfo.InvariantCulture)]);
         // CRF 18 with a peak cap: grainy archive footage otherwise needs ~6 Mbit/s, and the file must stay under the
         // 50 MB a Telegram bot can send (video.maxVideoKbps 4500 is about 35 MB a minute).
@@ -197,7 +199,9 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
     }
 
     /// <param name="emblem">The emblem is the input after the voice; it goes over the picture, under the captions.</param>
-    internal string FilterGraph(IReadOnlyList<Shot> shots, double duration, double gainDb, bool emblem = false)
+    /// <param name="cover">The thumbnail is the last input; it replaces the first <see cref="StyleOptions.CoverFrames"/>
+    /// frames, over the captions, so TikTok's cover picker finds it at the very start. The length and the sync stay.</param>
+    internal string FilterGraph(IReadOnlyList<Shot> shots, double duration, double gainDb, bool emblem = false, bool cover = false)
     {
         var fps = options.Fps;
         var half = FadeFrames / 2;
@@ -229,7 +233,14 @@ public sealed class FinalRenderer(VideoOptions options, Ffmpeg ffmpeg)
             graph.Append($"[base];[{shots.Count + 1}:v]format=rgba,colorchannelmixer=aa={ShotRenderer.Num(CaptionBuilder.WatermarkOpacity)}[emblem];")
                 .Append($"[base][emblem]overlay=x={Layout.WatermarkLeft}:y={Layout.EmblemTop}:format=auto");
         }
-        graph.Append(",ass=captions.ass:fontsdir=fonts,format=yuv420p[vout];");
+        graph.Append(",ass=captions.ass:fontsdir=fonts,format=yuv420p");
+        if (cover)
+        {
+            var input = shots.Count + (emblem ? 2 : 1);
+            graph.Append($"[captioned];[{input}:v]scale={options.Width}:{options.Height},setsar=1,format=yuv420p[cover];")
+                .Append($"[captioned][cover]overlay=enable='lt(n\\,{Style.CoverFrames})':format=auto,format=yuv420p");
+        }
+        graph.Append("[vout];");
 
         // The measured gain brings the narration to the target loudness exactly; a limiter only catches peaks above
         // -1.5 dBFS. (A single-pass loudnorm landed about 0.8 LU low and reshaped the dynamics.)

@@ -310,8 +310,11 @@ public static partial class CaptionBuilder
     }
 
     /// <summary>How wide libass draws an uppercase caption line at full width, in pixels, without the outline.</summary>
-    internal static double CaptionWidth(string text) =>
-        text.Sum(c => CharWidth(c) * CaptionFontSize + CaptionSpacing);
+    internal static double CaptionWidth(string text) => TextWidth(text, CaptionFontSize, CaptionSpacing);
+
+    /// <summary>How wide libass draws an uppercase Roboto Serif Black line at <paramref name="fontSize"/>, in pixels, without the outline.</summary>
+    internal static double TextWidth(string text, int fontSize, int spacing) =>
+        text.Sum(c => CharWidth(c) * fontSize + spacing);
 
     private static double CharWidth(char c)
     {

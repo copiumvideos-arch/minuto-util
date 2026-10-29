@@ -41,7 +41,10 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
 Every video uses the channel style by default unless the owner says otherwise: vintage grade, vignette, grain, faint
 flicker, two light leaks, light denoise and sharpening, more contrast and saturation, the rolling year card, the map
 insert after the hook, the emblem watermark top left, captions that pop in word by word with names, places, dates
-and numbers in red, and a looping last line. The brand is the owner's logo (`assets/brand/`): black, cream `#F7E2C7`,
+and numbers in red, a looping last line, and a thumbnail in the same look (`thumbnail.jpg`: the year in red and the
+script's `thumbnailText` with one red word, over an AI painting of the script's `thumbnailScene` from Cloudflare Workers
+AI, or the archive picture when that fails; set on YouTube, and also the video's first frame so TikTok's cover picker
+finds it at the start). The brand is the owner's logo (`assets/brand/`): black, cream `#F7E2C7`,
 red `#DC010A`, heavy serif type (Roboto Serif Black and ExtraBold in `assets/fonts`); no yellow anywhere. If the
 emblem changes, rebuild `assets/brand/watermark.png` with `tools/watermark.py`. No music and no sound effects. Each
 layer is a switch under `video.style` in `config/minuto-util.json`; the table with defaults is in README.md ("Channel

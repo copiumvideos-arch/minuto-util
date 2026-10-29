@@ -51,6 +51,22 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
         await EnsureOkAsync(response, "sendVideo", ct);
     }
 
+    /// <summary>Uploads a picture (Telegram bots take up to 10 MB) with a caption.</summary>
+    public async Task SendPhotoAsync(string photoPath, string caption, CancellationToken ct)
+    {
+        await using var file = File.OpenRead(photoPath);
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(chatId), "chat_id" },
+            { new StringContent(TextUtil.Truncate(caption, MaxCaption)), "caption" },
+        };
+        var photo = new StreamContent(file);
+        photo.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        form.Add(photo, "photo", Path.GetFileName(photoPath));
+        using var response = await http.PostAsync(Url("sendPhoto"), form, ct);
+        await EnsureOkAsync(response, "sendPhoto", ct);
+    }
+
     private string Url(string method) => $"https://api.telegram.org/bot{botToken}/{method}";
 
     /// <summary>Rows of <paramref name="perRow"/> buttons (the daily idea list's 1 to 10 in two rows, the queue's ⏫ and 🗑 in pairs).</summary>

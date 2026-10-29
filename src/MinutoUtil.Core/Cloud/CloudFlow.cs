@@ -147,6 +147,10 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         return new BacklogTopic(old.Article, old.Year ?? 0, old.Topic, old.Trend, old.PortugueseArticle);
     }
 
+    /// <summary>The caption under the cover image, sent right after the review video.</summary>
+    public const string CoverCaption = "🖼️ Capa do vídeo. No YouTube ela entra sozinha ao publicar. No TikTok ela é o primeiro quadro do " +
+                                       "vídeo: ao postar o rascunho, em Capa, deixe a seleção no começo.";
+
     /// <summary>The caption under the review video: what it is, how long, which voice, and the run's warnings to check.</summary>
     public static string ReviewCaption(RunRecord run, VideoMetadata metadata, IEnumerable<string> logLines)
     {
@@ -207,7 +211,10 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var record = Publisher.LoadRecord(folder);
         state.Save(run with { Status = RunStatus.Published, YouTubeUrl = record.YouTube?.Url, TikTokPublishId = record.TikTok?.PublishId,
             Note = null, UpdatedAt = time.GetUtcNow() });
-        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: rascunho na caixa de entrada (Notificações do sistema).", [], ct);
+        var cover = record.YouTube?.Thumbnail is { } t && t.StartsWith("failed: ", StringComparison.Ordinal)
+            ? $"\n⚠️ A capa não foi para o YouTube ({TextUtil.Truncate(t["failed: ".Length..], 200)}). Dá para pôr no YouTube Studio."
+            : "";
+        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: rascunho na caixa de entrada (Notificações do sistema).{cover}", [], ct);
         return 0;
     }
 

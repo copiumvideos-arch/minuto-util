@@ -37,6 +37,20 @@ public sealed record VideoScript(
     [Description("One short, open question to the viewer in Portuguese, at most 14 words, about this story, that people will want to answer in the comments: a choice or an opinion. Neutral: never suggests fraud or a conspiracy, never says one side is right, never names a current politician, party or candidate.")]
     public string Question { get; init; } = "";
 
+    /// <summary>
+    /// The words on the thumbnail (YouTube) and the TikTok cover, with the one word shown in red between asterisks.
+    /// Optional: scripts written before 2026-10-28 lack it, and their thumbnail shows the title instead.
+    /// </summary>
+    [Description("Words on the video's cover image, Portuguese, 2 to 5 words that open the same gap as the hook in fewer words (\"O bilhete que *ninguém* leu\"). Put the one word that should be in red between asterisks. No digits unless it is a year, no emoji, no exclamation marks.")]
+    public string ThumbnailText { get; init; } = "";
+
+    /// <summary>
+    /// What the AI painting behind the thumbnail text shows (style.thumbnailPicture "ai"), in English for the image
+    /// model. Optional: without it, or when the painting fails, the thumbnail uses a picture from the video.
+    /// </summary>
+    [Description("One English sentence, at most 40 words, describing a scene for a painted cover picture of this story: the place, the time, objects, weather, light. People only as distant figures, silhouettes or seen from behind, never a named or famous person, no faces. No text, signs, flags with writing or logos. Example: \"A stormy English Channel at dawn in 1944, hundreds of grey landing craft heading to a cliffy beach, low clouds\".")]
+    public string ThumbnailScene { get; init; } = "";
+
     /// <summary>Where the event happened, for the map shot. Optional: scripts written before 2026-10-27 lack it.</summary>
     [Description("Where the event happened, for a map: the place name in Portuguese as shown on screen (\"Normandia\") and its latitude and longitude in decimal degrees (west and south negative).")]
     public ScriptLocation? Location { get; init; }

@@ -19,7 +19,7 @@ public sealed record BotSettings
 
 /// <summary>
 /// The script as the owner sees it on Telegram, and the owner's edit applied back. The message is plain labeled
-/// lines ("Título:", "Gancho:", "1.", "Pergunta:"); a reply may carry all of them or only the ones that changed.
+/// lines ("Título:", "Gancho:", "1.", "Pergunta:", "Capa:", "Cena:"); a reply may carry all of them or only the ones that changed.
 /// </summary>
 public static partial class ScriptReview
 {
@@ -32,9 +32,13 @@ public static partial class ScriptReview
         text.AppendLine($"Gancho: {script.Hook}");
         for (var i = 0; i < script.Sections.Count; i++) text.AppendLine($"{i + 1}. {script.Sections[i].Text}");
         if (!string.IsNullOrWhiteSpace(script.Question)) text.AppendLine($"Pergunta: {script.Question}");
+        if (!string.IsNullOrWhiteSpace(script.ThumbnailText)) text.AppendLine($"Capa: {script.ThumbnailText}");
+        if (!string.IsNullOrWhiteSpace(script.ThumbnailScene)) text.AppendLine($"Cena: {script.ThumbnailScene}");
         text.AppendLine();
         text.AppendLine("✏️ Para mudar, responda a esta mensagem com o texto corrigido: todas as linhas ou só as que mudaram, com o " +
-                        "mesmo começo (Título:, Gancho:, 2., Pergunta:). Números por extenso soam melhor na voz.");
+                        "mesmo começo (Título:, Gancho:, 2., Pergunta:, Capa:, Cena:). Números por extenso soam melhor na voz. Na capa, a " +
+                        "palavra entre *asteriscos* fica em vermelho. A cena é a pintura feita por IA atrás da capa, em inglês, sem " +
+                        "nomes de pessoas.");
         text.Append($"Execução {run.Tag}");
         return TextUtil.Truncate(text.ToString(), 4000);
     }
@@ -51,13 +55,15 @@ public static partial class ScriptReview
     public static (VideoScript Script, int Changed) Apply(VideoScript script, string reply)
     {
         var sections = script.Sections.ToList();
-        var (title, hook, question, changed) = (script.Title, script.Hook, script.Question, 0);
+        var (title, hook, question, cover, scene, changed) = (script.Title, script.Hook, script.Question, script.ThumbnailText, script.ThumbnailScene, 0);
         foreach (var raw in reply.Replace("\r", "").Split('\n'))
         {
             var line = raw.Trim();
             if (Label(line, "Título") is { } t) (title, changed) = (t, changed + 1);
             else if (Label(line, "Gancho") is { } h) (hook, changed) = (h, changed + 1);
             else if (Label(line, "Pergunta") is { } q) (question, changed) = (q, changed + 1);
+            else if (Label(line, "Capa") is { } c) (cover, changed) = (c, changed + 1);
+            else if (Label(line, "Cena") is { } sc) (scene, changed) = (sc, changed + 1);
             else if (Numbered().Match(line) is { Success: true } m && int.Parse(m.Groups[1].Value) is var n && n >= 1 && n <= sections.Count
                      && m.Groups[2].Value.Trim() is { Length: > 0 } body)
             {
@@ -65,7 +71,8 @@ public static partial class ScriptReview
                 changed++;
             }
         }
-        return (script with { Title = TextUtil.Truncate(title, 100), Hook = hook, Sections = sections, Question = question }, changed);
+        return (script with { Title = TextUtil.Truncate(title, 100), Hook = hook, Sections = sections, Question = question, ThumbnailText = cover,
+            ThumbnailScene = scene }, changed);
     }
 
     private static string? Label(string line, string label) =>
