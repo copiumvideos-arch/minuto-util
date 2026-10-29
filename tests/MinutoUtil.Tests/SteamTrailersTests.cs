@@ -42,6 +42,15 @@ public sealed class SteamTrailersTests
     }
 
     [Fact]
+    public async Task ASequelOfTheGameIsAnotherGame()
+    {
+        // Steam's real answer for "Grand Theft Auto" on 2026-10-29: the 1997 game is not sold, GTA V is.
+        var handler = Search("""{"type":"app","name":"Grand Theft Auto V Enhanced","id":3240220},{"type":"app","name":"Grand Theft Auto: San Andreas – The Definitive Edition","id":1547000}""");
+
+        await Assert.ThrowsAsync<MediaException>(() => Steam(handler).FindAppAsync("Grand Theft Auto (video game)", CancellationToken.None));
+    }
+
+    [Fact]
     public async Task RefusesToGuessWhenNoResultIsTheGame()
     {
         var handler = Search("""{"type":"app","name":"Witcher Hunter Simulator","id":1},{"type":"bundle","name":"The Witcher 3: Wild Hunt","id":2}""");

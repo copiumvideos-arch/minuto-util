@@ -85,8 +85,9 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
 
     /// <summary>
     /// The Steam app of a game by name: the search result whose name is the game's name, or else the first one that
-    /// starts with its words (a later edition, "The Witcher 3: Wild Hunt - Remastered"), so "Hades" never finds "Hades II"
-    /// and "Grand Theft Auto VI" never finds "Grand Theft Auto: Vice City".
+    /// is the game's name followed by edition words only (a later edition, "The Witcher 3: Wild Hunt - Remastered"), so
+    /// "Hades" never finds "Hades II", "Grand Theft Auto" never finds "Grand Theft Auto V Enhanced" and "Grand Theft
+    /// Auto VI" never finds "Grand Theft Auto: Vice City".
     /// Anything else is refused rather than guessed, since a wrong game's trailers would contradict the narration;
     /// --steam-app names the app then.
     /// </summary>
@@ -101,7 +102,8 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
             .Select(i => (Id: i["id"]!.GetValue<int>(), Name: Clean(i["name"]?.GetValue<string>() ?? ""))).ToList();
         var words = TextUtil.Fold(title) + " ";
         var match = items.Where(i => GameNames.Key(i.Name) == wanted)
-            .Concat(items.Where(i => (TextUtil.Fold(i.Name) + " ").StartsWith(words, StringComparison.Ordinal)))
+            .Concat(items.Where(i => (TextUtil.Fold(i.Name) + " ").StartsWith(words, StringComparison.Ordinal)
+                                     && TextUtil.Fold(i.Name)[(words.Length - 1)..].Split(' ', StringSplitOptions.RemoveEmptyEntries).All(EditionWords.Contains)))
             .FirstOrDefault();
         if (match.Id > 0)
         {
@@ -155,6 +157,14 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
         && (uri.Host == "steamstatic.com" || uri.Host.EndsWith(".steamstatic.com", StringComparison.Ordinal))
             ? uri
             : throw new MediaException($"Not a Steam video address: {TextUtil.Truncate(url, 80)}");
+
+    /// <summary>Words that make a later edition of the same game, not another game.</summary>
+    private static readonly HashSet<string> EditionWords =
+    [
+        "remastered", "remaster", "definitive", "enhanced", "complete", "edition", "goty", "game", "of", "the", "year",
+        "deluxe", "anniversary", "director", "directors", "s", "cut", "hd", "special", "ultimate", "gold", "legendary",
+        "classic", "redux", "royal", "premium", "standard", "collection", "remake", "reloaded",
+    ];
 
     /// <summary>
     /// Steam sends some names with their UTF-8 read as Windows-1252 ("â€”" for a dash); those are put back, and a dash

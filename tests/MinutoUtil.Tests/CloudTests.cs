@@ -574,6 +574,11 @@ public sealed class TrendTests
         state.Save(new RunRecord { Tag = "20261028-1400", Article = "Lei Áurea", Status = RunStatus.Published, UpdatedAt = PublishData.Now });
         Assert.Equal("Magna Carta", state.NextTopic(backlog).Next!.Article);
         Assert.Contains("Magna Carta", state.TakenArticles());
+        // A run that failed made nothing: asked for again by the owner, the game is not taken.
+        state.Save(new RunRecord { Tag = "20261028-1500", Article = "Grand Theft Auto VI", Status = RunStatus.Failed, UpdatedAt = PublishData.Now });
+        Assert.Contains("Grand Theft Auto VI", state.TakenArticles());
+        Assert.DoesNotContain("Grand Theft Auto VI", state.TakenArticles(failedCount: false));
+        Assert.Contains("Lei Áurea", state.TakenArticles(failedCount: false));
         Assert.Throws<ArgumentException>(() => state.SaveApproved(new ApprovedIdea("../x", list.Ideas[0], false, PublishData.Now)));
         Assert.Throws<ArgumentException>(() => state.Ideas("2026-10-28"));
     }

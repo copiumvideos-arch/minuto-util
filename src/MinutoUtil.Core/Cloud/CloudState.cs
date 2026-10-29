@@ -119,15 +119,19 @@ public sealed class CloudState(string folder)
 
     /// <summary>
     /// What the picker must not suggest again: articles rendered, approved and waiting, or offered in the last three
-    /// daily lists (a fresh list each day rather than the same ideas the owner passed on).
+    /// daily lists (a fresh list each day rather than the same ideas the owner passed on). For an idea the owner sends
+    /// (<paramref name="failedCount"/> false), a run that failed made nothing and does not count: asking again for a
+    /// game whose run failed must give that game, not the next one of its series.
     /// </summary>
-    public IReadOnlyList<string> TakenArticles()
+    public IReadOnlyList<string> TakenArticles(bool failedCount = true)
     {
         var offered = Directory.Exists(IdeasFolder)
             ? Directory.GetFiles(IdeasFolder, "*.json").Order(StringComparer.Ordinal).TakeLast(3)
                 .SelectMany(f => JsonSerializer.Deserialize<IdeaList>(File.ReadAllText(f), Json.Options)!.Ideas.Select(i => i.Article))
             : [];
-        return MadeArticles().Concat(Approved().Select(a => a.Topic.Article)).Concat(offered).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var made = failedCount ? MadeArticles()
+            : Runs().Where(r => r.Status != RunStatus.Failed).Select(r => r.Article).Distinct(StringComparer.OrdinalIgnoreCase);
+        return made.Concat(Approved().Select(a => a.Topic.Article)).Concat(offered).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private string RunsFolder => Path.Combine(Folder, "runs");

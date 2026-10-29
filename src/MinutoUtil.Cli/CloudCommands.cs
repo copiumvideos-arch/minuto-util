@@ -202,7 +202,7 @@ internal static class CloudCommands
                 using var llmHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
                 try
                 {
-                    next = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
+                    next = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(failedCount: false), ct)).FirstOrDefault();
                 }
                 catch (Exception ex) when (ex is LlmException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
                 {
@@ -390,7 +390,7 @@ internal static class CloudCommands
         BacklogTopic? topic = null;
         try
         {
-            topic = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(), ct)).FirstOrDefault();
+            topic = (await Picker(state, channel, key, http, llmHttp).PickForIdeaAsync(idea, state.TakenArticles(failedCount: false), ct)).FirstOrDefault();
         }
         catch (Exception ex) when (ex is LlmException or JsonException or TaskCanceledException && !ct.IsCancellationRequested)
         {
