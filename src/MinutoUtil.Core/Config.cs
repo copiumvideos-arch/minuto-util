@@ -581,4 +581,13 @@ public sealed record TikTokOptions
 
     /// <summary>How long to wait for TikTok to finish processing the upload before leaving it to the app.</summary>
     public int StatusWaitSeconds { get; init; } = 300;
+
+    /// <summary>
+    /// The channel's TikTok username as connected in Zernio. When set, the video is posted public through Zernio's
+    /// approved TikTok app instead of going to the inbox as a draft (our own TikTok app is not approved for that).
+    /// </summary>
+    public string? ZernioUsername { get; init; }
+
+    /// <summary>The Zernio API key, one for every channel (both TikTok accounts are connected to the same Zernio account).</summary>
+    public string ZernioApiKeyEnvVar { get; init; } = "ZERNIO_API_KEY";
 }

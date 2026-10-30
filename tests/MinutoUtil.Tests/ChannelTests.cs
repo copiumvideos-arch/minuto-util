@@ -339,7 +339,7 @@ public sealed class ChannelTests
     public void Workflows_take_channel_secrets_only_through_the_channel_prefix()
     {
         // A channel secret written by name (secrets.MINUTO_X) would hand Minuto Útil's secret to every channel.
-        var shared = new HashSet<string> { "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CLOUDFLARE_AI_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "SMALLEST_API_KEY" };
+        var shared = new HashSet<string> { "GEMINI_API_KEY", "OPENROUTER_API_KEY", "CLOUDFLARE_AI_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "SMALLEST_API_KEY", "ZERNIO_API_KEY" };
         foreach (var file in Directory.GetFiles(Path.Combine(TestPaths.RepositoryRoot, ".github", "workflows"), "*.yml"))
         {
             var text = File.ReadAllText(file);

@@ -86,6 +86,7 @@
     "redirectUri": "http://localhost:8723/callback/",
     "maxCaptionChars": 2200,
     "statusWaitSeconds": 300,
-    "discoveryHashtags": ["games", "curiosidadesgames", "gamer"]
+    "discoveryHashtags": ["games", "curiosidadesgames", "gamer"],
+    "zernioUsername": "profissao.spoiler"
   }
 }

@@ -125,6 +125,8 @@ jobs:
           CH_TIKTOK_CLIENT_KEY: ${{ secrets[format('{0}_TIKTOK_CLIENT_KEY', matrix.prefix)] }}
           CH_TIKTOK_CLIENT_SECRET: ${{ secrets[format('{0}_TIKTOK_CLIENT_SECRET', matrix.prefix)] }}
           CH_TIKTOK_REFRESH_TOKEN: ${{ secrets[format('{0}_TIKTOK_REFRESH_TOKEN', matrix.prefix)] }}
+          # One Zernio account holds every channel's TikTok; a channel with tiktok.zernioUsername posts through it.
+          ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
         run: $CLI cloud "$ACTION" --state state --tag "$TAG" --run "output/$TAG"
 
       # Whatever reached a platform is kept with the video, so a retry never posts it twice.

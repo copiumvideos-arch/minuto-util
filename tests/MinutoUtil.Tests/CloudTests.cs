@@ -363,6 +363,33 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public async Task A_channel_on_zernio_posts_tiktok_public_with_no_draft_to_remind_or_resend()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        var messages = new Messages();
+        var zernio = ZernioTests.FakeZernio();
+        var publisher = new Publisher(PublishData.YouTubeConfig, new TikTokOptions { ZernioUsername = "profissao.spoiler" },
+            () => new YouTubeUploader(new HttpClient(new FakeYouTube()), _ => Task.FromResult("t"), TimeSpan.Zero),
+            () => throw new InvalidOperationException("no inbox draft on a Zernio channel"),
+            new FakeTimeProvider(PublishData.Now), (text, ct) => messages.Send(text, [], ct),
+            () => new ZernioPoster(new HttpClient(zernio), "zk"));
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now)) { TikTokAccount = "Profissão Spoiler" };
+
+        Assert.Equal(0, await flow.PublishAsync(Tag, folder, publisher, CancellationToken.None));
+
+        var run = state.Find(Tag)!;
+        Assert.Equal("zernio:post-1", run.TikTokPublishId);
+        Assert.True(run.TikTokChecked);
+        Assert.Contains("TikTok: https://www.tiktok.com/@profissao.spoiler/video/7", messages.Sent[^1].Text);
+        Assert.Equal("https://www.tiktok.com/@profissao.spoiler/video/7", MinutoUtil.Core.Publishing.Publisher.LoadRecord(folder).TikTok!.Url);
+        // Nothing for the hourly look, and a resend would post the video twice.
+        Assert.Empty(CloudFlow.DraftsToCheck([run with { TikTokChecked = false }], PublishData.Now.AddHours(2)));
+        await Assert.ThrowsAsync<PublishRefusedException>(() => flow.TikTokResendAsync(Tag, folder, publisher, CancellationToken.None));
+        Assert.Single(zernio.Requests, r => r.Request.RequestUri!.ToString() == ZernioPoster.Api + "posts");
+    }
+
+    [Fact]
     public async Task Resend_refuses_a_run_that_was_never_published()
     {
         using var temp = new TempFolder();

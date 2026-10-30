@@ -360,6 +360,12 @@ tag; channels never wait for or cancel each other.
 - **TikTok check**: when a draft never shows up in the app, run `publish.yml` with the action `tiktok-check` (no tag).
   It sends to Telegram the TikTok account the sign-in belongs to (the drafts go only there; in Sandbox it must be a
   target user) and TikTok's current status of the last 5 drafts (waiting in the inbox, posted, or failed with the reason).
+- **TikTok through Zernio**: our TikTok app is in Sandbox, and TikTok does not approve apps for private use, so its
+  inbox drafts depend on a notification that often never arrives. A channel with `tiktok.zernioUsername` (its TikTok
+  username as connected in Zernio) posts the video public at once through Zernio's approved app instead
+  (`ZernioPoster`: presigned upload, then `POST /v1/posts` with `publishNow`). One Zernio account holds both channels'
+  TikToks (free for 2 accounts); its key is `ZERNIO_API_KEY` (user environment on the PC, a shared Actions secret,
+  copied by `cloud secrets`). Such a post has no draft, so the reminder and "Reenviar" skip it.
 - **TikTok reminder**: `publish.yml` runs every hour (`tiktok-remind`, one job per channel). A draft still waiting in
   the inbox 90 minutes after it went up (the notification was missed, often because the phone had the other account
   open) gets one Telegram message naming the account, with "📲 Reenviar ao TikTok". The tap runs `tiktok-resend`,

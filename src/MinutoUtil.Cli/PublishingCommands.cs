@@ -82,7 +82,7 @@ internal static class PublishingCommands
             Console.WriteLine(await publisher.PublishAsync(folder, platforms, dryRun, force, cts.Token));
             return 0;
         }
-        catch (Exception ex) when (ex is PublishAuthException or PublishRefusedException or YouTubeUploadException or TikTokUploadException
+        catch (Exception ex) when (ex is PublishAuthException or PublishRefusedException or YouTubeUploadException or TikTokUploadException or ZernioException
             or InvalidDataException or HttpRequestException or PlatformNotSupportedException)
         {
             Log.Warn($"{command} failed: {ex.Message}");
@@ -119,7 +119,9 @@ internal static class PublishingCommands
             },
             () => new TikTokUploader(uploadHttp, StoredTikTokAuth(config, key, apiHttp).GetAccessTokenAsync),
             TimeProvider.System,
-            sendText);
+            sendText,
+            () => new ZernioPoster(uploadHttp, key(config.TikTok.ZernioApiKeyEnvVar) is { Length: > 0 } zernioKey ? zernioKey
+                : throw new PublishAuthException($"Set {config.TikTok.ZernioApiKeyEnvVar} (the Zernio API key) to post to TikTok through Zernio.")));
 
     /// <summary>TikTok with its stored sign-in (sealed state file on the cloud runner, environment variable, or DPAPI file).</summary>
     internal static TikTokAuth StoredTikTokAuth(AppConfig config, Func<string, string?> key, HttpClient apiHttp)

@@ -19,7 +19,18 @@ public sealed record YouTubePublication(string VideoId, string Url, string Chann
     public string? Thumbnail { get; init; }
 }
 
-public sealed record TikTokPublication(string PublishId, string Status, string CaptionFile, DateTimeOffset UploadedAt);
+public sealed record TikTokPublication(string PublishId, string Status, string CaptionFile, DateTimeOffset UploadedAt)
+{
+    /// <summary>The video on TikTok, for a direct post through Zernio (null for an inbox draft, or until TikTok has it up).</summary>
+    public string? Url { get; init; }
+
+    /// <summary>A direct post through Zernio: its PublishId is "zernio:&lt;post id&gt;" and there is no draft to wait for.</summary>
+    [JsonIgnore] public bool Direct => IsDirect(PublishId);
+
+    public const string ZernioPrefix = "zernio:";
+
+    public static bool IsDirect(string? publishId) => publishId?.StartsWith(ZernioPrefix, StringComparison.Ordinal) == true;
+}
 
 [Flags]
 public enum Platforms
@@ -31,8 +42,9 @@ public enum Platforms
 }
 
 /// <summary>
-/// Sends a finished run folder (video.mp4 + metadata.json) to YouTube as a public Short and to the owner's TikTok inbox
-/// as a draft. The platform clients are made only when needed, so a dry run builds none and touches no network.
+/// Sends a finished run folder (video.mp4 + metadata.json) to YouTube as a public Short and to TikTok: a public post
+/// through Zernio when the channel has tiktok.zernioUsername, else the owner's TikTok inbox as a draft. The platform
+/// clients are made only when needed, so a dry run builds none and touches no network.
 /// </summary>
 /// <param name="sendText">Sends a message to the owner (Telegram), or null. TikTok's inbox upload has no caption field,
 /// so the caption goes there after each draft, ready to copy.</param>
@@ -42,7 +54,8 @@ public sealed class Publisher(
     Func<YouTubeUploader> youtubeUploader,
     Func<TikTokUploader> tiktokUploader,
     TimeProvider time,
-    Func<string, CancellationToken, Task>? sendText = null)
+    Func<string, CancellationToken, Task>? sendText = null,
+    Func<ZernioPoster>? zernio = null)
 {
     public const string RecordFile = "published.json";
     public const string CaptionFile = "tiktok-caption.txt";
@@ -71,7 +84,7 @@ public sealed class Publisher(
 
         var thumbnailPath = Path.Combine(folder, Video.Thumbnail.FileName);
         var thumbnail = File.Exists(thumbnailPath) ? thumbnailPath : null;
-        if (dryRun) return Plan(platforms, details, caption, new FileInfo(videoPath).Length, thumbnail, already);
+        if (dryRun) return Plan(platforms, details, caption, new FileInfo(videoPath).Length, thumbnail, already, tiktok.ZernioUsername);
 
         var summary = new StringBuilder();
         if (platforms.HasFlag(Platforms.YouTube))
@@ -94,7 +107,19 @@ public sealed class Publisher(
                 Log.Warn($"YouTube answered privacy '{video.PrivacyStatus}', not '{details.PrivacyStatus}'; check the video in YouTube Studio");
             summary.AppendLine($"YouTube: {video.Url} ({video.PrivacyStatus})");
         }
-        if (platforms.HasFlag(Platforms.TikTok))
+        if (platforms.HasFlag(Platforms.TikTok) && tiktok.ZernioUsername is { Length: > 0 } username)
+        {
+            var poster = zernio?.Invoke() ?? throw new PublishAuthException("tiktok.zernioUsername is set but there is no Zernio key; set " + tiktok.ZernioApiKeyEnvVar + ".");
+            await File.WriteAllTextAsync(Path.Combine(folder, CaptionFile), caption, new UTF8Encoding(false), ct);
+            Log.Info($"TikTok: posting to @{username.TrimStart('@')} through Zernio");
+            // One key per run folder and file: a retry after a timeout returns the same post instead of a second one.
+            var post = await poster.PostAsync(videoPath, caption, username, $"{Path.GetFileName(folder)}-{new FileInfo(videoPath).Length}", ct);
+            record = record with { TikTok = new TikTokPublication(TikTokPublication.ZernioPrefix + post.PostId, post.Status, CaptionFile, time.GetLocalNow()) { Url = post.Url } };
+            SaveRecord(folder, record);
+            Log.Info($"TikTok: Zernio post {post.PostId} is {post.Status}{(post.Url is null ? "" : $", {post.Url}")}");
+            summary.AppendLine($"TikTok: posted through Zernio ({post.Status}){(post.Url is null ? "" : $": {post.Url}")}");
+        }
+        else if (platforms.HasFlag(Platforms.TikTok))
         {
             // Written first: the owner needs it for the draft whatever happens to the status polling.
             await File.WriteAllTextAsync(Path.Combine(folder, CaptionFile), caption, new UTF8Encoding(false), ct);
@@ -166,7 +191,8 @@ public sealed class Publisher(
         }
     }
 
-    private static string Plan(Platforms platforms, VideoDetails details, string caption, long videoBytes, string? thumbnail, List<string> already)
+    private static string Plan(Platforms platforms, VideoDetails details, string caption, long videoBytes, string? thumbnail, List<string> already,
+        string? zernioUsername)
     {
         var text = new StringBuilder("DRY RUN: nothing is sent and no file is written.\n");
         foreach (var line in already) text.AppendLine($"Already published to {line}; a real run needs --force.");
@@ -182,7 +208,15 @@ public sealed class Publisher(
             text.AppendLine($"description ({Encoding.UTF8.GetByteCount(details.Description)} bytes):");
             text.AppendLine(details.Description);
         }
-        if (platforms.HasFlag(Platforms.TikTok))
+        if (platforms.HasFlag(Platforms.TikTok) && zernioUsername is { Length: > 0 })
+        {
+            text.AppendLine();
+            text.AppendLine($"== TikTok (public post to @{zernioUsername.TrimStart('@')} through Zernio) ==");
+            text.AppendLine($"video: {videoBytes} bytes");
+            text.AppendLine($"caption ({caption.Length} chars):");
+            text.AppendLine(caption);
+        }
+        else if (platforms.HasFlag(Platforms.TikTok))
         {
             var plan = ChunkPlan.For(videoBytes);
             text.AppendLine();

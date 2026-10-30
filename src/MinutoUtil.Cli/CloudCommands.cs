@@ -437,6 +437,7 @@ internal static class CloudCommands
         {
             (config.Gemini.ApiKeyEnvVar, key(config.Gemini.ApiKeyEnvVar)),
             (config.OpenRouter.ApiKeyEnvVar, key(config.OpenRouter.ApiKeyEnvVar)),
+            (config.TikTok.ZernioApiKeyEnvVar, key(config.TikTok.ZernioApiKeyEnvVar)),
             (config.Voice.Smallest.ApiKeyEnvVar, key(config.Voice.Smallest.ApiKeyEnvVar)),
             (config.Telegram.BotTokenEnvVar, key(config.Telegram.BotTokenEnvVar)),
             (config.Telegram.ChatIdEnvVar, key(config.Telegram.ChatIdEnvVar)),
@@ -454,7 +455,8 @@ internal static class CloudCommands
             if (string.IsNullOrWhiteSpace(value))
             {
                 Console.WriteLine($"skipped {name}: not set on this PC");
-                if (name != config.OpenRouter.ApiKeyEnvVar) failed++;
+                // Optional: OpenRouter is a fallback writer, and Zernio is needed only by a channel with tiktok.zernioUsername.
+                if (name != config.OpenRouter.ApiKeyEnvVar && name != config.TikTok.ZernioApiKeyEnvVar) failed++;
                 continue;
             }
             var start = new ProcessStartInfo("gh") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };

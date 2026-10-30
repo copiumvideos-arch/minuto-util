@@ -190,7 +190,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
             if (warnings.Count > 6) text.AppendLine($"• mais {warnings.Count - 6} no run.log");
         }
         text.AppendLine();
-        text.Append($"Publicar manda para o YouTube e um rascunho para o TikTok. Execução {run.Tag}.");
+        text.Append($"Publicar manda para o YouTube e o TikTok. Execução {run.Tag}.");
         return TextUtil.Truncate(text.ToString(), TelegramNotifier.MaxCaption);
     }
 
@@ -229,15 +229,24 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
 
         var record = Publisher.LoadRecord(folder);
         state.Save(run with { Status = RunStatus.Published, YouTubeUrl = record.YouTube?.Url, TikTokPublishId = record.TikTok?.PublishId,
-            TikTokSentAt = record.TikTok?.UploadedAt, TikTokChecked = false, Note = null, UpdatedAt = time.GetUtcNow() });
+            TikTokSentAt = record.TikTok?.UploadedAt, TikTokChecked = record.TikTok?.Direct == true, Note = null, UpdatedAt = time.GetUtcNow() });
         var cover = record.YouTube?.Thumbnail is { } t && t.StartsWith("failed: ", StringComparison.Ordinal)
             ? $"\n⚠️ A capa não foi para o YouTube ({TextUtil.Truncate(t["failed: ".Length..], 200)}). Dá para pôr no YouTube Studio."
             : "";
-        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: {DraftWhere()}{cover}", [], ct);
+        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: {TikTokNotice(record.TikTok)}{cover}", [], ct);
         return 0;
     }
 
     private string AccountName => TikTokAccount.Length > 0 ? TikTokAccount : "do canal";
+
+    /// <summary>A direct post through Zernio is up (its link, once TikTok gives one); an inbox draft says where to find it.</summary>
+    private string TikTokNotice(TikTokPublication? tiktok) => tiktok switch
+    {
+        null => "não enviado",
+        { Direct: true, Url: { } url } => url,
+        { Direct: true } => "postado, o link aparece no perfil em instantes",
+        _ => DraftWhere(),
+    };
 
     /// <summary>Where the owner finds a draft: with two accounts on the phone, TikTok notifies only the one that is open.</summary>
     private string DraftWhere() =>
@@ -251,7 +260,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
 
     /// <summary>The drafts the hourly look asks TikTok about, oldest first.</summary>
     public static IReadOnlyList<RunRecord> DraftsToCheck(IEnumerable<RunRecord> runs, DateTimeOffset now) =>
-        runs.Where(r => r.Status == RunStatus.Published && r.TikTokPublishId is not null && !r.TikTokChecked)
+        runs.Where(r => r.Status == RunStatus.Published && r.TikTokPublishId is not null && !r.TikTokChecked && !TikTokPublication.IsDirect(r.TikTokPublishId))
             .Select(r => (Run: r, Age: now - (r.TikTokSentAt ?? r.UpdatedAt)))
             .Where(d => d.Age >= RemindAfter && d.Age < RemindWithin)
             .OrderByDescending(d => d.Age)
@@ -309,6 +318,9 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var run = state.Find(tag) ?? throw new PublishRefusedException($"Run {tag} is not in the state branch.");
         if (run.Status != RunStatus.Published || run.TikTokPublishId is null)
             throw new PublishRefusedException($"Run {tag} is {run.Status.ToString().ToLowerInvariant()}; only a published run's TikTok draft is sent again.");
+        // A direct post is already public: sending it again would post the video twice.
+        if (TikTokPublication.IsDirect(run.TikTokPublishId))
+            throw new PublishRefusedException($"Run {tag} was posted to TikTok directly ({run.TikTokPublishId}); there is no draft to send again.");
         try
         {
             Log.Info(await publisher.PublishAsync(folder, Platforms.TikTok, dryRun: false, force: true, ct));
@@ -339,7 +351,8 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var who = await account(ct);
         Log.Info($"TikTok: signed in as \"{who.DisplayName}\" (open_id {who.OpenId}, scopes {who.Scopes})");
         var drafts = new List<(RunRecord Run, TikTokStatus? Status, string? Error)>();
-        foreach (var run in state.Runs().Where(r => r.TikTokPublishId is not null).OrderByDescending(r => r.UpdatedAt).Take(TikTokDraftsChecked))
+        foreach (var run in state.Runs().Where(r => r.TikTokPublishId is not null && !TikTokPublication.IsDirect(r.TikTokPublishId))
+                     .OrderByDescending(r => r.UpdatedAt).Take(TikTokDraftsChecked))
         {
             try
             {
