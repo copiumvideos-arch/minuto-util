@@ -23,7 +23,8 @@ internal static class FootageCommand
             Console.Error.WriteLine("footage needs --article \"<the game's English Wikipedia title>\".");
             return 1;
         }
-        var media = config.Media;
+        // Enough trailers for the channel's longest format, since one release serves every video of the game.
+        var media = config.Media with { Trailers = config.Formats.Select(f => f.Trailers ?? 0).Append(config.Media.Trailers).Max() };
         if (Option(args, "--youtube") is { Length: > 0 } list)
         {
             var ids = list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(v => (Text: v, Id: YouTubeTrailers.VideoId(v))).ToList();

@@ -9,7 +9,7 @@ namespace MinutoUtil.Core.Media;
 /// <summary>
 /// Official trailers of a game from YouTube, for games Steam does not sell (GTA VI) or videos named per run with
 /// --youtube. yt-dlp (tools/pyproject.toml) searches and downloads; a search keeps only videos from an official channel:
-/// one in media.youTubeChannels (Rockstar, PlayStation, IGN...) or a verified channel named after the game. Each video
+/// one in media.youTubeChannels (Rockstar, Nintendo, Riot...) or media.youTubePressChannels (IGN, GameSpot), or a verified channel named after the game. Each video
 /// track (no audio) is cut to media.maxTrailerSeconds into the run's media/trailers/. yt-dlp's answers are untrusted data:
 /// ids are checked, the watch address is built here, and every file is probed before use.
 /// </summary>
@@ -17,12 +17,16 @@ public sealed partial class YouTubeTrailers(Ffmpeg ffmpeg, MediaOptions options,
 {
     private const int SearchResults = 20;
 
-    /// <summary>Titles that are about a trailer rather than the trailer: reactions, reviews, analysis, music.</summary>
+    /// <summary>
+    /// Titles that are about a trailer rather than the trailer (reactions, reviews, analysis, music), or about something
+    /// else than the game (a sequel, an anime of it). A word in the game's own name does not count ("Live A Live").
+    /// </summary>
     private static readonly string[] NotATrailer =
     [
         "reaction", "react", "reacts", "review", "breakdown", "analysis", "explained", "everything", "details", "theory",
         "podcast", "interview", "live", "livestream", "stream", "comparison", "vs", "soundtrack", "ost", "song", "music",
-        "fan", "fanmade", "concept", "leak", "leaked", "mod", "remake", "recreated", "parody", "meme", "shorts",
+        "fan", "fanmade", "concept", "leak", "leaked", "mod", "remake", "recreated", "parody", "meme", "shorts", "sequel",
+        "anime", "movie", "film", "series", "episode",
     ];
 
     /// <summary>Searches YouTube for the game's official trailers.</summary>
@@ -50,24 +54,32 @@ public sealed partial class YouTubeTrailers(Ffmpeg ffmpeg, MediaOptions options,
     }
 
     /// <summary>
-    /// The search results that are a game's official videos, in the search's order with titles saying "trailer" first.
-    /// A reupload (another channel's video of the same length) is dropped, so no footage repeats.
+    /// The search results that are a game's official videos: the studios' and publishers' channels first, then the
+    /// game's own verified channels (regional ones like Free Fire India), then the press; within each, titles saying
+    /// "trailer" first, else the search's order. A reupload (another channel's video of the same length) is dropped.
     /// </summary>
     internal static List<Video> Pick(IEnumerable<JsonObject> results, string game, MediaOptions options)
     {
         var wanted = GameNames.Title(game);
-        var allowed = options.YouTubeChannels.ToHashSet(StringComparer.Ordinal);
+        var companies = options.YouTubeChannels.ToHashSet(StringComparer.Ordinal);
+        var press = options.YouTubePressChannels.ToHashSet(StringComparer.Ordinal);
+        var gameWords = Words().Matches(TextUtil.Fold(wanted)).Select(m => m.Value).ToHashSet();
         var picked = new List<Video>();
         foreach (var video in results.Select(Describe).OfType<Video>())
         {
-            var officialChannel = allowed.Contains(video.ChannelId) || video.Verified && GameNames.Names(video.Channel, wanted);
+            var officialChannel = companies.Contains(video.ChannelId) || press.Contains(video.ChannelId)
+                                  || video.Verified && GameNames.Names(video.Channel, wanted);
             var words = Words().Matches(TextUtil.Fold(video.Title)).Select(m => m.Value).ToHashSet();
-            if (!officialChannel || !GameNames.Names(video.Title, wanted) || NotATrailer.Any(words.Contains)) continue;
+            if (!officialChannel || !GameNames.Names(video.Title, wanted) || NotATrailer.Any(w => words.Contains(w) && !gameWords.Contains(w))) continue;
             if (video.Duration is < 20 or > 3600) continue;
             if (picked.Any(p => p.ChannelId != video.ChannelId && Math.Abs(p.Duration - video.Duration) <= 1)) continue;
             picked.Add(video);
         }
-        return picked.OrderByDescending(v => TextUtil.Fold(v.Title).Contains("trailer", StringComparison.Ordinal)).ToList();
+        // Stable sorts: the search's order holds within each rank.
+        return picked
+            .OrderBy(v => companies.Contains(v.ChannelId) ? 0 : press.Contains(v.ChannelId) ? 2 : 1)
+            .ThenByDescending(v => TextUtil.Fold(v.Title).Contains("trailer", StringComparison.Ordinal))
+            .ToList();
     }
 
     /// <summary>A YouTube video id from an id, a watch address or a youtu.be link; null when it is none of those.</summary>

@@ -89,6 +89,9 @@ if (Option("--article") is { } article)
     config = config with { Story = config.Story with { EnglishArticle = article, PortugueseArticle = "", EventYear = int.TryParse(Option("--year"), out var year) && year != 0 ? year : null } };
 if (Option("--portuguese-article") is { Length: > 0 } portuguese) config = config with { Story = config.Story with { PortugueseArticle = portuguese } };
 if (Option("--topic") is { Length: > 0 } topic) config = config with { Story = config.Story with { Topic = topic } };
+// A series with its own format (formats in config.json) changes the length, the trailers and the writer's angle.
+var format = config.Format;
+config = config.WithFormat();
 if (Option("--steam-app") is { Length: > 0 } steamApp)
 {
     if (!int.TryParse(steamApp, out var steamAppId) || steamAppId <= 0)
@@ -120,6 +123,7 @@ Log.Sink = line =>
     logWriter.WriteLine(line);
 };
 Log.Info($"run {folder} started ({(Option("--run") is null ? "new" : "resumed")})");
+if (format is not null) Log.Info($"format: {format.Topic}, {config.Writer.MinWords}-{config.Writer.MaxWords} words, {config.Media.Trailers} trailers");
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -140,7 +144,7 @@ else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
 if (Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)
     writers.Add(OpenRouterClient.ForCloudflare(apiHttp, cloudflareToken, cloudflareAccount, config.CloudflareAi.Models, usage, quota));
 if (Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey) writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
-var prompt = File.ReadAllText(channel.WriterPromptFile);
+var prompt = channel.WriterPrompt(format);
 
 var tools = Path.Combine(root, "tools");
 var smallest = Key(config.Voice.Smallest.ApiKeyEnvVar) is { } smallestKey ? new SmallestVoice(apiHttp, smallestKey, config.Voice.Smallest, usage) : null;

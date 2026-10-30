@@ -62,6 +62,25 @@ public sealed class YouTubeTrailersTests
         Assert.Equal(["fffffffffff"], picked);
     }
 
+    [Fact]
+    public void StudiosComeBeforeTheGamesRegionalChannelsAndThePressAndSequelsAreDropped()
+    {
+        // Free Fire's search (October 2026): India's and Malaysia's channels came first; Garena Brasil is a studio channel.
+        var picked = YouTubeTrailers.Pick([
+            Result("iiiiiiiiiii", "FREE FIRE INDIA IS HERE!", "Free Fire India Official", "UCindia", true, 92),
+            Result("jjjjjjjjjjj", "Free Fire Official Trailer | IGN", "IGN", "UCKy1dAqELo0zrOtPkf0eTMw", true, 70),
+            Result("kkkkkkkkkkk", "Free Fire - Trailer Oficial", "Garena Free Fire Brasil", "UCr4ARxgElIO21GWfIraZezg", true, 55),
+            Result("lllllllllll", "Sequel to Free Fire - First Look Trailer", "Garena Free Fire Brasil", "UCr4ARxgElIO21GWfIraZezg", true, 87),
+            Result("mmmmmmmmmmm", "Free Fire 7 anos", "Garena Free Fire Brasil", "UCr4ARxgElIO21GWfIraZezg", true, 40),
+            Result("nnnnnnnnnnn", "ANIME FREE FIRE - TRAILER | FREE FIRE BRASIL", "Garena Free Fire Brasil", "UCr4ARxgElIO21GWfIraZezg", true, 30)],
+            "Free Fire (video game)", new MediaOptions());
+
+        Assert.Equal(["kkkkkkkkkkk", "mmmmmmmmmmm", "iiiiiiiiiii", "jjjjjjjjjjj"], picked.Select(v => v.Id));
+        // A word of the game's own name is no reason to drop its trailer.
+        Assert.Single(YouTubeTrailers.Pick([Result("ooooooooooo", "Live A Live - Launch Trailer - Nintendo Switch", "Nintendo of America", "UCGIY_O-8vW4rfX98KlMkvRg", true, 90)],
+            "Live A Live", new MediaOptions()));
+    }
+
     [Theory]
     [InlineData("QdBZY2fkU-0", "QdBZY2fkU-0")]
     [InlineData("https://www.youtube.com/watch?v=QdBZY2fkU-0&t=10s", "QdBZY2fkU-0")]

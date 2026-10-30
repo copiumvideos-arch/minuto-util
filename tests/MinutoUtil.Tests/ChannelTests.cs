@@ -305,6 +305,37 @@ public sealed class ChannelTests
     }
 
     [Fact]
+    public void A_history_topic_gets_the_long_format_and_its_own_angle()
+    {
+        var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler");
+        var usual = spoiler.Config with { Story = spoiler.Config.Story with { Topic = "Curiosidades de games" } };
+        var history = spoiler.Config with { Story = spoiler.Config.Story with { Topic = "história dos games" } };
+
+        // The usual one-minute video is unchanged.
+        Assert.Null(usual.Format);
+        Assert.Equal(usual, usual.WithFormat());
+        var shortPrompt = spoiler.WriterPrompt(usual.Format);
+        Assert.Contains("Pick the one fact about this game that sounds hardest to believe", shortPrompt);
+
+        // The series name picks the history format whatever its case: longer, more sections and trailers.
+        var long_ = history.WithFormat();
+        Assert.Equal("História dos games", history.Format!.Topic);
+        Assert.Equal((290, 380, 10, 15), (long_.Writer.MinWords, long_.Writer.MaxWords, long_.Writer.MinSections, long_.Writer.MaxSections));
+        Assert.Equal(5, long_.Media.Trailers);
+        Assert.Equal(spoiler.Config.Writer.MaxRequests, long_.Writer.MaxRequests);
+        // About 2.4 spoken words a second (Hollow Knight: 135 words in 56.8 s): even the longest script accepted stays a
+        // YouTube Short (3 minutes at most).
+        Assert.True((long_.Writer.MaxWords + long_.Writer.HardWordMargin) / 2.4 < 180);
+
+        var longPrompt = new MinutoUtil.Core.Scripts.ScriptWriter(new MinutoUtil.Core.Llm.ChainedLlmClient([]), spoiler.WriterPrompt(history.Format), long_.Writer, "Profissão Spoiler").SystemPrompt();
+        Assert.Contains("This video is the history of the game", longPrompt);
+        Assert.Contains("two to three minutes", longPrompt);
+        Assert.Contains("290 to 380 words", longPrompt);
+        Assert.DoesNotContain("Pick the one fact", longPrompt);
+        Assert.DoesNotMatch(@"\{[A-Z_]+\}", longPrompt);
+    }
+
+    [Fact]
     public void Workflows_take_channel_secrets_only_through_the_channel_prefix()
     {
         // A channel secret written by name (secrets.MINUTO_X) would hand Minuto Útil's secret to every channel.

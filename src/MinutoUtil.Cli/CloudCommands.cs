@@ -66,7 +66,7 @@ internal static class CloudCommands
                     return await SettingsAsync(state, config.Channel, Option(args, "--set") ?? "", telegram, cts.Token);
                 case "status":
                     await telegram.SendTextAsync(CloudFlow.StatusMessage(config.Channel, state.Settings(), state.Runs(),
-                        state.Queue(TopicBacklog.Load(channel.TopicsFile)), DateTimeOffset.UtcNow), cts.Token);
+                        state.Queue(channel.Backlog()), DateTimeOffset.UtcNow), cts.Token);
                     return 0;
                 case "stats":
                 {
@@ -190,7 +190,7 @@ internal static class CloudCommands
     private static async Task<int> NextAsync(CloudState state, string tag, Channel channel, Func<string, string?> key,
         string? article, TelegramNotifier telegram, CancellationToken ct)
     {
-        var backlog = TopicBacklog.Load(channel.TopicsFile);
+        var backlog = channel.Backlog();
         var (next, left) = state.NextTopic(backlog);
         if (!string.IsNullOrWhiteSpace(article))
         {
@@ -347,7 +347,7 @@ internal static class CloudCommands
     private static async Task<int> QueueAsync(CloudState state, Channel channel, string? top, string? remove, string? move, string? to,
         TelegramNotifier telegram, CancellationToken ct)
     {
-        var backlog = TopicBacklog.Load(channel.TopicsFile);
+        var backlog = channel.Backlog();
         string? done = null;
         try
         {
@@ -405,7 +405,7 @@ internal static class CloudCommands
         var id = $"{now.UtcDateTime:yyyyMMdd-HHmmss}-text";
         state.SaveApproved(new ApprovedIdea(id, topic, FromText: true, now));
         // The newest idea is the next video, even ahead of items the owner moved up earlier.
-        state.Move(TopicBacklog.Load(channel.TopicsFile), "a-" + id, 1);
+        state.Move(channel.Backlog(), "a-" + id, 1);
         await telegram.SendTextAsync($"📝 Anotado: {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}). É o próximo vídeo da fila (veja com /fila). Para fazer agora, mande /novo {TextUtil.Truncate(idea.Trim(), 100)}", ct);
         return 0;
     }

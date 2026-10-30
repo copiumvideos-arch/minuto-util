@@ -21,6 +21,25 @@ public sealed record AppConfig
     public TikTokOptions TikTok { get; init; } = new();
     public Publishing.TelegramOptions Telegram { get; init; } = new();
 
+    /// <summary>Kinds of video other than the channel's usual one, each picked by its series name (a topic's "topic").</summary>
+    public IReadOnlyList<VideoFormat> Formats { get; init; } = [];
+
+    /// <summary>The format whose series is story.topic, or null for the usual video.</summary>
+    public VideoFormat? Format => Formats.FirstOrDefault(f => string.Equals(f.Topic, Story.Topic, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The config with story.topic's format applied: its length, sections, trailers and source size.</summary>
+    public AppConfig WithFormat() => Format is not { } f ? this : this with
+    {
+        Writer = Writer with
+        {
+            MinWords = f.MinWords ?? Writer.MinWords, MaxWords = f.MaxWords ?? Writer.MaxWords,
+            MinSections = f.MinSections ?? Writer.MinSections, MaxSections = f.MaxSections ?? Writer.MaxSections,
+            HardWordMargin = f.HardWordMargin ?? Writer.HardWordMargin, Length = f.Length ?? Writer.Length,
+        },
+        Media = Media with { Trailers = f.Trailers ?? Media.Trailers },
+        Story = Story with { MaxSourceChars = f.MaxSourceChars ?? Story.MaxSourceChars },
+    };
+
     /// <summary>
     /// Quota files of other apps that use the same API keys, read only. The Gemini key is shared with the live
     /// Flopômetro channel; its D:\projects\canal-dark\data\quota-state.json says which models are out today, so this
@@ -38,6 +57,33 @@ public sealed record AppConfig
 /// Who the channel is. Everything that must never mix between two channels (sign-ins, secrets, state, schedule) is
 /// named from here, so each channel's config.json sets these itself; there are no shared defaults for them.
 /// </summary>
+/// <summary>
+/// A kind of video picked by its series name, like Profissão Spoiler's "História dos games": 2 to 3 minutes on how a
+/// game was made, against the usual one-fact minute. Unset values keep the channel's.
+/// </summary>
+public sealed record VideoFormat
+{
+    /// <summary>The series name that picks this format (story.topic, a backlog topic's "topic").</summary>
+    public string Topic { get; init; } = "";
+
+    /// <summary>The file in the channel's prompts/ put in place of {ANGLE} in writer.md (the usual one is angle.md).</summary>
+    public string? Angle { get; init; }
+
+    public int? MinWords { get; init; }
+    public int? MaxWords { get; init; }
+    public int? MinSections { get; init; }
+    public int? MaxSections { get; init; }
+    public int? HardWordMargin { get; init; }
+
+    /// <summary>How long the video runs, in words for the writer ("two to three minutes").</summary>
+    public string? Length { get; init; }
+
+    /// <summary>Trailers to cut from: a longer video needs more shots so none repeats.</summary>
+    public int? Trailers { get; init; }
+
+    public int? MaxSourceChars { get; init; }
+}
+
 public sealed record ChannelOptions
 {
     /// <summary>The folder name under channels/; set by <see cref="Channel.Load"/>, not written in config.json.</summary>
@@ -172,6 +218,9 @@ public sealed record WriterOptions
 
     /// <summary>A script this far outside the word range is asked for again (one more request); closer, it is used with a warning.</summary>
     public int HardWordMargin { get; init; } = 25;
+
+    /// <summary>The video's length for {LENGTH} in the writer prompt.</summary>
+    public string Length { get; init; } = "forty-five seconds to one minute";
 }
 
 public sealed record VoiceOptions
@@ -250,8 +299,8 @@ public sealed record MediaOptions
 
     /// <summary>
     /// The YouTube channels whose videos a search may use for a game Steam does not sell (besides a verified channel
-    /// named after the game): publishers, platforms and the outlets that post official trailers. Channel ids, since
-    /// names can be copied.
+    /// named after the game): studios, publishers and platforms, the Brazilian ones too. Channel ids, since names can be
+    /// copied.
     /// </summary>
     public IReadOnlyList<string> YouTubeChannels { get; init; } =
     [
@@ -265,6 +314,37 @@ public sealed record MediaOptions
         "UCW7h-1mymnJ96akzjrmiIgA", // Capcom USA
         "UC_ntXHv-XdKCD7CPynVvnQw", // Bandai Namco Entertainment America
         "UCWfXR0-F7MI-TbqikgEdJcQ", // SEGA
+        "UCEG4fd9DERXPzziMo3WgYMA", // Nintendo UK
+        "UCkH3CcMfqww9RsZvPRPkAJA", // Nintendo (Japan)
+        "UC3A8iYXqPjNfOZ6TLP-jOOA", // Nintendo Brasil
+        "UCBxISRSkepIEF4zo7CJtK3Q", // PlayStation Brasil
+        "UCuBwNHXUJY7wg1qcJdq08Yg", // Ubisoft Brasil
+        "UCJEGvSZnQ1pkVfHO8s5G8hA", // Riot Games
+        "UC2t5bjwHdUX4vM2g8TRDq5g", // League of Legends
+        "UCuCtanBJXOPAEIAUXf9944g", // CD PROJEKT RED
+        "UC6SmH9mR82nj28_NNg_rZvA", // SQUARE ENIX
+        "UCA5SLTAVA6unn1M-6lbo1NA", // Square Enix (North America)
+        "UCg0FSqPeiGD_lIiPaaAehQg", // Valve
+        "UCwkUBN7foWU9GcY5cFmso-Q", // Konami
+        "UC9YydG57epLqxA9cTzZXSeQ", // Call of Duty (Activision)
+        "UC3GriadTkHBnfgd2UFETGOA", // Blizzard Entertainment
+        "UClG8odDC8TS6Zpqk9CGVQiQ", // Fortnite (Epic Games)
+        "UC1sELGmy5jp5fQUugmuYlXQ", // Minecraft (Mojang)
+        "UCr4ARxgElIO21GWfIraZezg", // Garena Free Fire Brasil
+        "UC7qTEluetD2pDB7lUBBlKuw", // Garena Free Fire Global
+        "UCHqAOjD1bj-PvtPcK8qDFMQ", // Warner Bros. Games
+        "UCeO7Obz1NdrZYhI4PtstNuA", // 505 Games
+        "UCSc6s-ZJXKlSQr51dsox34g", // Devolver Digital
+        "UCoztP3NSW03Kd69KjQEIxeg", // Annapurna Interactive
+        "UCZS2K8ZsUmujTuj3cNMyBSA", // Team Cherry
+    ];
+
+    /// <summary>
+    /// Press channels whose trailers are reposts of the studios' own (IGN, GameSpot): official footage, but taken only
+    /// after the studios' channels and the game's own verified channels.
+    /// </summary>
+    public IReadOnlyList<string> YouTubePressChannels { get; init; } =
+    [
         "UCKy1dAqELo0zrOtPkf0eTMw", // IGN
         "UCUnRn1f78foyP26XGkRfWsA", // GameSpot Trailers
     ];

@@ -281,7 +281,15 @@ way (Wikipedia sources, the channel's `writer.md`), then:
    watermark, no vintage layers, year card, map or cover. No music: trending sounds are added in the TikTok app.
 
 Its scripts state facts only and end on the last fact (no opinions, ironies or "Ou seja" wrap-ups), see
-`channels/profissao-spoiler/prompts/writer.md`. The trailers are the studios' own promotional videos, credited in
+`channels/profissao-spoiler/prompts/writer.md`.
+
+**Formats.** A topic's series can pick another kind of video (`formats` in the channel's config.json): Profissão
+Spoiler's "História dos games" is 2 to 3 minutes (290 to 380 words, kept under YouTube's 3 minute Shorts limit) on how a
+game was made, from 5 trailers, with `prompts/angle-historia.md` in place of `{ANGLE}` in writer.md (the usual
+one-fact minute uses `prompts/angle.md`). The queue tells formats apart, so one game can have a short video and a
+history. The `footage` command fetches enough trailers for the longest format; for a game with no trailer of its own
+(Super Mario Bros.), name official videos with `--youtube`. The voice says some words from `voice.pronunciations`
+("GTA" as "gê tê á"), while the captions keep the script. The trailers are the studios' own promotional videos, credited in
 the description; this is the owner's choice for this channel and does not change Minuto Útil's media rules.
 
 ## Cloud runs (no PC needed)

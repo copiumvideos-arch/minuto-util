@@ -36,7 +36,8 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         .Replace("{MIN_WORDS}", options.MinWords.ToString())
         .Replace("{MAX_WORDS}", options.MaxWords.ToString())
         .Replace("{MIN_SECTIONS}", options.MinSections.ToString())
-        .Replace("{MAX_SECTIONS}", options.MaxSections.ToString());
+        .Replace("{MAX_SECTIONS}", options.MaxSections.ToString())
+        .Replace("{LENGTH}", options.Length);
 
     internal static string UserPrompt(string topic, IReadOnlyList<SourceArticle> sources, int maxSourceChars, string? feedback)
     {

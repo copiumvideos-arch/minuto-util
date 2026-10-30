@@ -38,6 +38,24 @@ public sealed class TopicQueueTests
     }
 
     [Fact]
+    public void Profissao_Spoilers_backlog_mixes_histories_and_short_videos_without_repeats()
+    {
+        var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler");
+        var backlog = spoiler.Backlog();
+
+        Assert.Equal(backlog.Topics.Count, backlog.Topics.Select(t => backlog.Identity(t).ToLowerInvariant()).Distinct().Count());
+        Assert.All(backlog.Topics, t => Assert.InRange(t.Year, 1970, 2026));
+        var histories = backlog.Topics.Where(t => t.Topic == "História dos games").ToList();
+        Assert.True(histories.Count >= 15);
+        // Never two histories in a row: the 2 to 3 minute videos alternate with the one-minute ones.
+        Assert.All(backlog.Topics.Zip(backlog.Topics.Skip(1)), p => Assert.False(p.First.Topic == "História dos games" && p.Second.Topic == "História dos games"));
+        // A game can have both kinds, and the queue keeps both.
+        var queue = new CloudState(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))).Queue(backlog);
+        Assert.Equal(backlog.Topics.Count, queue.Count);
+        Assert.Equal(histories.Count, queue.Count(e => e.Format == "História dos games"));
+    }
+
+    [Fact]
     public void Used_topics_are_skipped_and_a_topic_gets_a_second_chance_after_one_failure()
     {
         using var temp = new TempFolder();
@@ -693,6 +711,33 @@ public sealed class QueueTests
 
         Assert.Throws<ArgumentException>(() => state.Find(Backlog, "9"));
         Assert.Throws<ArgumentException>(() => state.Find(Backlog, "b-not-there"));
+    }
+
+    [Fact]
+    public void A_game_can_have_a_short_video_and_a_history_in_the_queue()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(temp.Path);
+        var backlog = new TopicBacklog(
+            [new("Elden Ring", 2022, "Curiosidades de games"), new("Elden Ring", 2022, "História dos games"), new("Hades", 2020, "História dos games")],
+            ["História dos games"]);
+
+        var queue = state.Queue(backlog);
+        Assert.Equal([null, "História dos games", "História dos games"], queue.Select(e => e.Format));
+        Assert.Equal(3, queue.Select(e => e.Key).Distinct().Count());
+        Assert.Contains("2. Elden Ring (2022) · História dos games · fila padrão", CloudFlow.QueueMessage(queue).Text);
+
+        // The short video made: only the history of Elden Ring is left, and the other way round.
+        state.Save(new RunRecord { Tag = "20261030-1500", Article = "Elden Ring", Topic = "Curiosidades de games", Status = RunStatus.Published, UpdatedAt = PublishData.Now });
+        Assert.Equal(["Elden Ring", "Hades"], state.Queue(backlog).Select(e => e.Topic.Article));
+        Assert.Equal("História dos games", state.Queue(backlog)[0].Format);
+        state.Save(new RunRecord { Tag = "20261030-2300", Article = "Hades", Topic = "história dos games", Status = RunStatus.Review, UpdatedAt = PublishData.Now });
+        Assert.Equal(["Elden Ring"], state.Queue(backlog).Select(e => e.Topic.Article));
+
+        // Removing the history leaves nothing of it; without formats (another channel) one Elden Ring video was enough.
+        state.Remove(backlog, state.Queue(backlog)[0].Key);
+        Assert.Empty(state.Queue(backlog));
+        Assert.Empty(new CloudState(temp.Path).Queue(backlog with { FormatTopics = null }));
     }
 
     [Fact]

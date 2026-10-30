@@ -25,6 +25,16 @@
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
+  "formats": [
+    {
+      "topic": "História dos games",
+      "angle": "angle-historia.md",
+      "minWords": 290, "maxWords": 380, "minSections": 10, "maxSections": 15, "hardWordMargin": 30,
+      "length": "two to three minutes",
+      "trailers": 5,
+      "maxSourceChars": 30000
+    }
+  ],
   "writer": { "maxRequests": 5, "minWords": 120, "maxWords": 170, "minSections": 4, "maxSections": 6, "hardWordMargin": 30 },
   "voice": {
     "engine": "smallest",

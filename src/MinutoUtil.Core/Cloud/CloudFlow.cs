@@ -89,7 +89,7 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         var slots = NextSlots(channel.ScheduleUtcHours, now, 3);
         for (var i = 0; i < Math.Min(3, queue.Count); i++)
         {
-            var title = queue[i].Topic.PortugueseArticle ?? queue[i].Topic.Article;
+            var title = (queue[i].Topic.PortugueseArticle ?? queue[i].Topic.Article) + (queue[i].Format is { } format ? $" ({format})" : "");
             text.AppendLine(settings.Paused ? $"{i + 1}. {title} (pausado)"
                 : i < slots.Count ? $"{i + 1}. {title}: {When(slots[i], now)}"
                 : $"{i + 1}. {title}");
@@ -116,9 +116,9 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         text.AppendLine("📋 Próximos vídeos (o primeiro é o próximo):");
         for (var i = 0; i < Math.Min(queue.Count, QueueShown); i++)
         {
-            var (_, topic, origin) = queue[i];
+            var (_, topic, origin, format) = queue[i];
             var from = origin switch { QueueOrigin.Text => "sua ideia", QueueOrigin.Tapped => "da lista do dia", _ => "fila padrão" };
-            text.Append($"\n{i + 1}. {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}) · {from}");
+            text.Append($"\n{i + 1}. {topic.PortugueseArticle ?? topic.Article} ({TextUtil.YearLabel(topic.Year)}){(format is null ? "" : $" · {format}")} · {from}");
         }
         if (queue.Count > QueueShown) text.Append($"\n... e mais {queue.Count - QueueShown}");
         text.Append("\n\n⏫ leva para o topo, 🗑 tira da fila. Também: /mover 5 2, /remover 3, ou mande um tema para adicionar.");

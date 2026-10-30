@@ -10,12 +10,29 @@ namespace MinutoUtil.Core;
 /// </summary>
 public sealed partial record Channel(string Id, string Folder, AppConfig Config)
 {
+    [GeneratedRegex(@"^angle[a-z0-9-]*\.md$")]
+    private static partial Regex AngleFile();
+
     /// <summary>The live channel, and the default of --channel, so every command line from before channels still works.</summary>
     public const string DefaultId = "minuto-util";
 
     public string TopicsFile => Path.Combine(Folder, "topics.json");
+
+    /// <summary>topics.json, knowing the series of the channel's other formats.</summary>
+    public Cloud.TopicBacklog Backlog() =>
+        Cloud.TopicBacklog.Load(TopicsFile) with { FormatTopics = Config.Formats.Select(f => f.Topic).ToList() };
     public string WriterPromptFile => Path.Combine(Folder, "prompts", "writer.md");
     public string TrendsPromptFile => Path.Combine(Folder, "prompts", "trends.md");
+
+    /// <summary>writer.md with {ANGLE} replaced by the format's angle file (prompts/angle.md for the usual video).</summary>
+    public string WriterPrompt(VideoFormat? format)
+    {
+        var prompt = File.ReadAllText(WriterPromptFile);
+        if (!prompt.Contains("{ANGLE}", StringComparison.Ordinal)) return prompt;
+        var name = format?.Angle ?? "angle.md";
+        if (!AngleFile().IsMatch(name)) throw new InvalidDataException($"\"{name}\" is not a prompt file name (like angle-historia.md).");
+        return prompt.Replace("{ANGLE}", File.ReadAllText(Path.Combine(Folder, "prompts", name)).Trim());
+    }
 
     /// <summary>The topics file as the owner knows it, for Telegram messages ("channels/minuto-util/topics.json").</summary>
     public string TopicsFileName => $"channels/{Id}/topics.json";

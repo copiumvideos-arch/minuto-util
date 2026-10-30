@@ -10,8 +10,18 @@ namespace MinutoUtil.Core.Cloud;
 /// </summary>
 public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null, string? PortugueseArticle = null);
 
-public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics)
+/// <summary>
+/// The channel's topics.json. <see cref="FormatTopics"/> are the series of the channel's other formats (config.json
+/// formats): a game told in one of them is another video, so "Elden Ring" can be a one-minute video and a history.
+/// </summary>
+public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics, IReadOnlyList<string>? FormatTopics = null)
 {
+    /// <summary>What makes two topics the same video: the article, plus the series when it is another format.</summary>
+    public string Identity(string article, string topic) =>
+        FormatTopics?.FirstOrDefault(f => string.Equals(f, topic, StringComparison.OrdinalIgnoreCase)) is { } format ? $"{article} {format}" : article;
+
+    public string Identity(BacklogTopic topic) => Identity(topic.Article, topic.Topic);
+
     public static TopicBacklog Load(string path) =>
         JsonSerializer.Deserialize<TopicBacklog>(File.ReadAllText(path), Json.Options) ?? throw new InvalidDataException($"{path} is empty.");
 }
@@ -68,8 +78,11 @@ public enum QueueOrigin
     Backlog,
 }
 
-/// <summary>One upcoming video: <see cref="Key"/> stays the same while the queue changes around it (for buttons).</summary>
-public sealed record QueueEntry(string Key, BacklogTopic Topic, QueueOrigin Origin);
+/// <summary>
+/// One upcoming video: <see cref="Key"/> stays the same while the queue changes around it (for buttons).
+/// <see cref="Format"/> is the series of another format (config.json formats), null for the usual video.
+/// </summary>
+public sealed record QueueEntry(string Key, BacklogTopic Topic, QueueOrigin Origin, string? Format = null);
 
 /// <summary>The state branch checked out in a folder: runs/*.json plus the files the cloud runs keep between jobs.</summary>
 public sealed class CloudState(string folder)
@@ -180,16 +193,18 @@ public sealed class CloudState(string folder)
         var keys = new HashSet<string>(StringComparer.Ordinal);
         bool Open(BacklogTopic t)
         {
-            if (removed.Contains(TextUtil.Slug(t.Article, 60))) return false;
-            var mine = runs.Where(r => string.Equals(r.Article, t.Article, StringComparison.OrdinalIgnoreCase)).ToList();
+            var identity = backlog.Identity(t);
+            if (removed.Contains(TextUtil.Slug(identity, 60))) return false;
+            var mine = runs.Where(r => string.Equals(backlog.Identity(r.Article, r.Topic), identity, StringComparison.OrdinalIgnoreCase)).ToList();
             return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures;
         }
         var entries = Approved().OrderByDescending(a => a.FromText).ThenBy(a => a.ApprovedAt)
             .Select(a => new QueueEntry("a-" + a.Id, a.Topic, a.FromText ? QueueOrigin.Text : QueueOrigin.Tapped))
-            .Concat(backlog.Topics.Select(t => new QueueEntry("b-" + TextUtil.Slug(t.Article, 34), t, QueueOrigin.Backlog)))
+            .Concat(backlog.Topics.Select(t => new QueueEntry("b-" + TextUtil.Slug(backlog.Identity(t), 34), t, QueueOrigin.Backlog)))
             .Where(e => Open(e.Topic))
+            .Select(e => e with { Format = backlog.FormatTopics?.FirstOrDefault(f => string.Equals(f, e.Topic.Topic, StringComparison.OrdinalIgnoreCase)) })
             // The same article twice (tapped and in the backlog): the first one stands.
-            .Where(e => keys.Add("article:" + e.Topic.Article.ToLowerInvariant()) && keys.Add(e.Key))
+            .Where(e => keys.Add("article:" + backlog.Identity(e.Topic).ToLowerInvariant()) && keys.Add(e.Key))
             .ToList();
         var order = File.Exists(OrderFile) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(OrderFile), Json.Options) ?? [] : [];
         var ordered = order.Select(k => entries.FirstOrDefault(e => e.Key == k)).OfType<QueueEntry>().ToList();
@@ -231,7 +246,7 @@ public sealed class CloudState(string folder)
     public QueueEntry Remove(TopicBacklog backlog, string item)
     {
         var entry = Find(backlog, item);
-        Write(Path.Combine(RemovedFolder, $"{TextUtil.Slug(entry.Topic.Article, 60)}.json"),
+        Write(Path.Combine(RemovedFolder, $"{TextUtil.Slug(backlog.Identity(entry.Topic), 60)}.json"),
             new { article = entry.Topic.Article, removedAt = DateTimeOffset.UtcNow });
         if (entry.Origin != QueueOrigin.Backlog)
         {
