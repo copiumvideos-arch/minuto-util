@@ -1,0 +1,69 @@
+{
+  "date": "20261030",
+  "sentAt": "2026-10-30T09:39:40.2386499+00:00",
+  "ideas": [
+    {
+      "article": "Solar eclipse of May 29, 1919",
+      "year": 1919,
+      "topic": "Ciência no Brasil",
+      "trend": "telescópio",
+      "portugueseArticle": "Eclipse solar de 29 de maio de 1919"
+    },
+    {
+      "article": "Encilhamento",
+      "year": 1890,
+      "topic": "Economia",
+      "trend": "equilíbrio fiscal",
+      "portugueseArticle": "Crise do encilhamento"
+    },
+    {
+      "article": "Roosevelt–Rondon Scientific Expedition",
+      "year": 1914,
+      "topic": "Grandes expedições",
+      "trend": "Amyr Klink",
+      "portugueseArticle": "Expedição Científica Rondon-Roosevelt"
+    },
+    {
+      "article": "Inconfidência Mineira",
+      "year": 1789,
+      "topic": "Revoltas coloniais",
+      "trend": "perdão de dívidas",
+      "portugueseArticle": "Inconfidência Mineira"
+    },
+    {
+      "article": "Battle of Monte Castello",
+      "year": 1945,
+      "topic": "Segunda Guerra Mundial",
+      "trend": "relações com os EUA",
+      "portugueseArticle": "Batalha de Monte Castello"
+    },
+    {
+      "article": "Cabanagem",
+      "year": 1835,
+      "topic": "Revoltas do Império",
+      "trend": "demanda por mudança",
+      "portugueseArticle": "Cabanagem"
+    },
+    {
+      "article": "First Battle of Guararapes",
+      "year": 1648,
+      "topic": "Brasil Holandês",
+      "trend": "soberania nacional",
+      "portugueseArticle": null
+    },
+    {
+      "article": "Battle of Riachuelo",
+      "year": 1865,
+      "topic": "Guerra do Paraguai",
+      "trend": "tabela do campeonato brasileiro",
+      "portugueseArticle": "Batalha Naval do Riachuelo"
+    },
+    {
+      "article": "Contestado War",
+      "year": 1912,
+      "topic": "Revoltas e conflitos",
+      "trend": "grêmio vs athletico-pr",
+      "portugueseArticle": "Guerra do Contestado"
+    }
+  ]
+}
