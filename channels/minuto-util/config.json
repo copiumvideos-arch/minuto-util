@@ -79,6 +79,7 @@
   "tiktok": {
     "redirectUri": "http://localhost:8723/callback/",
     "maxCaptionChars": 2200,
-    "statusWaitSeconds": 300
+    "statusWaitSeconds": 300,
+    "zernioUsername": "minutoutilvideos"
   }
 }
