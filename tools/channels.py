@@ -4,7 +4,8 @@ workflows run it with the runner's python3 before anything is installed).
     python3 tools/channels.py matrix <field>   prints a JSON list for a job matrix, one entry per channel:
         {"id", "prefix", "state", "release"}. A run started by hand (CHANNEL set, from the workflow's channel input)
         is for that one channel. A scheduled run (SCHEDULE set to the cron line that fired, like "0 14 * * *") is for
-        every channel whose <field> (scheduleUtcHours or ideasUtcHours) has that hour; none gives [].
+        every channel whose <field> (scheduleUtcHours or ideasUtcHours) has that hour; none gives []. The field "all"
+        gives every channel on any schedule (the hourly TikTok look in publish.yml).
     python3 tools/channels.py outputs           prints the same entry for CHANNEL as name=value lines for GITHUB_OUTPUT.
 
 "state" is the channel's folder in the state branch checkout (./state): "state" for Minuto Util, whose files were
@@ -63,10 +64,12 @@ def entry(channel: dict) -> dict:
 
 
 def matrix(field: str, channel_id: str, schedule: str, root: str = ROOT) -> list:
-    if field not in ("scheduleUtcHours", "ideasUtcHours"):
+    if field not in ("scheduleUtcHours", "ideasUtcHours", "all"):
         raise ValueError(f"unknown field {field}")
     if channel_id:
         return [entry(load(channel_id, root))]
+    if field == "all":
+        return [entry(c) for c in all_channels(root)]
     match = CRON.match(schedule.strip())
     if not match:
         raise ValueError(f"neither a channel nor a daily cron line: {schedule[:40]!r}")

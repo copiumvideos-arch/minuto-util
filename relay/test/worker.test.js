@@ -61,6 +61,14 @@ test("Rejeitar starts publish.yml with the reject action", async () => {
   assert.deepEqual(calls[0].body.inputs, { tag: "20261027-1800", action: "reject", channel: "minuto-util" });
 });
 
+test("Reenviar ao TikTok starts publish.yml with the tiktok-resend action and removes the button", async () => {
+  const { calls, worker } = fakeNetwork();
+  await worker.fetch(post(tap("tt:20261030-1538")), env);
+  assert.deepEqual(calls[0].body.inputs, { tag: "20261030-1538", action: "tiktok-resend", channel: "minuto-util" });
+  assert.ok(calls.some((c) => c.url.endsWith("/answerCallbackQuery") && c.body.text === "Reenviando ao TikTok..."));
+  assert.ok(calls.some((c) => c.url.endsWith("/editMessageReplyMarkup")));
+});
+
 test("a GitHub error keeps the buttons and tells the owner", async () => {
   const { calls, worker } = fakeNetwork(401);
   await worker.fetch(post(tap("pub:20261027-1800")), env);

@@ -1,12 +1,17 @@
 # Started by relay/ when the owner taps "Publicar" or "Rejeitar" under a review video on Telegram (or by hand from
 # the Actions tab). Publishes to YouTube (public Short) and the TikTok inbox (draft), or drops the video.
-# tiktok-check (no tag) sends to Telegram the TikTok account the drafts go to and the status of the latest drafts; it
-# runs here because it shares the TikTok token with the publish runs.
-# Each run is for one channel (a folder in channels/), with that channel's secrets, state folder and releases.
+# tiktok-check (no tag) sends to Telegram the TikTok account the drafts go to and the status of the latest drafts.
+# tiktok-remind runs every hour for every channel: a draft still not posted 90 minutes after it went up (its inbox
+# notification was missed) gets one Telegram message with "Reenviar ao TikTok", whose tap runs tiktok-resend here.
+# The TikTok steps run here because they share the TikTok token with the publish runs.
+# Each run is for one channel (a folder in channels/), with that channel's secrets, state folder and releases; the
+# hourly run has one job per channel.
 name: publish
-run-name: ${{ inputs.action }} ${{ inputs.channel }} ${{ inputs.tag }}
+run-name: ${{ inputs.action || 'tiktok-remind' }} ${{ inputs.channel || 'all' }} ${{ inputs.tag }}
 
 on:
+  schedule:
+    - cron: "40 * * * *"
   workflow_dispatch:
     inputs:
       channel:
@@ -14,17 +19,17 @@ on:
         required: false
         default: minuto-util
       tag:
-        description: "Run tag (yyyyMMdd-HHmm); empty for tiktok-check"
+        description: "Run tag (yyyyMMdd-HHmm); empty for tiktok-check and tiktok-remind"
         required: false
         default: ""
       action:
         type: choice
-        options: [publish, reject, tiktok-check]
+        options: [publish, reject, tiktok-check, tiktok-remind, tiktok-resend]
         default: publish
 
 # Two taps on the same video never run at the same time.
 concurrency:
-  group: publish-${{ inputs.channel }}-${{ inputs.tag }}
+  group: publish-${{ inputs.channel || 'all' }}-${{ inputs.tag }}
   cancel-in-progress: false
 
 permissions:
@@ -32,31 +37,58 @@ permissions:
   actions: read
 
 jobs:
+  channels:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick the channels
+        id: pick
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          list=$(python3 tools/channels.py matrix all)
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: channels
+    if: needs.channels.outputs.list != '[]'
+    name: ${{ inputs.action || 'tiktok-remind' }} ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.channels.outputs.list) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       TAG: ${{ inputs.tag }}
-      ACTION: ${{ inputs.action }}
-      CHANNEL: ${{ inputs.channel }}
+      ACTION: ${{ inputs.action || 'tiktok-remind' }}
+      CHANNEL: ${{ matrix.id }}
+      PREFIX: ${{ matrix.prefix }}
+      RELEASE: ${{ matrix.release }}
       GH_TOKEN: ${{ github.token }}
       # The app for this channel: CH_<NAME> variables reach it as <prefix>_<NAME> (.github/scripts/cli.sh).
       CLI: bash .github/scripts/cli.sh
     steps:
       - name: Check the input
         run: |
-          [[ "$ACTION" == publish || "$ACTION" == reject || "$ACTION" == tiktok-check ]] || { echo "bad action"; exit 1; }
-          [[ "$ACTION" == tiktok-check || "$TAG" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad tag"; exit 1; }
+          case "$ACTION" in
+            publish|reject|tiktok-resend) [[ "$TAG" =~ ^[0-9]{8}-[0-9]{4}$ ]] || { echo "bad tag"; exit 1; } ;;
+            tiktok-check|tiktok-remind) ;;
+            *) echo "bad action"; exit 1 ;;
+          esac
           [[ "$CHANNEL" =~ ^[a-z0-9-]{1,40}$ ]] || { echo "bad channel"; exit 1; }
 
-      # One publish at a time per channel across videos: they share the channel's TikTok token, which TikTok may
-      # replace on refresh. Another channel's publish runs (its own tokens) are not waited for. The run name is
-      # "<action> <channel> <tag>".
+      # One run at a time per channel across videos: they share the channel's TikTok token, which TikTok may replace
+      # on refresh. Another channel's runs (its own tokens) are not waited for; the hourly run ("all") is waited for by
+      # every channel. The run name is "<action> <channel> <tag>".
       - name: Wait for earlier publish runs
         run: |
           for i in $(seq 1 60); do
             older=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/publish.yml/runs?status=in_progress" \
-              --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID and ((.display_title | split(\" \"))[1]) == \"$CHANNEL\")] | length")
+              --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID and (((.display_title | split(\" \"))[1]) as \$c | \$c == \"$CHANNEL\" or \$c == \"all\"))] | length")
             [ "$older" = "0" ] && exit 0
             sleep 20
           done
@@ -66,9 +98,6 @@ jobs:
         with:
           ref: state
           path: state
-      - name: Channel
-        id: channel
-        run: python3 tools/channels.py outputs >> "$GITHUB_OUTPUT"
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -76,9 +105,7 @@ jobs:
         run: dotnet build src/MinutoUtil.Cli -c Release -v q
 
       - name: Get the video
-        if: inputs.action == 'publish'
-        env:
-          RELEASE: ${{ steps.channel.outputs.release }}
+        if: env.ACTION == 'publish' || env.ACTION == 'tiktok-resend'
         run: |
           mkdir -p "output/$TAG"
           gh release download "$RELEASE$TAG" -D "output/$TAG" -p video.mp4 -p metadata.json -p run.log
@@ -86,52 +113,46 @@ jobs:
           gh release download "$RELEASE$TAG" -D "output/$TAG" -p thumbnail.jpg || true
 
       - name: Publish
-        if: inputs.action == 'publish'
+        if: env.ACTION == 'publish' || env.ACTION == 'tiktok-resend'
         env:
-          PREFIX: ${{ steps.channel.outputs.prefix }}
-          CH_STATE_DIR: ${{ github.workspace }}/${{ steps.channel.outputs.state }}
-          CH_STATE_KEY: ${{ secrets[format('{0}_STATE_KEY', steps.channel.outputs.prefix)] }}
-          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', steps.channel.outputs.prefix)] }}
-          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', steps.channel.outputs.prefix)] }}
-          CH_GOOGLE_CLIENT_ID: ${{ secrets[format('{0}_GOOGLE_CLIENT_ID', steps.channel.outputs.prefix)] }}
-          CH_GOOGLE_CLIENT_SECRET: ${{ secrets[format('{0}_GOOGLE_CLIENT_SECRET', steps.channel.outputs.prefix)] }}
-          CH_YOUTUBE_REFRESH_TOKEN: ${{ secrets[format('{0}_YOUTUBE_REFRESH_TOKEN', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_CLIENT_KEY: ${{ secrets[format('{0}_TIKTOK_CLIENT_KEY', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_CLIENT_SECRET: ${{ secrets[format('{0}_TIKTOK_CLIENT_SECRET', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_REFRESH_TOKEN: ${{ secrets[format('{0}_TIKTOK_REFRESH_TOKEN', steps.channel.outputs.prefix)] }}
-        run: $CLI cloud publish --state state --tag "$TAG" --run "output/$TAG"
+          CH_STATE_DIR: ${{ github.workspace }}/${{ matrix.state }}
+          CH_STATE_KEY: ${{ secrets[format('{0}_STATE_KEY', matrix.prefix)] }}
+          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
+          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
+          CH_GOOGLE_CLIENT_ID: ${{ secrets[format('{0}_GOOGLE_CLIENT_ID', matrix.prefix)] }}
+          CH_GOOGLE_CLIENT_SECRET: ${{ secrets[format('{0}_GOOGLE_CLIENT_SECRET', matrix.prefix)] }}
+          CH_YOUTUBE_REFRESH_TOKEN: ${{ secrets[format('{0}_YOUTUBE_REFRESH_TOKEN', matrix.prefix)] }}
+          CH_TIKTOK_CLIENT_KEY: ${{ secrets[format('{0}_TIKTOK_CLIENT_KEY', matrix.prefix)] }}
+          CH_TIKTOK_CLIENT_SECRET: ${{ secrets[format('{0}_TIKTOK_CLIENT_SECRET', matrix.prefix)] }}
+          CH_TIKTOK_REFRESH_TOKEN: ${{ secrets[format('{0}_TIKTOK_REFRESH_TOKEN', matrix.prefix)] }}
+        run: $CLI cloud "$ACTION" --state state --tag "$TAG" --run "output/$TAG"
 
       # Whatever reached a platform is kept with the video, so a retry never posts it twice.
       - name: Keep the publish record
-        if: always() && inputs.action == 'publish'
-        env:
-          RELEASE: ${{ steps.channel.outputs.release }}
+        if: always() && (env.ACTION == 'publish' || env.ACTION == 'tiktok-resend')
         run: |
           if [ -f "output/$TAG/published.json" ]; then gh release upload "$RELEASE$TAG" "output/$TAG/published.json" --clobber; fi
 
       - name: Reject
-        if: inputs.action == 'reject'
+        if: env.ACTION == 'reject'
         env:
-          PREFIX: ${{ steps.channel.outputs.prefix }}
-          RELEASE: ${{ steps.channel.outputs.release }}
-          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', steps.channel.outputs.prefix)] }}
-          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', steps.channel.outputs.prefix)] }}
+          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
+          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
         run: |
           $CLI cloud reject --state state --tag "$TAG"
           gh release delete "$RELEASE$TAG" --cleanup-tag --yes
 
       - name: TikTok check
-        if: inputs.action == 'tiktok-check'
+        if: env.ACTION == 'tiktok-check' || env.ACTION == 'tiktok-remind'
         env:
-          PREFIX: ${{ steps.channel.outputs.prefix }}
-          CH_STATE_DIR: ${{ github.workspace }}/${{ steps.channel.outputs.state }}
-          CH_STATE_KEY: ${{ secrets[format('{0}_STATE_KEY', steps.channel.outputs.prefix)] }}
-          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', steps.channel.outputs.prefix)] }}
-          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_CLIENT_KEY: ${{ secrets[format('{0}_TIKTOK_CLIENT_KEY', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_CLIENT_SECRET: ${{ secrets[format('{0}_TIKTOK_CLIENT_SECRET', steps.channel.outputs.prefix)] }}
-          CH_TIKTOK_REFRESH_TOKEN: ${{ secrets[format('{0}_TIKTOK_REFRESH_TOKEN', steps.channel.outputs.prefix)] }}
-        run: $CLI cloud tiktok-check --state state
+          CH_STATE_DIR: ${{ github.workspace }}/${{ matrix.state }}
+          CH_STATE_KEY: ${{ secrets[format('{0}_STATE_KEY', matrix.prefix)] }}
+          CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
+          CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
+          CH_TIKTOK_CLIENT_KEY: ${{ secrets[format('{0}_TIKTOK_CLIENT_KEY', matrix.prefix)] }}
+          CH_TIKTOK_CLIENT_SECRET: ${{ secrets[format('{0}_TIKTOK_CLIENT_SECRET', matrix.prefix)] }}
+          CH_TIKTOK_REFRESH_TOKEN: ${{ secrets[format('{0}_TIKTOK_REFRESH_TOKEN', matrix.prefix)] }}
+        run: $CLI cloud "$ACTION" --state state
 
       - name: Save the state
         if: always()

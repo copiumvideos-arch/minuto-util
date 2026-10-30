@@ -14,7 +14,10 @@ public delegate Task SendMessage(string text, IReadOnlyList<TelegramButton> butt
 public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider time)
 {
     public const string PublishPrefix = "pub:", RejectPrefix = "rej:", RedoPrefix = "redo:", IdeaPrefix = "idea:",
-        TopPrefix = "qt:", RemovePrefix = "qd:";
+        TopPrefix = "qt:", RemovePrefix = "qd:", ResendPrefix = "tt:";
+
+    /// <summary>The channel's name as its TikTok account shows it in the app's account switcher, for the draft notices.</summary>
+    public string TikTokAccount { get; init; } = "";
 
     private static readonly TimeSpan Brasilia = TimeSpan.FromHours(-3);
 
@@ -226,11 +229,100 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
 
         var record = Publisher.LoadRecord(folder);
         state.Save(run with { Status = RunStatus.Published, YouTubeUrl = record.YouTube?.Url, TikTokPublishId = record.TikTok?.PublishId,
-            Note = null, UpdatedAt = time.GetUtcNow() });
+            TikTokSentAt = record.TikTok?.UploadedAt, TikTokChecked = false, Note = null, UpdatedAt = time.GetUtcNow() });
         var cover = record.YouTube?.Thumbnail is { } t && t.StartsWith("failed: ", StringComparison.Ordinal)
             ? $"\n⚠️ A capa não foi para o YouTube ({TextUtil.Truncate(t["failed: ".Length..], 200)}). Dá para pôr no YouTube Studio."
             : "";
-        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: rascunho na caixa de entrada (Notificações do sistema).{cover}", [], ct);
+        await send($"✅ Publicado: {run.Title}\nYouTube: {record.YouTube?.Url}\nTikTok: {DraftWhere()}{cover}", [], ct);
+        return 0;
+    }
+
+    private string AccountName => TikTokAccount.Length > 0 ? TikTokAccount : "do canal";
+
+    /// <summary>Where the owner finds a draft: with two accounts on the phone, TikTok notifies only the one that is open.</summary>
+    private string DraftWhere() =>
+        $"rascunho na conta {AccountName}. No app, troque para essa conta e abra Caixa de entrada > Notificações do sistema.";
+
+    /// <summary>A draft still in the inbox this long after it went up is a notification the owner did not see.</summary>
+    public static readonly TimeSpan RemindAfter = TimeSpan.FromMinutes(90);
+
+    /// <summary>Older drafts are left alone: by then the owner has had the reminder or given up on the draft.</summary>
+    public static readonly TimeSpan RemindWithin = TimeSpan.FromDays(3);
+
+    /// <summary>The drafts the hourly look asks TikTok about, oldest first.</summary>
+    public static IReadOnlyList<RunRecord> DraftsToCheck(IEnumerable<RunRecord> runs, DateTimeOffset now) =>
+        runs.Where(r => r.Status == RunStatus.Published && r.TikTokPublishId is not null && !r.TikTokChecked)
+            .Select(r => (Run: r, Age: now - (r.TikTokSentAt ?? r.UpdatedAt)))
+            .Where(d => d.Age >= RemindAfter && d.Age < RemindWithin)
+            .OrderByDescending(d => d.Age)
+            .Select(d => d.Run)
+            .ToList();
+
+    /// <summary>
+    /// The hourly look at the TikTok drafts: one still waiting in the inbox after <see cref="RemindAfter"/>, or refused by
+    /// TikTok, gets one message with a button that sends it again (a new draft, a new notification). A draft still
+    /// processing is asked about again next hour; one already posted is only marked. TikTok is not called when there is
+    /// nothing to ask.
+    /// </summary>
+    public async Task<int> TikTokRemindAsync(Func<string, CancellationToken, Task<TikTokStatus>> status, CancellationToken ct)
+    {
+        foreach (var run in DraftsToCheck(state.Runs(), time.GetUtcNow()))
+        {
+            TikTokStatus s;
+            try
+            {
+                s = await status(run.TikTokPublishId!, ct);
+            }
+            catch (TikTokUploadException ex)
+            {
+                Log.Warn($"TikTok: {run.Tag} {run.TikTokPublishId}: {ex.Message}");
+                continue;
+            }
+            Log.Info($"TikTok: {run.Tag} {run.TikTokPublishId} is {s.Status}{(s.FailReason is null ? "" : $" ({s.FailReason})")}");
+            IReadOnlyList<TelegramButton> resend = [new("📲 Reenviar ao TikTok", ResendPrefix + run.Tag)];
+            switch (s.Status)
+            {
+                case "SEND_TO_USER_INBOX":
+                    await send($"⏰ O rascunho de \"{run.Title ?? run.Article}\" ainda não foi postado no TikTok.\nEle está na conta {AccountName}: " +
+                               "no app, troque para essa conta e abra Caixa de entrada > Notificações do sistema. Se ele não está lá, toque em " +
+                               "Reenviar para mandar o vídeo de novo.", resend, ct);
+                    break;
+                case "FAILED":
+                    await send($"⚠️ O TikTok recusou o rascunho de \"{run.Title ?? run.Article}\": {s.FailReason ?? "sem motivo"}.", resend, ct);
+                    break;
+                case "PUBLISH_COMPLETE":
+                    break;
+                default:
+                    continue;
+            }
+            state.Save(run with { TikTokChecked = true });
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// "Reenviar ao TikTok": the published run's video goes to the TikTok inbox again as a new draft (YouTube is not
+    /// touched), and the new draft gets its own hourly look.
+    /// </summary>
+    public async Task<int> TikTokResendAsync(string tag, string folder, Publisher publisher, CancellationToken ct)
+    {
+        var run = state.Find(tag) ?? throw new PublishRefusedException($"Run {tag} is not in the state branch.");
+        if (run.Status != RunStatus.Published || run.TikTokPublishId is null)
+            throw new PublishRefusedException($"Run {tag} is {run.Status.ToString().ToLowerInvariant()}; only a published run's TikTok draft is sent again.");
+        try
+        {
+            Log.Info(await publisher.PublishAsync(folder, Platforms.TikTok, dryRun: false, force: true, ct));
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && ex is not OperationCanceledException)
+        {
+            await send($"⚠️ Não consegui reenviar \"{run.Title}\" ao TikTok: {TextUtil.Truncate(ex.Message, 300)}",
+                [new("🔁 Tentar de novo", ResendPrefix + tag)], ct);
+            Log.Warn($"tiktok resend {tag} failed: {ex.GetType().Name}: {ex.Message}");
+            return 1;
+        }
+        var draft = Publisher.LoadRecord(folder).TikTok!;
+        state.Save(run with { TikTokPublishId = draft.PublishId, TikTokSentAt = draft.UploadedAt, TikTokChecked = false });
+        await send($"📲 Reenviado ao TikTok: {run.Title}\n{DraftWhere()}", [], ct);
         return 0;
     }
 

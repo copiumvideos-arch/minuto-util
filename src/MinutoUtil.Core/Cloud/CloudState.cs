@@ -54,6 +54,10 @@ public sealed record RunRecord
     public string? Title { get; init; }
     public string? YouTubeUrl { get; init; }
     public string? TikTokPublishId { get; init; }
+    /// <summary>When the latest TikTok draft went up (null on runs from before it was kept: their UpdatedAt stands in).</summary>
+    public DateTimeOffset? TikTokSentAt { get; init; }
+    /// <summary>The hourly TikTok look already handled this draft (reminded the owner, or found it posted or refused).</summary>
+    public bool TikTokChecked { get; init; }
     public string? Note { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
 }

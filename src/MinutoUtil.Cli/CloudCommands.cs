@@ -26,6 +26,8 @@ using MinutoUtil.Core.Video;
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
 ///   cloud reject  --state <dir> --tag <tag>
 ///   cloud tiktok-check --state <dir>     the signed-in TikTok account and the status of the latest drafts
+///   cloud tiktok-remind --state <dir>    hourly: a draft nobody posted gets one reminder with a "Reenviar" button
+///   cloud tiktok-resend --state <dir> --tag <tag> --run <folder>    sends a published run's TikTok draft again
 ///   cloud failed  --state <dir> --tag <tag> --reason <text> [--log-url <url>]
 ///   cloud secrets --repo <owner/name>
 /// </summary>
@@ -75,16 +77,20 @@ internal static class CloudCommands
                     await telegram.SendTextAsync(YouTubeStats.Message(stats, DateTimeOffset.UtcNow), cts.Token);
                     return 0;
                 }
-                case "tiktok-check":
+                case "tiktok-check" or "tiktok-remind":
                 {
                     var auth = PublishingCommands.StoredTikTokAuth(config, key, apiHttp);
                     var uploader = new TikTokUploader(apiHttp, auth.GetAccessTokenAsync);
-                    return await new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
-                        .TikTokCheckAsync(auth.CurrentAccountAsync, uploader.FetchStatusAsync, cts.Token);
+                    var tikTokFlow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
+                        { TikTokAccount = config.Channel.Name };
+                    return step == "tiktok-check"
+                        ? await tikTokFlow.TikTokCheckAsync(auth.CurrentAccountAsync, uploader.FetchStatusAsync, cts.Token)
+                        : await tikTokFlow.TikTokRemindAsync(uploader.FetchStatusAsync, cts.Token);
                 }
             }
             var tag = RunTag.Validate(Option(args, "--tag"));
-            var flow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System);
+            var flow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
+                { TikTokAccount = config.Channel.Name };
 
             switch (step)
             {
@@ -163,6 +169,12 @@ internal static class CloudCommands
                     var publisher = PublishingCommands.BuildPublisher(config, key, apiHttp, uploadHttp, telegram.SendTextAsync);
                     return await flow.PublishAsync(tag, folder, publisher, cts.Token);
                 }
+                case "tiktok-resend":
+                {
+                    var folder = Path.GetFullPath(Option(args, "--run") ?? throw new ArgumentException("cloud tiktok-resend needs --run <folder>."));
+                    var publisher = PublishingCommands.BuildPublisher(config, key, apiHttp, uploadHttp, telegram.SendTextAsync);
+                    return await flow.TikTokResendAsync(tag, folder, publisher, cts.Token);
+                }
                 case "reject":
                     await flow.RejectAsync(tag, cts.Token);
                     return 0;
@@ -170,7 +182,7 @@ internal static class CloudCommands
                     await flow.FailedAsync(tag, Option(args, "--reason") ?? "unknown error", Option(args, "--log-url"), cts.Token);
                     return 0;
                 default:
-                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|tiktok-check|failed --state <dir> ..., or cloud secrets --repo <owner/name>");
+                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|tiktok-check|tiktok-remind|tiktok-resend|failed --state <dir> ..., or cloud secrets --repo <owner/name>");
                     return 1;
             }
         }

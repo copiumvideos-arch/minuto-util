@@ -51,6 +51,12 @@ def test_a_shared_hour_renders_both_channels_and_each_gets_its_own_names(tmp_pat
     assert [c["id"] for c in channels.matrix("ideasUtcHours", "", "0 9 * * *", root)] == ["minuto-util"]
 
 
+def test_the_hourly_tiktok_look_covers_every_channel_and_a_dispatch_only_its_own(tmp_path):
+    root = two_channels(tmp_path)
+    assert [c["id"] for c in channels.matrix("all", "", "40 * * * *", root)] == ["minuto-util", "test-spoiler"]
+    assert [c["id"] for c in channels.matrix("all", "test-spoiler", "", root)] == ["test-spoiler"]
+
+
 @pytest.mark.parametrize("bad", ["../minuto-util", "Minuto", "minuto util", "x; rm -rf /", "nope"])
 def test_bad_or_unknown_channels_are_refused(bad):
     with pytest.raises(ValueError):

@@ -1,6 +1,7 @@
 // Minuto Útil relay: the webhook of every channel's Telegram bot. It turns the owner's taps on "Publicar" /
-// "Rejeitar" (under a review video) into a run of .github/workflows/publish.yml, taps on the daily idea list and text
-// ideas into runs of ideas.yml, and "/novo [idea]" into a run of render.yml, always for the channel whose bot it was.
+// "Rejeitar" (under a review video) and "Reenviar ao TikTok" (under a draft reminder) into a run of
+// .github/workflows/publish.yml, taps on the daily idea list and text ideas into runs of ideas.yml, and "/novo [idea]"
+// into a run of render.yml, always for the channel whose bot it was.
 // It holds no state and posts nothing itself. Everything else, and anyone but the owner, is ignored.
 //
 // Each channel's bot has its own address and secrets (wrangler secret put):
@@ -11,7 +12,7 @@
 // have its own OWNER_CHAT_ID_<ID>), GITHUB_TOKEN (fine-grained, this repository only, "Actions: read and write").
 // Var: GITHUB_REPO.
 
-const CALLBACK = /^(pub|rej|redo|sok|snew):(\d{8}-\d{4})$/;
+const CALLBACK = /^(pub|rej|redo|sok|snew|tt):(\d{8}-\d{4})$/;
 const RUN_TAG_IN_TEXT = /Execução (\d{8}-\d{4})/;
 const SCRIPT_MARKER = "📝 Roteiro para revisar";
 const SETTINGS = { "/pausar": "pause", "/pause": "pause", "/retomar": "resume", "/resume": "resume", "/revisar on": "review-on", "/revisar off": "review-off" };
@@ -143,6 +144,7 @@ export async function handleUpdate(update, channel, env, fetchImpl) {
     const status = kind === "redo" ? await dispatch("render.yml", { article: "", remake: tag })
       : kind === "sok" ? await dispatch("render.yml", { continue: tag, script: "", rescript: "false" })
       : kind === "snew" ? await dispatch("render.yml", { continue: tag, script: "", rescript: "true" })
+      : kind === "tt" ? await dispatch("publish.yml", { tag, action: "tiktok-resend" })
       : await dispatch("publish.yml", { tag, action: kind === "pub" ? "publish" : "reject" });
     if (status !== 204) {
       await answerFailure(query, status);
@@ -154,6 +156,7 @@ export async function handleUpdate(update, channel, env, fetchImpl) {
       snew: "Escrevendo outro roteiro...",
       pub: "Publicando...",
       rej: "Rejeitando...",
+      tt: "Reenviando ao TikTok...",
     };
     await telegram("answerCallbackQuery", { callback_query_id: query.id, text: answers[kind] });
     // The buttons go away so the same video is not sent twice by a second tap.

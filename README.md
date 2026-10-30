@@ -360,6 +360,11 @@ tag; channels never wait for or cancel each other.
 - **TikTok check**: when a draft never shows up in the app, run `publish.yml` with the action `tiktok-check` (no tag).
   It sends to Telegram the TikTok account the sign-in belongs to (the drafts go only there; in Sandbox it must be a
   target user) and TikTok's current status of the last 5 drafts (waiting in the inbox, posted, or failed with the reason).
+- **TikTok reminder**: `publish.yml` runs every hour (`tiktok-remind`, one job per channel). A draft still waiting in
+  the inbox 90 minutes after it went up (the notification was missed, often because the phone had the other account
+  open) gets one Telegram message naming the account, with "📲 Reenviar ao TikTok". The tap runs `tiktok-resend`,
+  which sends the same video as a new draft (YouTube untouched) and watches that one too. Drafts older than 3 days
+  are left alone; TikTok is not called when nothing is waiting.
 - **Volume**: two renders a day (the owner's choice; `/novo` makes more). TikTok accepts 5 inbox drafts per 24 hours,
   so post the drafts daily. The trend scan can queue more topics than that; the queue simply lasts longer.
 

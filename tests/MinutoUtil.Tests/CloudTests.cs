@@ -283,6 +283,99 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public async Task The_publish_notice_names_the_tiktok_account_and_the_run_keeps_when_the_draft_went_up()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now)) { TikTokAccount = "Minuto Útil" };
+
+        Assert.Equal(0, await flow.PublishAsync(Tag, folder, Publisher(new FakeYouTube(), new TikTokTests.FakeTikTok(), messages), CancellationToken.None));
+
+        Assert.Contains("rascunho na conta Minuto Útil. No app, troque para essa conta", messages.Sent[^1].Text);
+        Assert.Equal(PublishData.Now, state.Find(Tag)!.TikTokSentAt);
+    }
+
+    [Fact]
+    public async Task A_draft_nobody_posted_gets_one_reminder_with_a_resend_button_and_the_rest_are_left_alone()
+    {
+        using var temp = new TempFolder();
+        var state = new CloudState(Path.Combine(temp.Path, "state"));
+        var now = PublishData.Now;
+        RunRecord Draft(string tag, string id, DateTimeOffset? sent, DateTimeOffset updated, RunStatus status = RunStatus.Published) => new()
+        {
+            Tag = tag, Article = tag, Title = $"Vídeo {tag}", Status = status, TikTokPublishId = id, TikTokSentAt = sent, UpdatedAt = updated,
+        };
+        state.Save(Draft("20261027-1100", "p.missed", now.AddHours(-3), now.AddHours(-3)));
+        state.Save(Draft("20261027-1200", "p.posted", now.AddHours(-2), now.AddHours(-2)));
+        state.Save(Draft("20261027-1430", "p.fresh", now.AddMinutes(-30), now.AddMinutes(-30)));
+        // From before TikTokSentAt was kept: its UpdatedAt says it is too old to ask about.
+        state.Save(Draft("20261023-1000", "p.old", null, now.AddDays(-4)));
+        state.Save(Draft("20261027-0900", "p.review", now.AddHours(-5), now.AddHours(-5), RunStatus.Review));
+        var tiktok = new TikTokTests.FakeTikTok { Statuses = new(["SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"]) };
+        var uploader = new TikTokUploader(new HttpClient(tiktok), _ => Task.FromResult("t"), TimeSpan.Zero, TimeSpan.Zero);
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(now)) { TikTokAccount = "Profissão Spoiler" };
+
+        Assert.Equal(0, await flow.TikTokRemindAsync(uploader.FetchStatusAsync, CancellationToken.None));
+
+        // Only the two drafts old enough to have been seen are asked about, oldest first.
+        Assert.Equal(["p.missed", "p.posted"],
+            tiktok.Requests.Select(r => JsonDocument.Parse(r.Body!).RootElement.GetProperty("publish_id").GetString()));
+        var (text, buttons) = Assert.Single(messages.Sent);
+        Assert.Contains("\"Vídeo 20261027-1100\" ainda não foi postado", text);
+        Assert.Contains("conta Profissão Spoiler", text);
+        Assert.Equal(CloudFlow.ResendPrefix + "20261027-1100", Assert.Single(buttons).Data);
+        Assert.True(state.Find("20261027-1100")!.TikTokChecked);
+        Assert.True(state.Find("20261027-1200")!.TikTokChecked);
+        Assert.False(state.Find("20261027-1430")!.TikTokChecked);
+
+        // The next hour: nothing new to ask, so TikTok is not called and nothing is sent.
+        var calls = tiktok.Requests.Count;
+        Assert.Equal(0, await flow.TikTokRemindAsync(uploader.FetchStatusAsync, CancellationToken.None));
+        Assert.Equal(calls, tiktok.Requests.Count);
+        Assert.Single(messages.Sent);
+    }
+
+    [Fact]
+    public async Task Resend_puts_a_new_tiktok_draft_up_without_touching_youtube_and_watches_it_again()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        var youtube = new FakeYouTube();
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now)) { TikTokAccount = "Minuto Útil" };
+        Assert.Equal(0, await flow.PublishAsync(Tag, folder, Publisher(youtube, new TikTokTests.FakeTikTok(), messages), CancellationToken.None));
+        state.Save(state.Find(Tag)! with { TikTokChecked = true, TikTokSentAt = PublishData.Now.AddHours(-2) });
+        var youtubeCalls = youtube.Requests.Count;
+        var tiktok = new TikTokTests.FakeTikTok();
+
+        Assert.Equal(0, await flow.TikTokResendAsync(Tag, folder, Publisher(youtube, tiktok, messages), CancellationToken.None));
+
+        Assert.Equal(youtubeCalls, youtube.Requests.Count);
+        Assert.Contains(tiktok.Requests, r => r.Url == TikTokUploader.InitEndpoint);
+        var run = state.Find(Tag)!;
+        Assert.Equal(RunStatus.Published, run.Status);
+        Assert.False(run.TikTokChecked);
+        Assert.Equal(PublishData.Now, run.TikTokSentAt);
+        Assert.StartsWith("📲 Reenviado ao TikTok", messages.Sent[^1].Text);
+        Assert.Contains("conta Minuto Útil", messages.Sent[^1].Text);
+    }
+
+    [Fact]
+    public async Task Resend_refuses_a_run_that_was_never_published()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        var flow = new CloudFlow(state, new Messages().Send, new FakeTimeProvider(PublishData.Now));
+        var tiktok = new TikTokTests.FakeTikTok();
+
+        await Assert.ThrowsAsync<PublishRefusedException>(() =>
+            flow.TikTokResendAsync(Tag, folder, Publisher(new FakeYouTube(), tiktok, new Messages()), CancellationToken.None));
+        Assert.Empty(tiktok.Requests);
+    }
+
+    [Fact]
     public async Task A_failed_tiktok_step_offers_a_retry_that_does_not_post_youtube_again()
     {
         using var temp = new TempFolder();
