@@ -1,0 +1,76 @@
+{
+  "date": "20261031",
+  "sentAt": "2026-10-31T09:27:01.0638289+00:00",
+  "ideas": [
+    {
+      "article": "Luigi's Mansion",
+      "year": 2001,
+      "topic": "Curiosidades dos games",
+      "trend": "Dia das Bruxas",
+      "portugueseArticle": "Luigi's Mansion"
+    },
+    {
+      "article": "Deus Ex (video game)",
+      "year": 2000,
+      "topic": "Bastidores dos games",
+      "trend": "Hackers e IA",
+      "portugueseArticle": "Deus Ex (série)"
+    },
+    {
+      "article": "Doom (1993 video game)",
+      "year": 1993,
+      "topic": "Clássicos dos games",
+      "trend": "Marte e meteoritos",
+      "portugueseArticle": "Doom (jogo eletrônico de 1993)"
+    },
+    {
+      "article": "Suzerain (video game)",
+      "year": 2020,
+      "topic": "Curiosidades dos games",
+      "trend": "Eleições nos EUA",
+      "portugueseArticle": null
+    },
+    {
+      "article": "Balatro",
+      "year": 2024,
+      "topic": "Fenômenos dos games",
+      "trend": "Jogos de Switch",
+      "portugueseArticle": "Balatro"
+    },
+    {
+      "article": "Detroit: Become Human",
+      "year": 2018,
+      "topic": "Bastidores dos games",
+      "trend": "Inteligência Artificial",
+      "portugueseArticle": "Detroit: Become Human"
+    },
+    {
+      "article": "X-Men Origins: Wolverine (video game)",
+      "year": 2009,
+      "topic": "Curiosidades dos games",
+      "trend": "Patrick Stewart / X-Men",
+      "portugueseArticle": "X-Men Origins: Wolverine (jogo eletrônico)"
+    },
+    {
+      "article": "Papers, Please",
+      "year": 2013,
+      "topic": "Indies marcantes",
+      "trend": "clássico",
+      "portugueseArticle": "Papers, Please"
+    },
+    {
+      "article": "The Witcher 3: Wild Hunt",
+      "year": 2015,
+      "topic": "Recordes dos games",
+      "trend": "clássico",
+      "portugueseArticle": "The Witcher 3: Wild Hunt"
+    },
+    {
+      "article": "Portal (video game)",
+      "year": 2007,
+      "topic": "Bastidores dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Portal (jogo eletrônico)"
+    }
+  ]
+}
