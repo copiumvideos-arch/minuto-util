@@ -1,0 +1,76 @@
+{
+  "date": "20261101",
+  "sentAt": "2026-11-01T09:30:54.4193903+00:00",
+  "ideas": [
+    {
+      "article": "Transfer of the Portuguese court to Brazil",
+      "year": 1808,
+      "topic": "Monarquias",
+      "trend": "Portugal",
+      "portugueseArticle": "Transferência da corte portuguesa para o Brasil"
+    },
+    {
+      "article": "Ragamuffin War",
+      "year": 1835,
+      "topic": "Guerras civis",
+      "trend": "Frente fria no Sul do Brasil",
+      "portugueseArticle": "Guerra dos Farrapos"
+    },
+    {
+      "article": "Xingu Indigenous Park",
+      "year": 1961,
+      "topic": "Povos originários",
+      "trend": "Aldeias indígenas",
+      "portugueseArticle": "Parque Indígena do Xingu"
+    },
+    {
+      "article": "Bendegó meteorite",
+      "year": 1784,
+      "topic": "Ciência e mistérios",
+      "trend": "Meteorito de Marte",
+      "portugueseArticle": "Meteorito do Bendegó"
+    },
+    {
+      "article": "Constitutionalist Revolution",
+      "year": 1932,
+      "topic": "Constituição",
+      "trend": "Crise institucional e eleições",
+      "portugueseArticle": "Revolução Constitucionalista de 1932"
+    },
+    {
+      "article": "Acre War",
+      "year": 1899,
+      "topic": "Conflitos de fronteira",
+      "trend": "Disputas territoriais",
+      "portugueseArticle": "Revolução Acriana"
+    },
+    {
+      "article": "Confederation of the Equator",
+      "year": 1824,
+      "topic": "Revoltas republicanas",
+      "trend": "Disputas políticas no Nordeste",
+      "portugueseArticle": "Confederação do Equador"
+    },
+    {
+      "article": "Guaraní War",
+      "year": 1756,
+      "topic": "Guerras no Sul",
+      "trend": "Conflitos em terras indígenas",
+      "portugueseArticle": "Guerra Guaranítica"
+    },
+    {
+      "article": "1917–1919 Brazil strike movement",
+      "year": 1917,
+      "topic": "Movimento operário",
+      "trend": "Sindicato e direitos trabalhistas",
+      "portugueseArticle": "Greve geral de 1917"
+    },
+    {
+      "article": "France Antarctique",
+      "year": 1555,
+      "topic": "Invasões estrangeiras",
+      "trend": "Protestos na França",
+      "portugueseArticle": "França Antártica"
+    }
+  ]
+}
