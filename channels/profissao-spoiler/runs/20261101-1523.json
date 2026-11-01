@@ -1,0 +1,16 @@
+{
+  "tag": "20261101-1523",
+  "article": "The Witcher (video game)",
+  "year": 2007,
+  "topic": "História dos games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: None of the trailers of The Witcher: Enhanced Edition Director's Cut (Steam app 20900) could be downloaded. None of the YouTube trailers could be downloaded. On the PC, `minuto-util footage --channel <id> --article \"The Witcher (video game)\"` downloads them for the cloud ",
+  "updatedAt": "2026-11-01T15:35:48.7498267+00:00"
+}
