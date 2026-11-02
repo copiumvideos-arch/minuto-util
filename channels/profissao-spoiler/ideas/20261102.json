@@ -1,0 +1,76 @@
+{
+  "date": "20261102",
+  "sentAt": "2026-11-02T09:47:16.3609357+00:00",
+  "ideas": [
+    {
+      "article": "The Legend of Zelda: Breath of the Wild",
+      "year": 2017,
+      "topic": "Curiosidades de games",
+      "trend": "The Legend of Zelda",
+      "portugueseArticle": "The Legend of Zelda: Breath of the Wild"
+    },
+    {
+      "article": "Resident Evil 4",
+      "year": 2005,
+      "topic": "Bastidores dos games",
+      "trend": "Dia das Bruxas",
+      "portugueseArticle": "Resident Evil 4"
+    },
+    {
+      "article": "Minecraft",
+      "year": 2011,
+      "topic": "Recordes dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Minecraft"
+    },
+    {
+      "article": "Gran Turismo 7",
+      "year": 2022,
+      "topic": "Curiosidades de games",
+      "trend": "Fórmula 1",
+      "portugueseArticle": "Gran Turismo 7"
+    },
+    {
+      "article": "Hades (video game)",
+      "year": 2020,
+      "topic": "Bastidores dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Hades (jogo eletrônico)"
+    },
+    {
+      "article": "The Last of Us (video game)",
+      "year": 2013,
+      "topic": "Curiosidades de games",
+      "trend": "clássico",
+      "portugueseArticle": "The Last of Us"
+    },
+    {
+      "article": "Phasmophobia (video game)",
+      "year": 2020,
+      "topic": "Curiosidades de games",
+      "trend": "Dia das Bruxas",
+      "portugueseArticle": "Phasmophobia (jogo eletrônico)"
+    },
+    {
+      "article": "God of War (2018 video game)",
+      "year": 2018,
+      "topic": "Bastidores dos games",
+      "trend": "clássico",
+      "portugueseArticle": "God of War (jogo eletrônico de 2018)"
+    },
+    {
+      "article": "Disco Elysium",
+      "year": 2019,
+      "topic": "Curiosidades de games",
+      "trend": "clássico",
+      "portugueseArticle": "Disco Elysium"
+    },
+    {
+      "article": "Elden Ring",
+      "year": 2022,
+      "topic": "Recordes dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Elden Ring"
+    }
+  ]
+}
