@@ -1,0 +1,62 @@
+{
+  "date": "20261102",
+  "sentAt": "2026-11-02T09:48:20.111531+00:00",
+  "ideas": [
+    {
+      "article": "Dutch Brazil",
+      "year": 1630,
+      "topic": "Colonialismo",
+      "trend": "interesse em história colonial",
+      "portugueseArticle": "Nova Holanda"
+    },
+    {
+      "article": "Malê revolt",
+      "year": 1835,
+      "topic": "Revoltas",
+      "trend": "participação afro‑brasileira na política",
+      "portugueseArticle": "Revolta dos Malês"
+    },
+    {
+      "article": "Praieira revolt",
+      "year": 1848,
+      "topic": "Revoltas",
+      "trend": "instabilidade política",
+      "portugueseArticle": "Revolução Praieira"
+    },
+    {
+      "article": "Vaccine Revolt",
+      "year": 1904,
+      "topic": "Saúde Pública",
+      "trend": "vacinação e saúde pública",
+      "portugueseArticle": "Revolta da Vacina"
+    },
+    {
+      "article": "São Paulo Revolt of 1924",
+      "year": 1924,
+      "topic": "Revoltas",
+      "trend": "exames vestibulares (Fuvest)",
+      "portugueseArticle": "Revolta Paulista de 1924"
+    },
+    {
+      "article": "Getúlio Vargas",
+      "year": 1954,
+      "topic": "Política",
+      "trend": "crise política contemporânea",
+      "portugueseArticle": "Morte de Getúlio Vargas"
+    },
+    {
+      "article": "Amazon rubber cycle",
+      "year": 1879,
+      "topic": "Economia",
+      "trend": "exploração da Amazônia",
+      "portugueseArticle": "Ciclo da borracha"
+    },
+    {
+      "article": "1994 FIFA World Cup final",
+      "year": 1994,
+      "topic": "Esportes",
+      "trend": "interesse atual em futebol",
+      "portugueseArticle": "Final da Copa do Mundo FIFA de 1994"
+    }
+  ]
+}
