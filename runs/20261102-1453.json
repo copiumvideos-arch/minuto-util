@@ -1,0 +1,16 @@
+{
+  "tag": "20261102-1453",
+  "article": "France Antarctique",
+  "year": 1555,
+  "topic": "Brasil Colônia",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: InvalidOperationException: No usable pictures were found; nothing to render.",
+  "updatedAt": "2026-11-02T14:59:27.4118643+00:00"
+}
