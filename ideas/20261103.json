@@ -1,0 +1,41 @@
+{
+  "date": "20261103",
+  "sentAt": "2026-11-03T09:44:56.9629584+00:00",
+  "ideas": [
+    {
+      "article": "Cabanagem",
+      "year": 1835,
+      "topic": "Revoltas",
+      "trend": "Incêndio de grandes proporções",
+      "portugueseArticle": "Cabanagem"
+    },
+    {
+      "article": "Contestado War",
+      "year": 1912,
+      "topic": "Guerras civis",
+      "trend": "Incêndio de grandes proporções",
+      "portugueseArticle": "Guerra do Contestado"
+    },
+    {
+      "article": "Brazilian communist uprising",
+      "year": 1935,
+      "topic": "Movimentos políticos",
+      "trend": "Eleição nos EUA 2026",
+      "portugueseArticle": "Intentona Comunista"
+    },
+    {
+      "article": "Impeachment of Fernando Collor de Mello",
+      "year": 1992,
+      "topic": "Política contemporânea",
+      "trend": "Flávio Bolsonaro recorre contra apreensão de passaportes",
+      "portugueseArticle": "Impeachment de Fernando Collor"
+    },
+    {
+      "article": "Battle of Pirajá",
+      "year": 1822,
+      "topic": "Independência",
+      "trend": "Eleições nos EUA",
+      "portugueseArticle": "Batalha de Pirajá"
+    }
+  ]
+}
