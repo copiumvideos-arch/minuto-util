@@ -1,0 +1,16 @@
+{
+  "tag": "20261104-1544",
+  "article": "The Witcher 2: Assassins of Kings",
+  "year": 2011,
+  "topic": "História dos games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: None of the trailers of The Witcher 2: Assassins of Kings Enhanced Edition (Steam app 20920) could be downloaded. None of the YouTube trailers could be downloaded. On the PC, `minuto-util footage --channel <id> --article \"The Witcher 2: Assassins of Kings\"` downloads them",
+  "updatedAt": "2026-11-04T15:48:04.7340836+00:00"
+}
