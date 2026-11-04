@@ -1,0 +1,16 @@
+{
+  "tag": "20261104-1451",
+  "article": "Fordlândia",
+  "year": 1928,
+  "topic": "Brasil República",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: InvalidOperationException: No usable pictures were found; nothing to render.",
+  "updatedAt": "2026-11-04T14:55:21.2116927+00:00"
+}
