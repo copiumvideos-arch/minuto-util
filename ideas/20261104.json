@@ -1,0 +1,41 @@
+{
+  "date": "20261104",
+  "sentAt": "2026-11-04T09:47:49.6311468+00:00",
+  "ideas": [
+    {
+      "article": "Treaty of Tordesillas",
+      "year": 1494,
+      "topic": "Diplomacia e fronteiras",
+      "trend": "Eleições nos EUA 2026 – divisão de poder",
+      "portugueseArticle": "Tratado de Tordesilhas"
+    },
+    {
+      "article": "Cisplatine War",
+      "year": 1825,
+      "topic": "Guerras do Império",
+      "trend": "Midterms nos EUA – impacto econômico",
+      "portugueseArticle": "Guerra da Cisplatina"
+    },
+    {
+      "article": "Lei Áurea",
+      "year": 1888,
+      "topic": "Política e direitos",
+      "trend": "Direitos civis – série História do Brasil",
+      "portugueseArticle": "Lei Áurea"
+    },
+    {
+      "article": "1970 FIFA World Cup final",
+      "year": 1970,
+      "topic": "Esportes",
+      "trend": "Futebol – série",
+      "portugueseArticle": "Final da Copa do Mundo FIFA de 1970"
+    },
+    {
+      "article": "Diretas Já",
+      "year": 1984,
+      "topic": "Democracia",
+      "trend": "Eleições nos EUA – movimento por voto direto",
+      "portugueseArticle": "Diretas Já"
+    }
+  ]
+}
