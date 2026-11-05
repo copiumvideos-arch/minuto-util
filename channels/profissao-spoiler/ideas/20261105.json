@@ -1,0 +1,76 @@
+{
+  "date": "20261105",
+  "sentAt": "2026-11-05T09:47:18.8246309+00:00",
+  "ideas": [
+    {
+      "article": "The Legend of Zelda: Ocarina of Time",
+      "year": 1998,
+      "topic": "Recordes dos games",
+      "trend": "Zelda: Ocarina of Time",
+      "portugueseArticle": "The Legend of Zelda: Ocarina of Time"
+    },
+    {
+      "article": "Fallout 4",
+      "year": 2015,
+      "topic": "Bastidores dos games",
+      "trend": "silo",
+      "portugueseArticle": "Fallout 4"
+    },
+    {
+      "article": "Portal 2",
+      "year": 2011,
+      "topic": "Bastidores dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Portal 2"
+    },
+    {
+      "article": "Tetris",
+      "year": 1985,
+      "topic": "Recordes dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Tetris"
+    },
+    {
+      "article": "Cuphead",
+      "year": 2017,
+      "topic": "Bastidores dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Cuphead"
+    },
+    {
+      "article": "SimCity (1989 video game)",
+      "year": 1989,
+      "topic": "Curiosidades dos games",
+      "trend": "clássico",
+      "portugueseArticle": "SimCity (jogo eletrônico de 1989)"
+    },
+    {
+      "article": "Doom (1993 video game)",
+      "year": 1993,
+      "topic": "Curiosidades dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Doom (jogo eletrônico de 1993)"
+    },
+    {
+      "article": "Shadow of the Colossus",
+      "year": 2005,
+      "topic": "Curiosidades dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Shadow of the Colossus"
+    },
+    {
+      "article": "Slay the Spire",
+      "year": 2019,
+      "topic": "Curiosidades dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Slay the Spire"
+    },
+    {
+      "article": "Street Fighter II",
+      "year": 1991,
+      "topic": "Recordes dos games",
+      "trend": "clássico",
+      "portugueseArticle": "Street Fighter II"
+    }
+  ]
+}
