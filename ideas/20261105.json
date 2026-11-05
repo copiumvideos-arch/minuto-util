@@ -1,0 +1,48 @@
+{
+  "date": "20261105",
+  "sentAt": "2026-11-05T09:47:49.9081885+00:00",
+  "ideas": [
+    {
+      "article": "War of the Emboabas",
+      "year": 1708,
+      "topic": "Conflitos coloniais",
+      "trend": "mineração",
+      "portugueseArticle": "Guerra dos Emboabas"
+    },
+    {
+      "article": "Balaiada",
+      "year": 1838,
+      "topic": "Revoltas regionais",
+      "trend": "série Revoltas regionais",
+      "portugueseArticle": "Balaiada"
+    },
+    {
+      "article": "Sabinada",
+      "year": 1837,
+      "topic": "Revoltas regionais",
+      "trend": "série Revoltas regionais",
+      "portugueseArticle": "Sabinada"
+    },
+    {
+      "article": "History of Brasília",
+      "year": 1956,
+      "topic": "Urbanismo e Arquitetura",
+      "trend": "série Urbanismo",
+      "portugueseArticle": "História de Brasília"
+    },
+    {
+      "article": "Plano Real",
+      "year": 1994,
+      "topic": "Economia",
+      "trend": "série Economia",
+      "portugueseArticle": "Plano Real"
+    },
+    {
+      "article": "Acre War",
+      "year": 1899,
+      "topic": "Conflitos fronteiriços",
+      "trend": "conflitos fronteiriços",
+      "portugueseArticle": "Revolução Acriana"
+    }
+  ]
+}
