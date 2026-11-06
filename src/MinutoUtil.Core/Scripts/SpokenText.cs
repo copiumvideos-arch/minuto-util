@@ -38,6 +38,32 @@ public static partial class SpokenText
 
     public static bool HasDigits(string text) => text.Any(char.IsAsciiDigit);
 
+    // A year split in two the English way ("fifteen ninety"): a number from eleven to nineteen followed straight by a
+    // tens word ("quinze noventa", "dezenove quarenta e quatro"), another teen ("dezenove dezoito") or "zero" and a
+    // unit ("dezenove zero cinco"). Portuguese never puts two such numbers side by side.
+    [GeneratedRegex(@"(?<!\w)(onze|doze|treze|catorze|quatorze|quinze|dezesseis|dezessete|dezoito|dezenove)\s+(?:(vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa)(?:\s+e\s+(um|dois|três|quatro|cinco|seis|sete|oito|nove))?|(dez|onze|doze|treze|catorze|quatorze|quinze|dezesseis|dezessete|dezoito|dezenove)|zero\s+(um|dois|três|quatro|cinco|seis|sete|oito|nove))(?!\w)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SplitYear();
+
+    /// <summary>
+    /// Years a writer split the English way said in full, as Brazilians say them: "na década de quinze noventa" becomes
+    /// "na década de mil quinhentos e noventa" (the Palmares video read the split form aloud).
+    /// </summary>
+    public static string WithFullYears(string text) =>
+        SplitYear().Replace(text, m =>
+        {
+            static int Value(Group g) => g.Value.ToLowerInvariant() switch
+            {
+                "quatorze" => 14,
+                var w when Array.IndexOf(Tens, w) is > 1 and var t => t * 10,
+                var w => Array.IndexOf(Units, w),
+            };
+            var rest = m.Groups[2].Success ? Value(m.Groups[2]) + (m.Groups[3].Success ? Value(m.Groups[3]) : 0)
+                : m.Groups[4].Success ? Value(m.Groups[4]) : Value(m.Groups[5]);
+            var words = Portuguese(Value(m.Groups[1]) * 100 + rest);
+            return char.IsUpper(m.Value[0]) ? char.ToUpperInvariant(words[0]) + words[1..] : words;
+        });
+
     /// <summary>Each whole word in <paramref name="respellings"/> written the way the voice must say it: "GTA seis" becomes "gê tê á seis".</summary>
     public static string Pronounce(string text, IReadOnlyDictionary<string, string> respellings) =>
         respellings.Aggregate(text, (current, r) =>

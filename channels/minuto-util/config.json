@@ -6,7 +6,7 @@
     "tokenFolder": "%LOCALAPPDATA%/MinutoUtil",
     "stateFolder": ".",
     "releasePrefix": "run-",
-    "scheduleUtcHours": [14, 22],
+    "scheduleUtcHours": [11, 21],
     "ideasUtcHours": [9]
   },
   "story": {

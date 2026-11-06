@@ -103,8 +103,9 @@ do not state ("o maior mistério da história").
 - Write every number out in words, the way it is spoken: "seis de junho de mil novecentos e quarenta e quatro",
   "cento e cinquenta e seis mil soldados", "vinte e quatro horas". Round when the sources allow it and the exact figure
   does not matter ("quase três mil"); keep it exact when the exactness is the point. Roman numerals in words too:
-  "Dom Pedro Segundo", "Luís Dezesseis", "século dezesseis". No digits in `hook` or `sections`. The `description` is
-  read, not spoken, so it uses digits ("em 1912").
+  "Dom Pedro Segundo", "Luís Dezesseis", "século dezesseis". Years always in full, never split the English way:
+  "mil quinhentos e noventa", "a década de mil seiscentos e noventa", never "quinze noventa". No digits in `hook` or
+  `sections`. The `description` is read, not spoken, so it uses digits ("em 1912").
 - Money is said with the currency's name after the amount: "cinquenta e sete mil dólares australianos", "dois
   milhões de reais", never a symbol or code ("AU$", "US$", "AUD"), which the voice reads letter by letter. Plain
   "dólares" means US dollars. In the `description` and `title`, which are read, write the code: "AUD 57 mil",

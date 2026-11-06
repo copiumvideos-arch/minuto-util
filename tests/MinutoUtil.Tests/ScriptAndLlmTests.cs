@@ -83,6 +83,32 @@ public sealed class ScriptAndLlmTests
         Assert.Contains(warnings, w => w.StartsWith("section 5: source quote not found"));
     }
 
+    // Years split the English way ("fifteen ninety"), as the Palmares video said "quinze noventa" for 1590.
+    [Theory]
+    [InlineData("No fim da década de quinze noventa, um grupo", "No fim da década de mil quinhentos e noventa, um grupo")]
+    [InlineData("em dezenove quarenta e quatro", "em mil novecentos e quarenta e quatro")]
+    [InlineData("Dezenove dezoito acabou a guerra", "Mil novecentos e dezoito acabou a guerra")]
+    [InlineData("em dezenove zero cinco", "em mil novecentos e cinco")]
+    [InlineData("em quatorze noventa e dois", "em mil quatrocentos e noventa e dois")]
+    [InlineData("em mil quinhentos e noventa, quinze mil pessoas", "em mil quinhentos e noventa, quinze mil pessoas")]
+    [InlineData("quinze anos e noventa dias", "quinze anos e noventa dias")]
+    [InlineData("entre onze mil e vinte mil habitantes", "entre onze mil e vinte mil habitantes")]
+    public void SaysSplitYearsInFull(string text, string expected) => Assert.Equal(expected, SpokenText.WithFullYears(text));
+
+    [Fact]
+    public void TheScriptCleanupSaysSplitYearsInFull()
+    {
+        var script = JsonSerializer.Deserialize<VideoScript>(File.ReadAllText(TestPaths.Fixture("script-answer.json")), Json.Options)!;
+        script = script with
+        {
+            Hook = "Em quinze noventa, tudo começou.",
+            Sections = [script.Sections[0] with { Text = "Na década de dezesseis noventa, cresceu." }, .. script.Sections.Skip(1)],
+        };
+        var cleaned = ScriptWriter.Clean(script);
+        Assert.Equal("Em mil quinhentos e noventa, tudo começou.", cleaned.Hook);
+        Assert.Equal("Na década de mil seiscentos e noventa, cresceu.", cleaned.Sections[0].Text);
+    }
+
     [Fact]
     public async Task AScriptFarTooShortCostsExactlyOneMoreRequest()
     {

@@ -242,7 +242,7 @@ written for Minuto Útil. The `channel` block of `config.json` names everything 
 | `tokenFolder` | `%LOCALAPPDATA%/MinutoUtil` (DPAPI sign-ins, `client_secret.json`) | e.g. `%LOCALAPPDATA%/MinutoUtil/channels/<id>` |
 | `stateFolder` | `.`: the root of the `state` branch, where its files always were | `channels/<id>` (required) |
 | `releasePrefix` | `run-` | `run-<id>-` (required) |
-| `scheduleUtcHours` | `[14, 22]` | its render hours; `render.yml` needs a cron line for each (a test checks) |
+| `scheduleUtcHours` | `[11, 21]` | its render hours; `render.yml` needs a cron line for each (a test checks) |
 | `ideasUtcHours` | `[9]` | its idea list hours, or `[]`; `ideas.yml` cron lines likewise |
 
 The variable names and sign-in files under `youtube`, `tiktok` and `telegram` are filled in from `envPrefix` and
@@ -299,7 +299,7 @@ free Actions minutes on a 4-core runner; secrets stay in Actions secrets, tokens
 but run logs and the release videos waiting for review can be seen by anyone with the link):
 
 ```
-render.yml (11:00 and 19:00 Brasília, or "/novo" on Telegram)
+render.yml (08:00 and 18:00 Brasília, or "/novo" on Telegram)
   -> next topic from channels/minuto-util/topics.json -> make -> video kept as a GitHub release "run-<tag>"
   -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
 tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml

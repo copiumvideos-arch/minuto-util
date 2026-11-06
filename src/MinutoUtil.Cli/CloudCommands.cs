@@ -82,7 +82,7 @@ internal static class CloudCommands
                     var auth = PublishingCommands.StoredTikTokAuth(config, key, apiHttp);
                     var uploader = new TikTokUploader(apiHttp, auth.GetAccessTokenAsync);
                     var tikTokFlow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
-                        { TikTokAccount = config.Channel.Name };
+                        { TikTokAccount = config.Channel.Name, TikTokDirect = config.TikTok.ZernioUsername is { Length: > 0 } };
                     return step == "tiktok-check"
                         ? await tikTokFlow.TikTokCheckAsync(auth.CurrentAccountAsync, uploader.FetchStatusAsync, cts.Token)
                         : await tikTokFlow.TikTokRemindAsync(uploader.FetchStatusAsync, cts.Token);
@@ -90,7 +90,7 @@ internal static class CloudCommands
             }
             var tag = RunTag.Validate(Option(args, "--tag"));
             var flow = new CloudFlow(state, (text, buttons, ct) => telegram.SendTextAsync(text, buttons, ct), TimeProvider.System)
-                { TikTokAccount = config.Channel.Name };
+                { TikTokAccount = config.Channel.Name, TikTokDirect = config.TikTok.ZernioUsername is { Length: > 0 } };
 
             switch (step)
             {

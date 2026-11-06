@@ -6,7 +6,7 @@
     "tokenFolder": "%LOCALAPPDATA%/MinutoUtil/channels/profissao-spoiler",
     "stateFolder": "channels/profissao-spoiler",
     "releasePrefix": "run-profissao-spoiler-",
-    "scheduleUtcHours": [15, 23],
+    "scheduleUtcHours": [13, 22],
     "ideasUtcHours": [9]
   },
   "story": {

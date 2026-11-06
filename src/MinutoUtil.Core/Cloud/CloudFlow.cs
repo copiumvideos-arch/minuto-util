@@ -19,6 +19,9 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     /// <summary>The channel's name as its TikTok account shows it in the app's account switcher, for the draft notices.</summary>
     public string TikTokAccount { get; init; } = "";
 
+    /// <summary>The channel posts to TikTok directly (through Zernio): a waiting draft is offered as a post, not a new draft.</summary>
+    public bool TikTokDirect { get; init; }
+
     private static readonly TimeSpan Brasilia = TimeSpan.FromHours(-3);
 
     /// <summary>
@@ -288,9 +291,13 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
                 continue;
             }
             Log.Info($"TikTok: {run.Tag} {run.TikTokPublishId} is {s.Status}{(s.FailReason is null ? "" : $" ({s.FailReason})")}");
-            IReadOnlyList<TelegramButton> resend = [new("📲 Reenviar ao TikTok", ResendPrefix + run.Tag)];
+            IReadOnlyList<TelegramButton> resend = [new(TikTokDirect ? "📲 Postar no TikTok" : "📲 Reenviar ao TikTok", ResendPrefix + run.Tag)];
             switch (s.Status)
             {
+                case "SEND_TO_USER_INBOX" when TikTokDirect:
+                    await send($"⏰ \"{run.Title ?? run.Article}\" ainda não foi postado no TikTok (o rascunho ficou parado). Toque em " +
+                               $"Postar para publicar agora na conta {AccountName}.", resend, ct);
+                    break;
                 case "SEND_TO_USER_INBOX":
                     await send($"⏰ O rascunho de \"{run.Title ?? run.Article}\" ainda não foi postado no TikTok.\nEle está na conta {AccountName}: " +
                                "no app, troque para essa conta e abra Caixa de entrada > Notificações do sistema. Se ele não está lá, toque em " +
@@ -310,8 +317,8 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
     }
 
     /// <summary>
-    /// "Reenviar ao TikTok": the published run's video goes to the TikTok inbox again as a new draft (YouTube is not
-    /// touched), and the new draft gets its own hourly look.
+    /// "Reenviar ao TikTok": the published run's video goes to TikTok again (YouTube is not touched). On a channel that
+    /// posts directly (Zernio) the video goes up public now; otherwise it is a new inbox draft with its own hourly look.
     /// </summary>
     public async Task<int> TikTokResendAsync(string tag, string folder, Publisher publisher, CancellationToken ct)
     {
@@ -333,8 +340,8 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
             return 1;
         }
         var draft = Publisher.LoadRecord(folder).TikTok!;
-        state.Save(run with { TikTokPublishId = draft.PublishId, TikTokSentAt = draft.UploadedAt, TikTokChecked = false });
-        await send($"📲 Reenviado ao TikTok: {run.Title}\n{DraftWhere()}", [], ct);
+        state.Save(run with { TikTokPublishId = draft.PublishId, TikTokSentAt = draft.UploadedAt, TikTokChecked = draft.Direct });
+        await send(draft.Direct ? $"✅ Postado no TikTok: {run.Title}\n{TikTokNotice(draft)}" : $"📲 Reenviado ao TikTok: {run.Title}\n{DraftWhere()}", [], ct);
         return 0;
     }
 

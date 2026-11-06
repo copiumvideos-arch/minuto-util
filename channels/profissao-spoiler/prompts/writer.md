@@ -70,7 +70,9 @@ clássico"), never as the narrator's own words.
 - Write every number out in words, the way it is spoken: "dois mil e quinze", "trinta e cinco mil", "oitenta e um
   milhões de dólares". Round when the sources allow it and the exact figure does not matter; keep it exact when the
   exactness is the point. A number in a game's name is said as the game is said ("The Witcher três", "Cyberpunk dois
-  mil e setenta e sete"). No digits in `hook` or `sections`. The `description` is read, not spoken, so it uses digits.
+  mil e setenta e sete"). Years always in full, never split the English way: "mil novecentos e noventa e oito",
+  never "dezenove noventa e oito". No digits in `hook` or `sections`. The `description` is read, not spoken, so it
+  uses digits.
 - Money is said with the currency's name after the amount: "cinquenta e sete mil dólares australianos", "dois
   milhões de reais", never a symbol or code ("AU$", "US$", "AUD"), which the voice reads letter by letter. Plain
   "dólares" means US dollars. In the `description` and `title`, which are read, write the code: "AUD 57 mil",

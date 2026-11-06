@@ -9,13 +9,14 @@ name: render
 on:
   schedule:
     # One line per hour in any channel's channel.scheduleUtcHours (a test checks they match), always at minute 0.
-    # Minuto Útil: 11:00 and 19:00 in Brasília (UTC-3), the lunch and evening peaks. GitHub may start scheduled runs
-    # some minutes late. Two a day, by the owner's choice; /novo adds more. Skipped while paused (/pausar).
-    # Profissão Spoiler: 12:00 and 20:00 in Brasília, an hour after Minuto Útil's, two gaming videos a day.
-    - cron: "0 14 * * *"
-    - cron: "0 15 * * *"
+    # The owner's times are in Brasília (UTC-3, no daylight saving since 2019); cron runs in UTC, so add 3 hours.
+    # Minuto Útil: 08:00 and 18:00 in Brasília (11 and 21 UTC). Profissão Spoiler: 10:00 and 19:00 (13 and 22 UTC).
+    # Four videos a day in all, by the owner's choice; /novo adds more. GitHub may start scheduled runs some minutes
+    # late. Skipped while paused (/pausar).
+    - cron: "0 11 * * *"
+    - cron: "0 13 * * *"
+    - cron: "0 21 * * *"
     - cron: "0 22 * * *"
-    - cron: "0 23 * * *"
   workflow_dispatch:
     inputs:
       channel:

@@ -101,7 +101,7 @@ public sealed class ChannelTests
         // The state stays at the root of the state branch, the releases keep their names, the schedule its hours.
         Assert.Equal(Path.GetFullPath("state"), Minuto.StateFolder("state"));
         Assert.Equal("run-", c.Channel.ReleasePrefix);
-        Assert.Equal([14, 22], c.Channel.ScheduleUtcHours);
+        Assert.Equal([11, 21], c.Channel.ScheduleUtcHours);
         Assert.Equal([9], c.Channel.IdeasUtcHours);
         Assert.Equal(Path.Combine(TestPaths.RepositoryRoot, "channels", "minuto-util", "prompts", "writer.md"), Minuto.WriterPromptFile);
         Assert.True(File.Exists(Minuto.WriterPromptFile) && File.Exists(Minuto.TrendsPromptFile) && File.Exists(Minuto.TopicsFile));
@@ -294,13 +294,13 @@ public sealed class ChannelTests
         Assert.Equal(all.SelectMany(c => c.ScheduleUtcHours).Distinct().Order(), render.Order());
         var ideas = CronHours("ideas.yml");
         Assert.Equal(all.SelectMany(c => c.IdeasUtcHours).Distinct().Order(), ideas.Order());
-        // Minuto Útil's two renders stay at 14:00 and 22:00 UTC (11:00 and 19:00 in Brasília), its list at 09:00;
-        // Profissão Spoiler's an hour later, its list at the same time.
+        // The owner's times in Brasília (UTC-3): Minuto Útil at 08:00 and 18:00, Profissão Spoiler at 10:00 and 19:00,
+        // both lists at 06:00.
         var minuto = Channel.Load(TestPaths.RepositoryRoot, "minuto-util").Config.Channel;
-        Assert.Equal([14, 22], minuto.ScheduleUtcHours);
+        Assert.Equal([11, 21], minuto.ScheduleUtcHours);
         Assert.Equal([9], minuto.IdeasUtcHours);
         var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler").Config.Channel;
-        Assert.Equal([15, 23], spoiler.ScheduleUtcHours);
+        Assert.Equal([13, 22], spoiler.ScheduleUtcHours);
         Assert.Equal([9], spoiler.IdeasUtcHours);
     }
 
@@ -359,8 +359,8 @@ public sealed class ChannelTests
         var now = new DateTimeOffset(2026, 10, 27, 15, 30, 0, TimeSpan.FromHours(-3));
 
         var minuto = CloudFlow.StatusMessage(Minuto.Config.Channel, new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
-        Assert.StartsWith("ℹ️ Minuto Útil\n▶️ Vídeos às 11h e 19h (/pausar para).", minuto);
-        Assert.Contains("1. Magna Carta: hoje às 19h\n2. Apollo 11: amanhã às 11h", minuto);
+        Assert.StartsWith("ℹ️ Minuto Útil\n▶️ Vídeos às 08h e 18h (/pausar para).", minuto);
+        Assert.Contains("1. Magna Carta: hoje às 18h\n2. Apollo 11: amanhã às 08h", minuto);
 
         var spoiler = CloudFlow.StatusMessage(other, new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
         Assert.StartsWith("ℹ️ Profissão Teste\n▶️ Vídeos às 09h e 18h (/pausar para).", spoiler);

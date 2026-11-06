@@ -70,11 +70,14 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         return restored;
     }
 
-    /// <summary>Dashes out of everything a viewer reads or hears; blank queries and hashtag signs dropped.</summary>
+    /// <summary>
+    /// Dashes out of everything a viewer reads or hears, years in the spoken text said in full
+    /// (<see cref="SpokenText.WithFullYears"/>); blank queries and hashtag signs dropped.
+    /// </summary>
     internal static VideoScript Clean(VideoScript script) => script with
     {
         Title = SpokenText.WithoutDashes(script.Title),
-        Hook = SpokenText.WithoutDashes(script.Hook),
+        Hook = SpokenText.WithFullYears(SpokenText.WithoutDashes(script.Hook)),
         EraStamp = SpokenText.WithoutDashes(script.EraStamp),
         PlaceStamp = SpokenText.WithoutDashes(script.PlaceStamp),
         Description = SpokenText.WithoutDashes(script.Description),
@@ -84,7 +87,7 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         Hashtags = script.Hashtags.Select(h => h.Trim().TrimStart('#').Replace(" ", "")).Where(h => h.Length > 0).Distinct().ToList(),
         Sections = script.Sections.Select(s => s with
         {
-            Text = SpokenText.WithoutDashes(s.Text),
+            Text = SpokenText.WithFullYears(SpokenText.WithoutDashes(s.Text)),
             SearchEn = s.SearchEn.Where(q => !string.IsNullOrWhiteSpace(q)).Select(q => q.Trim()).ToList(),
             SearchPt = s.SearchPt.Where(q => !string.IsNullOrWhiteSpace(q)).Select(q => q.Trim()).ToList(),
         }).ToList(),

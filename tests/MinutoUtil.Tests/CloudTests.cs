@@ -390,6 +390,39 @@ public sealed class CloudFlowTests
     }
 
     [Fact]
+    public async Task On_a_zernio_channel_a_stuck_draft_is_offered_as_a_post_and_the_button_posts_it_public()
+    {
+        using var temp = new TempFolder();
+        var (state, folder) = Setup(temp);
+        // A draft from before the channel moved to Zernio, never posted in the app.
+        state.Save(state.Find(Tag)! with { Status = RunStatus.Published, TikTokPublishId = "v_inbox_file~v2.9", TikTokSentAt = PublishData.Now.AddHours(-3) });
+        var messages = new Messages();
+        var flow = new CloudFlow(state, messages.Send, new FakeTimeProvider(PublishData.Now)) { TikTokAccount = "Minuto Útil", TikTokDirect = true };
+        var tiktok = new TikTokTests.FakeTikTok();
+        var uploader = new TikTokUploader(new HttpClient(tiktok), _ => Task.FromResult("t"), TimeSpan.Zero, TimeSpan.Zero);
+
+        Assert.Equal(0, await flow.TikTokRemindAsync(uploader.FetchStatusAsync, CancellationToken.None));
+
+        var (text, buttons) = Assert.Single(messages.Sent);
+        Assert.Contains("Toque em Postar para publicar agora na conta Minuto Útil", text);
+        Assert.Equal(new TelegramButton("📲 Postar no TikTok", CloudFlow.ResendPrefix + Tag), Assert.Single(buttons));
+
+        var zernio = ZernioTests.FakeZernio();
+        var publisher = new MinutoUtil.Core.Publishing.Publisher(PublishData.YouTubeConfig, new TikTokOptions { ZernioUsername = "profissao.spoiler" },
+            () => throw new InvalidOperationException("YouTube is not touched"),
+            () => throw new InvalidOperationException("no inbox draft on a Zernio channel"),
+            new FakeTimeProvider(PublishData.Now), (t, ct) => messages.Send(t, [], ct), () => new ZernioPoster(new HttpClient(zernio), "zk"));
+
+        Assert.Equal(0, await flow.TikTokResendAsync(Tag, folder, publisher, CancellationToken.None));
+
+        var run = state.Find(Tag)!;
+        Assert.Equal("zernio:post-1", run.TikTokPublishId);
+        Assert.True(run.TikTokChecked);
+        Assert.StartsWith("✅ Postado no TikTok", messages.Sent[^1].Text);
+        Assert.Contains("https://www.tiktok.com/@profissao.spoiler/video/7", messages.Sent[^1].Text);
+    }
+
+    [Fact]
     public async Task Resend_refuses_a_run_that_was_never_published()
     {
         using var temp = new TempFolder();
@@ -981,12 +1014,12 @@ public sealed class BotFeatureTests
         var state = new CloudState(temp.Path);
         var queue = new[] { "Magna Carta", "Lei Áurea", "Apollo 11", "Sputnik 1" }
             .Select((a, i) => new QueueEntry($"b-{i}", new BacklogTopic(a, 1900, "x"), QueueOrigin.Backlog)).ToList();
-        // Tuesday 27/10 15:30 in Brasília: the next renders are 19h today, then 11h and 19h tomorrow.
+        // Tuesday 27/10 15:30 in Brasília: the next renders are 18h today, then 08h and 18h tomorrow.
         var now = new DateTimeOffset(2026, 10, 27, 15, 30, 0, TimeSpan.FromHours(-3));
 
         var text = CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
 
-        Assert.Contains("\n1. Magna Carta: hoje às 19h\n2. Lei Áurea: amanhã às 11h\n3. Apollo 11: amanhã às 19h", text);
+        Assert.Contains("\n1. Magna Carta: hoje às 18h\n2. Lei Áurea: amanhã às 08h\n3. Apollo 11: amanhã às 18h", text);
         Assert.DoesNotContain("Sputnik", text);
         Assert.Contains("vai ao ar quando você toca ✅ Publicar", text);
         Assert.Contains("1. Magna Carta (pausado)", CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings { Paused = true }, [], queue, now));
