@@ -1,0 +1,16 @@
+{
+  "tag": "20261106-1536",
+  "article": "The Elder Scrolls VI: Sentinel",
+  "year": 2024,
+  "topic": "Curiosidades de games",
+  "trend": "The Elder Scrolls 6: Sentinel",
+  "portugueseArticle": "The Elder Scrolls VI: Sentinel",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: Steam has no game named \"The Elder Scrolls VI: Sentinel\" (found: ); set its app id with --steam-app. YouTube has no official trailer of \"The Elder Scrolls VI: Sentinel\" from a channel in media.youTubeChannels; name the videos with --youtube. On the PC, `minuto-util footag",
+  "updatedAt": "2026-11-06T15:38:04.2893122+00:00"
+}
