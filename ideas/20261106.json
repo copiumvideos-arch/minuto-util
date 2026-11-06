@@ -1,0 +1,76 @@
+{
+  "date": "20261106",
+  "sentAt": "2026-11-06T09:50:51.3156943+00:00",
+  "ideas": [
+    {
+      "article": "Encilhamento",
+      "year": 1890,
+      "topic": "Economia",
+      "trend": "Crash em Wall Street",
+      "portugueseArticle": "Crise do encilhamento"
+    },
+    {
+      "article": "Itaipu Dam",
+      "year": 1984,
+      "topic": "Grandes Obras",
+      "trend": "Paraguai",
+      "portugueseArticle": "Usina Hidrelétrica de Itaipu"
+    },
+    {
+      "article": "Transfer of the Portuguese court to Brazil",
+      "year": 1808,
+      "topic": "Império Português",
+      "trend": "Portugal",
+      "portugueseArticle": "Transferência da corte portuguesa para o Brasil"
+    },
+    {
+      "article": "Guaraní War",
+      "year": 1756,
+      "topic": "Guerras e Fronteiras",
+      "trend": "Paraguai",
+      "portugueseArticle": "Guerra Guaranítica"
+    },
+    {
+      "article": "Our Lady of Aparecida",
+      "year": 1717,
+      "topic": "Religião e Sociedade",
+      "trend": "Papa Leão XIV",
+      "portugueseArticle": "Nossa Senhora Aparecida"
+    },
+    {
+      "article": "Battle of Caseros",
+      "year": 1852,
+      "topic": "Guerra do Platina",
+      "trend": "Crise no Paraguai",
+      "portugueseArticle": "Batalha de Monte Caseros"
+    },
+    {
+      "article": "Amazon Theatre",
+      "year": 1896,
+      "topic": "Ciclo da Borracha",
+      "trend": "Exportações",
+      "portugueseArticle": "Teatro Amazonas"
+    },
+    {
+      "article": "Malê revolt",
+      "year": 1835,
+      "topic": "Revoltas Regenciais",
+      "trend": "História do Brasil",
+      "portugueseArticle": "Revolta dos Malês"
+    },
+    {
+      "article": "Constitutionalist Revolution",
+      "year": 1932,
+      "topic": "Revoluções",
+      "trend": "Política e Constituição",
+      "portugueseArticle": "Revolução Constitucionalista de 1932"
+    },
+    {
+      "article": "Marajoara culture",
+      "year": 800,
+      "topic": "Povos Originários",
+      "trend": "História do Brasil",
+      "portugueseArticle": "Marajoaras"
+    }
+  ]
+}
