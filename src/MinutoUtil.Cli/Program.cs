@@ -169,8 +169,12 @@ var trailers = config.Media.Footage == "trailers"
     ? new GameTrailers(new SteamTrailers(http, ffmpeg, config.Media), new YouTubeTrailers(ffmpeg, config.Media, Path.Combine(root, "tools")), config.Media,
         new FootageCache(root))
     : null;
+// A news channel (config "news") also reads the official news about the game and tells the writer today's date.
+var news = config.News is { } newsOptions ? new GameNews(http, newsOptions, TimeProvider.System) : null;
+var today = config.News is null ? null : DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 var pipeline = new Pipeline(config, root, new WikipediaClient(http),
-    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name), narrator, gatherer, painter, trailers);
+    () => new ScriptWriter(new ChainedLlmClient(writers), prompt, config.Writer, config.Channel.Name) { Today = today },
+    narrator, gatherer, painter, trailers, news);
 try
 {
     var result = await pipeline.RunAsync(folder, cts.Token, scriptOnly: args.Contains("--script-only"));

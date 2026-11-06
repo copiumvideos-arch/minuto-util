@@ -10,10 +10,10 @@
     "ideasUtcHours": [9]
   },
   "story": {
-    "topic": "Curiosidades de games",
+    "topic": "Lançamentos dos games",
     "englishArticle": "The Witcher 3: Wild Hunt",
     "eventYear": 2015,
-    "maxSourceChars": 16000,
+    "maxSourceChars": 10000,
     "minYearsAgo": 0
   },
   "gemini": {
@@ -25,16 +25,7 @@
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
-  "formats": [
-    {
-      "topic": "História dos games",
-      "angle": "angle-historia.md",
-      "minWords": 290, "maxWords": 380, "minSections": 10, "maxSections": 15, "hardWordMargin": 30,
-      "length": "two to three minutes",
-      "trailers": 5,
-      "maxSourceChars": 30000
-    }
-  ],
+  "news": { "recentDays": 14, "aheadDays": 120, "listDays": 2, "sourceDays": 45 },
   "writer": { "maxRequests": 5, "minWords": 120, "maxWords": 170, "minSections": 4, "maxSections": 6, "hardWordMargin": 30 },
   "voice": {
     "engine": "smallest",
@@ -86,7 +77,7 @@
     "redirectUri": "http://localhost:8723/callback/",
     "maxCaptionChars": 2200,
     "statusWaitSeconds": 300,
-    "discoveryHashtags": ["games", "curiosidadesgames", "gamer"],
+    "discoveryHashtags": ["games", "lancamentos", "novidadesgames"],
     "zernioUsername": "profissao.spoiler"
   }
 }

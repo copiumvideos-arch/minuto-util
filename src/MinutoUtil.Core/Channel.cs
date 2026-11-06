@@ -20,7 +20,7 @@ public sealed partial record Channel(string Id, string Folder, AppConfig Config)
 
     /// <summary>topics.json, knowing the series of the channel's other formats.</summary>
     public Cloud.TopicBacklog Backlog() =>
-        Cloud.TopicBacklog.Load(TopicsFile) with { FormatTopics = Config.Formats.Select(f => f.Topic).ToList() };
+        Cloud.TopicBacklog.Load(TopicsFile) with { FormatTopics = Config.Formats.Select(f => f.Topic).ToList(), News = Config.News };
     public string WriterPromptFile => Path.Combine(Folder, "prompts", "writer.md");
     public string TrendsPromptFile => Path.Combine(Folder, "prompts", "trends.md");
 

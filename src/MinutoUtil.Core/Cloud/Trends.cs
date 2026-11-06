@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Xml;
 using System.Xml.Linq;
 using MinutoUtil.Core.Llm;
+using MinutoUtil.Core.Sources;
 
 namespace MinutoUtil.Core.Cloud;
 
@@ -11,7 +12,9 @@ namespace MinutoUtil.Core.Cloud;
 /// What Brazil talks about today: Google News Brazil's top headlines (the stories, the strongest signal), Google
 /// Trends' daily searches (often football fixtures) and pt.wikipedia's most read pages.
 /// </summary>
-public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList<string> Searches, IReadOnlyList<string> WikipediaReads)
+/// <param name="Games">A news channel's game signals (Sources.GameNews.SignalsAsync): Steam lists, publisher posts.</param>
+public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList<string> Searches, IReadOnlyList<string> WikipediaReads,
+    IReadOnlyList<string>? Games = null)
 {
     public static readonly Uri GoogleNewsFeed = new("https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419");
     public static readonly Uri GoogleTrendsFeed = new("https://trends.google.com/trending/rss?geo=BR");
@@ -19,7 +22,7 @@ public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList
     public static Uri WikipediaTop(DateOnly day) =>
         new($"https://wikimedia.org/api/rest_v1/metrics/pageviews/top/pt.wikipedia/all-access/{day:yyyy}/{day:MM}/{day:dd}");
 
-    public bool IsEmpty => Headlines.Count == 0 && Searches.Count == 0 && WikipediaReads.Count == 0;
+    public bool IsEmpty => Headlines.Count == 0 && Searches.Count == 0 && WikipediaReads.Count == 0 && (Games?.Count ?? 0) == 0;
 
     /// <summary>Both sources, each optional: one failing leaves the other. Everything is untrusted text, cut short.</summary>
     public static async Task<TrendSignals> FetchAsync(HttpClient http, DateOnly yesterday, CancellationToken ct)
@@ -75,7 +78,7 @@ public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList
     }
 
     /// <summary>An RSS feed as untrusted XML: no DTD, no external entities.</summary>
-    private static async Task<XDocument> ReadFeedAsync(HttpClient http, Uri feed, CancellationToken ct)
+    internal static async Task<XDocument> ReadFeedAsync(HttpClient http, Uri feed, CancellationToken ct)
     {
         var xml = await http.GetStringAsync(feed, ct);
         var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
@@ -94,7 +97,7 @@ public sealed record TrendSignals(IReadOnlyList<string> Headlines, IReadOnlyList
 public sealed record TrendIdeas(IReadOnlyList<TrendIdea> Ideas);
 
 public sealed record TrendIdea(
-    [property: Description("The event's English Wikipedia article title, exactly as on Wikipedia, e.g. \"Magna Carta\".")]
+    [property: Description("The event's English Wikipedia article title, exactly as on Wikipedia, e.g. \"Magna Carta\". On a games news channel: the game's name exactly as the store lists it.")]
     string Article,
     [property: Description("The Portuguese Wikipedia article on the same subject, exact title, when you know it (it can differ from the English page's language link, e.g. \"Urna eletrônica (Brasil)\"); otherwise an empty string.")]
     string PortugueseArticle,
@@ -103,7 +106,11 @@ public sealed record TrendIdea(
     [property: Description("Short series name in Portuguese, e.g. \"Democracia\", \"Monarquias\", \"Grandes descobertas\".")]
     string Topic,
     [property: Description("The search, article or idea from the lists that inspired it, in Portuguese, a few words.")]
-    string Trend);
+    string Trend,
+    [property: Description("Games news channel only: the date of the launch, beta or early access, yyyy-MM-dd, as an official source gives it. Empty string on other channels.")]
+    string ReleaseDate = "",
+    [property: Description("Games news channel only, one of: \"lançado\" (out in the last days), \"lançamento\" (confirmed date ahead), \"beta\", \"acesso antecipado\". Empty string on other channels.")]
+    string Status = "");
 
 /// <summary>The day's idea list sent to the owner on Telegram, kept as ideas/&lt;yyyyMMdd&gt;.json on the state branch.</summary>
 public sealed record IdeaList(string Date, DateTimeOffset SentAt, IReadOnlyList<BacklogTopic> Ideas)
@@ -124,7 +131,9 @@ public sealed record ApprovedIdea(string Id, BacklogTopic Topic, bool FromText, 
 /// The model's answer is only a suggestion; nothing it says is used without these checks.
 /// </summary>
 /// <param name="minYearsAgo">How old a pick must be at least (story.minYearsAgo): 25 years for history, 0 for games.</param>
-public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTemplate, string channelName, TimeProvider time, int minYearsAgo = 25)
+/// <param name="news">A news channel: each pick needs a date inside the window, and today's date goes into the prompt.</param>
+public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTemplate, string channelName, TimeProvider time, int minYearsAgo = 25,
+    NewsOptions? news = null)
 {
     /// <summary>Ideas in the daily list sent to the owner.</summary>
     public const int Count = 10;
@@ -174,22 +183,29 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     private async Task<IReadOnlyList<BacklogTopic>> PickFromAsync(string user, IReadOnlyCollection<string> alreadyMade, string? trend, CancellationToken ct)
     {
         var system = promptTemplate.Replace("{CHANNEL}", channelName).Replace("{COUNT}", Count.ToString());
+        var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime);
+        if (news is not null) user = $"Today is {today:yyyy-MM-dd}.\n\n{user}";
         var answer = await llm.CompleteJsonAsync<TrendIdeas>(system, user, ct);
         var latestYear = time.GetUtcNow().Year - minYearsAgo;
         var ideas = answer.Ideas
             .Where(i => !string.IsNullOrWhiteSpace(i.Article) && i.Article.Length <= 120 && (i.PortugueseArticle ?? "").Length <= 120
-                        && i.Year != 0 && i.Year >= MinYear && i.Year <= latestYear)
+                        && i.Year != 0 && i.Year >= MinYear && (i.Year <= latestYear || news is not null))
             .Take(Count * 2).ToList();
-        foreach (var dropped in answer.Ideas.Except(ideas)) Log.Warn($"trends: dropped \"{TextUtil.Truncate(dropped.Article, 80)}\" ({dropped.Year}): outside the rules");
+        if (news is not null)
+            ideas = ideas.Where(i => NewsWindow(i, today, news) is not null).ToList();
+        foreach (var dropped in answer.Ideas.Except(ideas)) Log.Warn($"trends: dropped \"{TextUtil.Truncate(dropped.Article, 80)}\" ({dropped.Year}{(news is null ? "" : $", {dropped.Status} {dropped.ReleaseDate}")}): outside the rules");
         if (ideas.Count == 0) return [];
 
-        var english = await ResolveAsync("en", ideas.Select(i => i.Article.Trim()).ToList(), "pt", ct);
-        var askedPt = ideas.Select(i => (i.PortugueseArticle ?? "").Trim()).Where(t => t.Length > 0).Distinct().ToList();
+        // A news channel names a game as the store lists it: a new game rarely has a Wikipedia article yet, so the
+        // official sources check it instead (below), and Wikipedia is only background when the writer finds one.
+        var english = news is null ? await ResolveAsync("en", ideas.Select(i => i.Article.Trim()).ToList(), "pt", ct) : [];
+        var askedPt = news is null ? ideas.Select(i => (i.PortugueseArticle ?? "").Trim()).Where(t => t.Length > 0).Distinct().ToList() : [];
         var portuguese = askedPt.Count > 0 ? await ResolveAsync("pt", askedPt, null, ct) : [];
         var picks = new List<BacklogTopic>();
         foreach (var idea in ideas)
         {
-            if (!english.TryGetValue(idea.Article.Trim(), out var page))
+            (string Title, string? Linked) page = (idea.Article.Trim(), null);
+            if (news is null && !english.TryGetValue(idea.Article.Trim(), out page))
             {
                 Log.Warn($"trends: dropped \"{TextUtil.Truncate(idea.Article, 80)}\": no such English article");
                 continue;
@@ -198,11 +214,46 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
             // missing or points at a broader subject. Without either the writer gets the English text only.
             var pt = portuguese.TryGetValue((idea.PortugueseArticle ?? "").Trim(), out var named) ? named.Title : page.Linked;
             if (alreadyMade.Contains(page.Title, StringComparer.OrdinalIgnoreCase) || picks.Any(p => p.Article == page.Title)) continue;
+            var (date, status) = news is null ? (null, null) : NewsWindow(idea, today, news)!.Value;
+            // A news pick from the lists must be backed by an official source, not the model's memory: the date and
+            // status become the ones Steam or a publisher post gives (GameNews.ConfirmAsync). A famous game with no
+            // release (The Elder Scrolls VI) or an old one given a new date (Counter-Strike 2) is refused here. The
+            // owner's own idea is the owner's call and keeps the date window only.
+            if (news is not null && trend is null)
+            {
+                if (await new GameNews(http, news, time).ConfirmAsync(page.Title, DateOnly.ParseExact(date!, "yyyy-MM-dd"), status!, ct) is not { } confirmed)
+                {
+                    Log.Warn($"trends: dropped \"{TextUtil.Truncate(page.Title, 80)}\" ({status} {date}): no official source backs it");
+                    continue;
+                }
+                (date, status) = confirmed;
+            }
             picks.Add(new BacklogTopic(page.Title, idea.Year, TextUtil.Truncate(idea.Topic.Trim(), 40),
-                trend ?? TextUtil.Truncate(idea.Trend.Trim(), 80), pt));
+                trend ?? TextUtil.Truncate(idea.Trend.Trim(), 80), pt, date, status));
             Log.Info($"trends: {page.Title} ({idea.Year}), pt {pt ?? "none"}, from \"{trend ?? idea.Trend}\"");
         }
         return picks.Take(Count).ToList();
+    }
+
+    /// <summary>
+    /// A news pick's date and status when the date is a real day inside the window (a launch up to
+    /// <see cref="NewsOptions.RecentDays"/> ago, or a confirmed date up to <see cref="NewsOptions.AheadDays"/> ahead)
+    /// and the status fits it; null otherwise.
+    /// </summary>
+    internal static (string Date, string Status)? NewsWindow(TrendIdea idea, DateOnly today, NewsOptions news)
+    {
+        if (!DateOnly.TryParseExact((idea.ReleaseDate ?? "").Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var date)) return null;
+        if (date < today.AddDays(-news.RecentDays) || date > today.AddDays(news.AheadDays)) return null;
+        var status = (idea.Status ?? "").Trim().ToLowerInvariant();
+        var fits = status switch
+        {
+            "lançado" => date <= today,
+            "lançamento" => date >= today,
+            "beta" or "acesso antecipado" => true,
+            _ => false,
+        };
+        return fits ? (date.ToString("yyyy-MM-dd"), status) : null;
     }
 
     internal static string IdeaPrompt(string idea, IReadOnlyList<string> portugueseResults, IReadOnlyList<string> englishResults,
@@ -230,7 +281,13 @@ public sealed class TrendPicker(ILlmClient llm, HttpClient http, string promptTe
     internal static string UserPrompt(TrendSignals signals, IReadOnlyCollection<string> alreadyMade)
     {
         var text = new StringBuilder();
-        text.AppendLine("Top news in Brazil today (Google News headlines, the strongest signal):");
+        if (signals.Games is { Count: > 0 } games)
+        {
+            text.AppendLine("Games news today (official: Steam Brasil store lists and the publishers' blogs, the strongest signal):");
+            foreach (var g in games) text.AppendLine($"- {g}");
+            text.AppendLine();
+        }
+        text.AppendLine(signals.Games is { Count: > 0 } ? "Top news in Brazil today (Google News headlines):" : "Top news in Brazil today (Google News headlines, the strongest signal):");
         foreach (var h in signals.Headlines) text.AppendLine($"- {h}");
         text.AppendLine();
         text.AppendLine("Searched in Brazil today (Google Trends, with a headline):");

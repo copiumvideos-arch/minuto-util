@@ -21,6 +21,12 @@ public sealed record AppConfig
     public TikTokOptions TikTok { get; init; } = new();
     public Publishing.TelegramOptions Telegram { get; init; } = new();
 
+    /// <summary>
+    /// A news channel (Profissão Spoiler): ideas are games just out or coming, checked against a date window, and the
+    /// script also reads official news (Steam Brasil, publisher blogs). Null for a channel of past events.
+    /// </summary>
+    public NewsOptions? News { get; init; }
+
     /// <summary>Kinds of video other than the channel's usual one, each picked by its series name (a topic's "topic").</summary>
     public IReadOnlyList<VideoFormat> Formats { get; init; } = [];
 
@@ -150,6 +156,34 @@ public sealed record StoryOptions
     /// </summary>
     public int MinYearsAgo { get; init; } = 25;
 }
+
+/// <summary>The date window and official sources of a news channel (config.json "news").</summary>
+public sealed record NewsOptions
+{
+    /// <summary>A launch, beta or early access counts as news for this many days after its date.</summary>
+    public int RecentDays { get; init; } = 14;
+
+    /// <summary>How far ahead a confirmed date may be for a "coming soon" idea.</summary>
+    public int AheadDays { get; init; } = 120;
+
+    /// <summary>
+    /// The daily idea lists of this many days (today included) feed the queue on their own, best idea first, so a
+    /// render still has a topic when the owner tapped nothing. Older lists are stale news.
+    /// </summary>
+    public int ListDays { get; init; } = 2;
+
+    /// <summary>Official posts older than this many days are not given to the writer.</summary>
+    public int SourceDays { get; init; } = 45;
+
+    /// <summary>Official news feeds in Portuguese (RSS with the full post): read for the idea list and the script.</summary>
+    public IReadOnlyList<NewsFeed> Feeds { get; init; } =
+    [
+        new("PlayStation Blog BR", "https://blog.br.playstation.com/feed/"),
+        new("Xbox Wire Brasil", "https://news.xbox.com/pt-br/feed/"),
+    ];
+}
+
+public sealed record NewsFeed(string Name, string Url);
 
 public sealed record GeminiOptions
 {

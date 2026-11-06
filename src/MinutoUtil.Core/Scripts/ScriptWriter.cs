@@ -15,16 +15,22 @@ public sealed record WrittenScript(VideoScript Script, IReadOnlyList<string> War
 /// </summary>
 public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOptions options, string channelName)
 {
+    /// <summary>
+    /// A news channel's today (yyyy-MM-dd), told to the writer so it can say "acabou de chegar" or "chega dia ..." the
+    /// right way round. Null for a channel of past events.
+    /// </summary>
+    public string? Today { get; init; }
+
     public async Task<WrittenScript> WriteAsync(string topic, IReadOnlyList<SourceArticle> sources, int maxSourceChars, CancellationToken ct)
     {
         var system = SystemPrompt();
-        var user = UserPrompt(topic, sources, maxSourceChars, null);
+        var user = UserPrompt(topic, sources, maxSourceChars, null, Today);
         var script = Polish(await llm.CompleteJsonAsync<VideoScript>(system, user, ct), sources);
         var problem = HardProblem(script);
         if (problem is not null)
         {
             Log.Warn($"script needs a rewrite: {problem}");
-            var retry = UserPrompt(topic, sources, maxSourceChars, $"Your previous answer was rejected: {problem}. Fix that and keep every other rule.");
+            var retry = UserPrompt(topic, sources, maxSourceChars, $"Your previous answer was rejected: {problem}. Fix that and keep every other rule.", Today);
             script = Polish(await llm.CompleteJsonAsync<VideoScript>(system, retry, ct), sources);
             if (HardProblem(script) is { } still) Log.Warn($"script still off after the rewrite, used anyway: {still}");
         }
@@ -39,15 +45,18 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         .Replace("{MAX_SECTIONS}", options.MaxSections.ToString())
         .Replace("{LENGTH}", options.Length);
 
-    internal static string UserPrompt(string topic, IReadOnlyList<SourceArticle> sources, int maxSourceChars, string? feedback)
+    internal static string UserPrompt(string topic, IReadOnlyList<SourceArticle> sources, int maxSourceChars, string? feedback, string? today = null)
     {
         var sb = new StringBuilder();
+        if (today is not null) sb.AppendLine($"Today is {today}.");
         sb.AppendLine($"Topic of the channel series: {topic}.");
         sb.AppendLine($"Event: {string.Join(" / ", sources.Select(s => s.Title))}.");
         sb.AppendLine();
         foreach (var source in sources)
         {
-            sb.AppendLine($"=== SOURCE TEXT ({source.Language}, Wikipedia: {source.Title}) ===");
+            // News sources name themselves ("Steam: ...", "PlayStation Blog BR: ..."); an article is from Wikipedia.
+            var label = source.Url.Contains("wikipedia.org", StringComparison.OrdinalIgnoreCase) ? $"Wikipedia: {source.Title}" : source.Title;
+            sb.AppendLine($"=== SOURCE TEXT ({source.Language}, {label}) ===");
             sb.AppendLine(WikipediaClient.Excerpt(source.Text, maxSourceChars));
             sb.AppendLine($"=== END OF SOURCE TEXT ({source.Language}) ===");
             sb.AppendLine();

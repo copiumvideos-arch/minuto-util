@@ -43,8 +43,10 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
   (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for), `trailer.py` (cuts
   game trailers on the narration for a channel with `media.footage` "trailers").
-- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games, official trailers
-  from Steam or else YouTube through `Media/GameTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer channels").
+- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games news: only games
+  just out or with a confirmed date, ideas and sources from `Sources/GameNews.cs` under config `news`; official trailers
+  from Steam or else YouTube through `Media/GameTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer
+  channels" and "News channel").
 
 ## Channel style
 

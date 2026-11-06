@@ -145,7 +145,10 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         for (var i = 0; i < list.Ideas.Count; i++)
         {
             var idea = list.Ideas[i];
-            text.Append($"\n{i + 1}. {idea.PortugueseArticle ?? idea.Article} ({TextUtil.YearLabel(idea.Year)}) · {idea.Topic}");
+            // A news idea shows what happens and when ("lançamento 19/11") instead of the year.
+            var when = DateOnly.TryParseExact(idea.Date ?? "", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var date) ? $"{idea.Status} {date:dd/MM}".Trim() : TextUtil.YearLabel(idea.Year);
+            text.Append($"\n{i + 1}. {idea.PortugueseArticle ?? idea.Article} ({when}) · {idea.Topic}");
             if (idea.Trend is { Length: > 0 } trend) text.Append($" · por: {trend}");
         }
         var buttons = list.Ideas.Select((_, i) => new TelegramButton($"{i + 1}", $"{IdeaPrefix}{list.Date}:{i + 1}")).ToList();

@@ -38,24 +38,6 @@ public sealed class TopicQueueTests
     }
 
     [Fact]
-    public void Profissao_Spoilers_backlog_mixes_histories_and_short_videos_without_repeats()
-    {
-        var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler");
-        var backlog = spoiler.Backlog();
-
-        Assert.Equal(backlog.Topics.Count, backlog.Topics.Select(t => backlog.Identity(t).ToLowerInvariant()).Distinct().Count());
-        Assert.All(backlog.Topics, t => Assert.InRange(t.Year, 1970, 2026));
-        var histories = backlog.Topics.Where(t => t.Topic == "História dos games").ToList();
-        Assert.True(histories.Count >= 15);
-        // Never two histories in a row: the 2 to 3 minute videos alternate with the one-minute ones.
-        Assert.All(backlog.Topics.Zip(backlog.Topics.Skip(1)), p => Assert.False(p.First.Topic == "História dos games" && p.Second.Topic == "História dos games"));
-        // A game can have both kinds, and the queue keeps both.
-        var queue = new CloudState(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))).Queue(backlog);
-        Assert.Equal(backlog.Topics.Count, queue.Count);
-        Assert.Equal(histories.Count, queue.Count(e => e.Format == "História dos games"));
-    }
-
-    [Fact]
     public void Used_topics_are_skipped_and_a_topic_gets_a_second_chance_after_one_failure()
     {
         using var temp = new TempFolder();

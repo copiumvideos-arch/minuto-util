@@ -222,17 +222,22 @@ internal static class CloudCommands
                 }
                 if (next is null)
                 {
-                    await telegram.SendTextAsync($"🤔 Não achei um evento na Wikipedia para \"{TextUtil.Truncate(idea, 100)}\". Tente com outras palavras.", ct);
+                    await telegram.SendTextAsync(channel.Config.News is null
+                        ? $"🤔 Não achei um evento na Wikipedia para \"{TextUtil.Truncate(idea, 100)}\". Tente com outras palavras."
+                        : $"🤔 Não achei um lançamento recente ou com data confirmada para \"{TextUtil.Truncate(idea, 100)}\". Tente com o nome do jogo.", ct);
                     return 3;
                 }
             }
         }
         if (next is null)
         {
-            await telegram.SendTextAsync($"📭 A fila de temas acabou ({channel.TopicsFileName}). Adicione eventos para continuar.", ct);
+            await telegram.SendTextAsync(channel.Config.News is null
+                ? $"📭 A fila de temas acabou ({channel.TopicsFileName}). Adicione eventos para continuar."
+                : "📭 Nenhuma novidade na fila: a lista de hoje acabou ou não saiu. Mande o nome de um jogo que acabou de lançar ou que tem data marcada.", ct);
             return 3;
         }
-        if (string.IsNullOrWhiteSpace(article) && left <= 5)
+        // A news channel lives on the daily lists, not on topics.json, so a short backlog is no warning there.
+        if (string.IsNullOrWhiteSpace(article) && left <= 5 && channel.Config.News is null)
             await telegram.SendTextAsync($"📋 Restam {left} temas na fila ({channel.TopicsFileName}).", ct);
         return Started(state, tag, next, left, state.Settings().Review);
     }
@@ -305,7 +310,7 @@ internal static class CloudCommands
             models.Add(OpenRouterClient.ForCloudflare(llmHttp, cloudflare, account, config.CloudflareAi.Models, usage, quota));
         if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
         return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(channel.TrendsPromptFile),
-            config.Channel.Name, TimeProvider.System, config.Story.MinYearsAgo);
+            config.Channel.Name, TimeProvider.System, config.Story.MinYearsAgo, config.News);
     }
 
     /// <summary>
@@ -327,12 +332,14 @@ internal static class CloudCommands
         try
         {
             var signals = await TrendSignals.FetchAsync(http, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1)), ct);
+            if (channel.Config.News is { } news)
+                signals = signals with { Games = await new GameNews(http, news, TimeProvider.System).SignalsAsync(ct) };
             if (signals.IsEmpty)
             {
                 Log.Warn("ideas: no trend source answered; no list today");
                 return 0;
             }
-            Log.Info($"ideas: {signals.Headlines.Count} headlines, {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
+            Log.Info($"ideas: {signals.Games?.Count ?? 0} game news lines, {signals.Headlines.Count} headlines, {signals.Searches.Count} searches ({string.Join(", ", signals.Searches.Take(5).Select(x => x.Split(':')[0]))}...), {signals.WikipediaReads.Count} Wikipedia reads");
             var picks = await Picker(state, channel, key, http, llmHttp).PickAsync(signals, state.TakenArticles(), ct);
             if (picks.Count == 0)
             {

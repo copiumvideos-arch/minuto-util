@@ -255,7 +255,7 @@ files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` ex
 
 `media.footage` picks where the pictures come from: `archive` (Minuto Útil: public domain and CC pictures, the
 vintage look) or `trailers` (Profissão Spoiler, a games channel). A trailer run writes and voices the script the same
-way (Wikipedia sources, the channel's `writer.md`), then:
+way (Wikipedia sources, plus the official news on a news channel, and the channel's `writer.md`), then:
 
 1. **Trailers** (`Media/GameTrailers.cs`), fetched before the voice so a game with no footage costs no credits:
    - Steam (`Media/SteamTrailers.cs`): the game is found by its Wikipedia article's name (the exact name first, then
@@ -283,14 +283,35 @@ way (Wikipedia sources, the channel's `writer.md`), then:
 Its scripts state facts only and end on the last fact (no opinions, ironies or "Ou seja" wrap-ups), see
 `channels/profissao-spoiler/prompts/writer.md`.
 
-**Formats.** A topic's series can pick another kind of video (`formats` in the channel's config.json): Profissão
-Spoiler's "História dos games" is 2 to 3 minutes (290 to 380 words, kept under YouTube's 3 minute Shorts limit) on how a
-game was made, from 5 trailers, with `prompts/angle-historia.md` in place of `{ANGLE}` in writer.md (the usual
-one-fact minute uses `prompts/angle.md`). The queue tells formats apart, so one game can have a short video and a
-history. The `footage` command fetches enough trailers for the longest format; for a game with no trailer of its own
-(Super Mario Bros.), name official videos with `--youtube`. The voice says some words from `voice.pronunciations`
-("GTA" as "gê tê á"), while the captions keep the script. The trailers are the studios' own promotional videos, credited in
-the description; this is the owner's choice for this channel and does not change Minuto Útil's media rules.
+**News channel.** Profissão Spoiler covers only games that just came out or have a confirmed date coming (a launch,
+a beta, an early access), so viewers follow it to know what to play next. Its config has a `news` block
+(`NewsOptions` in `Config.cs`), which changes three things:
+- **Ideas** (`ideas.yml`, `prompts/trends.md`): besides the trends, the picker gets today's official games news from
+  `Sources/GameNews.cs`: the games of Steam Brasil's most played new releases, top sellers and most awaited upcoming
+  games whose Steam release date is inside the window, each with that date, and the latest posts of PlayStation Blog
+  BR and Xbox Wire Brasil (`news.feeds`). A game is named as the store lists it; no Wikipedia article is needed. Each
+  pick carries a date and a status ("lançado", "lançamento", "beta", "acesso antecipado") inside the window
+  (`news.recentDays` 14 back, `news.aheadDays` 120 ahead), and `GameNews.ConfirmAsync` checks it against the official
+  sources: a Steam game takes Steam's own release date, a beta or early access needs an announcement or post that says
+  so, and a console game needs a publisher post with the day. A model's made-up date is refused (on 2026-11-06 a list
+  offered The Elder Scrolls VI, and a spare model gave Counter-Strike 2 this week's date). The owner's own idea keeps
+  only the window. The Telegram list shows "lançamento 19/11" instead of the year.
+- **Queue** (`CloudState.Queue`): `topics.json` is empty. After the owner's text ideas and tapped ideas, the idea lists
+  of the last `news.listDays` (2) days feed the queue in their order, so a render still has news when nothing was
+  tapped. Any idea whose date is more than `news.recentDays` old, or that has no date (anything from before the
+  channel turned to news), leaves the queue on its own.
+- **Sources** (`Pipeline.SourcesAsync`): the official news comes before Wikipedia (which is skipped when the game
+  has no article yet): the game's Steam page as Brazil sees
+  it (date, price in reais, systems, Brazilian Portuguese text and dubbing, store description), the developer's Steam
+  announcements of the last `news.sourceDays` (45) days, and up to two posts per feed that name the game. The writer is
+  told today's date, so it says "acabou de chegar" or "chega dia doze". Every source is listed in the description.
+  The voice says some words from `voice.pronunciations` ("GTA" as "gê tê á"), while the captions keep the script.
+  The trailers are the studios' own promotional videos, credited in the description; this is the owner's choice for
+  this channel and does not change Minuto Útil's media rules.
+
+**Formats.** A topic's series can pick another kind of video (`formats` in a channel's config.json: its length,
+sections, trailers and an angle prompt in place of `{ANGLE}` in writer.md). No channel uses one now; Profissão Spoiler's
+"História dos games" was dropped when it turned to news.
 
 ## Cloud runs (no PC needed)
 

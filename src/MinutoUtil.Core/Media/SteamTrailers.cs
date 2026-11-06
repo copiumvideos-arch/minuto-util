@@ -91,12 +91,15 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
     /// Anything else is refused rather than guessed, since a wrong game's trailers would contradict the narration;
     /// --steam-app names the app then.
     /// </summary>
-    internal async Task<int> FindAppAsync(string game, CancellationToken ct)
+    internal Task<int> FindAppAsync(string game, CancellationToken ct) => FindAppAsync(http, game, ct);
+
+    /// <inheritdoc cref="FindAppAsync(string, CancellationToken)"/>
+    internal static async Task<int> FindAppAsync(HttpClient http, string game, CancellationToken ct)
     {
         var title = GameNames.Title(game);
         var wanted = GameNames.Key(title);
         if (wanted.Length == 0) throw new MediaException("No game name to look up on Steam.");
-        var found = await GetJsonAsync($"{Store}/api/storesearch/?term={Uri.EscapeDataString(title)}&l=english&cc=US", ct);
+        var found = await GetJsonAsync(http, $"{Store}/api/storesearch/?term={Uri.EscapeDataString(title)}&l=english&cc=US", ct);
         var items = (found?["items"] as JsonArray ?? []).OfType<JsonObject>()
             .Where(i => i["type"]?.GetValue<string>() == "app" && i["id"] is not null)
             .Select(i => (Id: i["id"]!.GetValue<int>(), Name: Clean(i["name"]?.GetValue<string>() ?? ""))).ToList();
@@ -144,7 +147,9 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
         File.Move(partial, path, overwrite: true);
     }
 
-    private async Task<JsonNode?> GetJsonAsync(string url, CancellationToken ct)
+    private Task<JsonNode?> GetJsonAsync(string url, CancellationToken ct) => GetJsonAsync(http, url, ct);
+
+    private static async Task<JsonNode?> GetJsonAsync(HttpClient http, string url, CancellationToken ct)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!response.IsSuccessStatusCode) throw new MediaException($"Steam answered {(int)response.StatusCode} for {new Uri(url).AbsolutePath}.");

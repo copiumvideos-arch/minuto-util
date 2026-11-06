@@ -1,17 +1,19 @@
 ## Angle
 
-Pick the one fact about this game that sounds hardest to believe and that the sources state clearly: a tiny budget, a
-huge delay, a decision that almost sank the studio, a record, something cut, something reused, a person who made it
-alone. The hook opens with it. The sections give that fact its context and then the facts that follow from it, in the
-order they happened. Test: the opening fact fits in one sentence a viewer would repeat to a friend. "A história de The
-Witcher 3" is not an angle.
+The news itself is the angle: the game just came out, or it has a date, a beta or an early access coming. The hook
+says what happened or what is coming and the one detail a Brazilian player cares about most, taken from the sources:
+the first Brazilian Portuguese dubbing, a free beta, a low price in reais, a platform it was never on before, a date
+that is days away. Test: the hook fits in one sentence a viewer would repeat to a friend who plays games.
+"A história de Phantom Blade Zero" is not an angle.
 
 ## How the facts move
 
-1. Open with the strange fact itself, straight away.
-2. Give the context the viewer needs to see why it is strange, in plain words.
-3. Then the facts that follow from it, one per section, in the order they happened. Link them in spoken words when
-   one leads to the next ("então", "só que", "aí", "depois disso").
-4. Say where a striking fact comes from when the sources name it: "segundo o diretor", "numa entrevista, ele disse,
-   abre aspas, ...". Quoting what a person actually said, word for word from the sources, is welcome.
-5. End on the last fact. The last sentence is a fact from the sources, said plainly.
+1. Open with the news: the game and what happens to it, with when ("acabou de chegar", "chega dia doze de novembro",
+   "o beta abre nesta sexta"), compared with today's date you are given.
+2. Then what a player needs to start playing, as far as the sources say it: the platforms, the date and time (in
+   Brasília time when the source gives a time), the price in reais, Brazilian Portuguese dubbing or subtitles, Game
+   Pass or PS Plus, how to get into the beta.
+3. Then what is new or different in the game, one fact per section, from the official sources: modes, changes from
+   the last game, the size of the world, what comes with the launch.
+4. Say where a fact comes from when it matters: "segundo a Sony", "na página da Steam", "no anúncio do estúdio".
+5. End on the last fact, said plainly. Price and platforms make a good last fact.

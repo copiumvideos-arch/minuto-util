@@ -36,7 +36,8 @@ public sealed class Pipeline(
     Narrator narrator,
     MediaGatherer gatherer,
     ICoverPainter? painter = null,
-    GameTrailers? trailers = null)
+    GameTrailers? trailers = null,
+    GameNews? news = null)
 {
     private string Tools => Path.Combine(repositoryRoot, "tools");
 
@@ -250,9 +251,23 @@ public sealed class Pipeline(
             return JsonSerializer.Deserialize<List<SourceArticle>>(await File.ReadAllTextAsync(path, ct), Json.Options)!;
         }
         var story = config.Story;
-        var (english, other) = await wikipedia.FetchPairAsync(story.EnglishArticle, config.Channel.Language, story.PortugueseArticle, ct);
-        // Portuguese first: the narration is in Portuguese, so its wording is the closer model.
-        var sources = other is null ? new List<SourceArticle> { english } : [other, english];
+        var sources = new List<SourceArticle>();
+        try
+        {
+            var (english, other) = await wikipedia.FetchPairAsync(story.EnglishArticle, config.Channel.Language, story.PortugueseArticle, ct);
+            // Portuguese first: the narration is in Portuguese, so its wording is the closer model.
+            sources.AddRange(other is null ? [english] : [other, english]);
+        }
+        catch (Exception ex) when (config.News is not null && ex is not OperationCanceledException)
+        {
+            // A news channel's game is often too new for Wikipedia; the official news carries the video then.
+            Log.Warn($"sources: no Wikipedia article for \"{story.EnglishArticle}\" ({TextUtil.Truncate(ex.Message, 120)})");
+        }
+        // A news channel: the official news comes first, since it has today's facts (date, price, betas) that the
+        // encyclopedia lags on; Wikipedia stays as the background.
+        if (config.News is not null && news is not null)
+            sources.InsertRange(0, await news.SourcesAsync(story.EnglishArticle, ct));
+        if (sources.Count == 0) throw new InvalidOperationException($"No source text for \"{story.EnglishArticle}\".");
         foreach (var s in sources) Log.Info($"sources: {s.Language} \"{s.Title}\", {s.Text.Length} characters (revision {s.RevisionId})");
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(sources, Json.Options), ct);
         return sources;
@@ -384,7 +399,11 @@ public sealed class Pipeline(
         var description = new StringBuilder(script.Description.Trim());
         if (!string.IsNullOrWhiteSpace(script.Question)) description.Append($" {script.Question.Trim()}");
         description.AppendLine().AppendLine();
-        description.AppendLine($"Fonte: Wikipedia ({string.Join("; ", sources.Select(s => $"{s.Title}, {s.Url}"))}). Texto sob CC BY-SA 4.0.");
+        var wikipedia = sources.Where(s => s.Url.Contains("wikipedia.org", StringComparison.OrdinalIgnoreCase)).ToList();
+        var others = sources.Except(wikipedia).ToList();
+        if (others.Count > 0) description.AppendLine($"Fontes: {string.Join("; ", others.Select(s => $"{s.Title}, {s.Url}"))}.");
+        if (wikipedia.Count > 0)
+            description.AppendLine($"Fonte: Wikipedia ({string.Join("; ", wikipedia.Select(s => $"{s.Title}, {s.Url}"))}). Texto sob CC BY-SA 4.0.");
         description.AppendLine();
         description.AppendLine("Créditos:");
         foreach (var item in media)

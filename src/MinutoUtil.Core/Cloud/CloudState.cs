@@ -8,13 +8,17 @@ namespace MinutoUtil.Core.Cloud;
 /// from today's trends or the owner's idea (<see cref="Trend"/> says what inspired it). <see cref="PortugueseArticle"/>
 /// is the second source when it is not the English page's language link.
 /// </summary>
-public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null, string? PortugueseArticle = null);
+/// <param name="Date">A news channel's idea: the date of the launch, beta or early access (yyyy-MM-dd).</param>
+/// <param name="Status">A news channel's idea: "lançado", "lançamento", "beta" or "acesso antecipado".</param>
+public sealed record BacklogTopic(string Article, int Year, string Topic, string? Trend = null, string? PortugueseArticle = null,
+    string? Date = null, string? Status = null);
 
 /// <summary>
 /// The channel's topics.json. <see cref="FormatTopics"/> are the series of the channel's other formats (config.json
 /// formats): a game told in one of them is another video, so "Elden Ring" can be a one-minute video and a history.
 /// </summary>
-public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics, IReadOnlyList<string>? FormatTopics = null)
+/// <see cref="News"/> marks a news channel: its ideas expire with their dates, and the recent idea lists feed the queue.
+public sealed record TopicBacklog(IReadOnlyList<BacklogTopic> Topics, IReadOnlyList<string>? FormatTopics = null, NewsOptions? News = null)
 {
     /// <summary>What makes two topics the same video: the article, plus the series when it is another format.</summary>
     public string Identity(string article, string topic) =>
@@ -79,6 +83,8 @@ public enum QueueOrigin
 {
     Text,
     Tapped,
+    /// <summary>A news channel's recent idea list, taken in its order when the owner tapped nothing.</summary>
+    List,
     Backlog,
 }
 
@@ -95,6 +101,9 @@ public sealed class CloudState(string folder)
     public const int MaxFailures = 2;
 
     public string Folder { get; } = Path.GetFullPath(folder);
+
+    /// <summary>The clock for a news channel's date window and recent idea lists.</summary>
+    public TimeProvider Time { get; init; } = TimeProvider.System;
 
     public string QuotaFile => Path.Combine(Folder, "quota-state.json");
 
@@ -186,7 +195,8 @@ public sealed class CloudState(string folder)
 
     /// <summary>
     /// What the next videos will be, in order. By default: the owner's text ideas, then the ideas tapped in the daily
-    /// lists (oldest first), then the backlog. The owner's own ordering (order.json, from /mover and the ⏫ button) comes
+    /// lists (oldest first), then on a news channel the recent idea lists themselves (today's first, in their order),
+    /// then the backlog. The owner's own ordering (order.json, from /mover and the ⏫ button) comes
     /// before that default. Any run that is not a failure uses its article up (a rejected video is not tried again), an
     /// article that failed <see cref="MaxFailures"/> times is skipped, and so is one the owner removed.
     /// </summary>
@@ -200,10 +210,21 @@ public sealed class CloudState(string folder)
             var identity = backlog.Identity(t);
             if (removed.Contains(TextUtil.Slug(identity, 60))) return false;
             var mine = runs.Where(r => string.Equals(backlog.Identity(r.Article, r.Topic), identity, StringComparison.OrdinalIgnoreCase)).ToList();
-            return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures;
+            return mine.All(r => r.Status == RunStatus.Failed) && mine.Count < MaxFailures && Fresh(t);
         }
+        // A news channel: an idea is news only while its date is in the window. Older ideas, and any idea from before
+        // the channel turned to news (no date), leave the queue on their own.
+        var today = DateOnly.FromDateTime(Time.GetUtcNow().UtcDateTime);
+        bool Fresh(BacklogTopic t) =>
+            backlog.News is not { } news
+            || DateOnly.TryParseExact(t.Date ?? "", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date)
+               && date >= today.AddDays(-news.RecentDays);
+        var lists = backlog.News is not { } recent ? [] : Enumerable.Range(0, Math.Max(recent.ListDays, 0))
+            .Select(d => Ideas(today.AddDays(-d).ToString("yyyyMMdd"))).OfType<IdeaList>()
+            .SelectMany(l => l.Ideas.Select((idea, i) => new QueueEntry($"l-{l.Date}-{i + 1:00}", idea, QueueOrigin.List)));
         var entries = Approved().OrderByDescending(a => a.FromText).ThenBy(a => a.ApprovedAt)
             .Select(a => new QueueEntry("a-" + a.Id, a.Topic, a.FromText ? QueueOrigin.Text : QueueOrigin.Tapped))
+            .Concat(lists)
             .Concat(backlog.Topics.Select(t => new QueueEntry("b-" + TextUtil.Slug(backlog.Identity(t), 34), t, QueueOrigin.Backlog)))
             .Where(e => Open(e.Topic))
             .Select(e => e with { Format = backlog.FormatTopics?.FirstOrDefault(f => string.Equals(f, e.Topic.Topic, StringComparison.OrdinalIgnoreCase)) })
@@ -252,7 +273,7 @@ public sealed class CloudState(string folder)
         var entry = Find(backlog, item);
         Write(Path.Combine(RemovedFolder, $"{TextUtil.Slug(backlog.Identity(entry.Topic), 60)}.json"),
             new { article = entry.Topic.Article, removedAt = DateTimeOffset.UtcNow });
-        if (entry.Origin != QueueOrigin.Backlog)
+        if (entry.Origin is QueueOrigin.Text or QueueOrigin.Tapped)
         {
             var path = Path.Combine(ApprovedFolder, $"{entry.Key[2..]}.json");
             if (File.Exists(path)) File.Delete(path);
