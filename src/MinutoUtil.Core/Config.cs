@@ -244,6 +244,13 @@ public sealed record WriterOptions
     /// </summary>
     public int MaxSpareRequests { get; init; } = 6;
 
+    /// <summary>
+    /// Whether the spare writers (Cloudflare Workers AI, OpenRouter) may write the script and pick the ideas when Gemini
+    /// fails. Off for Profissão Spoiler: its ROB RUN script of 2026-11-08, written by a spare, said "por gratuito" and
+    /// repeated itself, so a run then fails and the next one waits for Gemini.
+    /// </summary>
+    public bool SpareWriters { get; init; } = true;
+
     /// <summary>Spoken words of hook plus sections. pt-BR narration runs at about 150 words a minute at speed 1.0.</summary>
     public int MinWords { get; init; } = 130;
     public int MaxWords { get; init; } = 170;

@@ -39,6 +39,8 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    retired on 2026-07-30. `writer.maxRequests` (5) caps the Gemini requests of a whole run, and
    `writer.maxSpareRequests` (6) the Cloudflare and OpenRouter ones, counted apart so failed Gemini requests never
    take the spares' turn. Workers AI is asked for up to 8,192 reply tokens; its default of 256 cuts a script short.
+   `writer.spareWriters` false (Profissão Spoiler) turns the spares off for the script and the ideas: when Gemini
+   fails the run fails, since a spare's script ("ROB RUN chegou ao PC por gratuito", 2026-11-08) was not usable.
 4. **Voice** (`Voice/SmallestVoice.cs`, `Voice/Narrator.cs`, `tools/voice.py`): Smallest.ai Waves
    (`lightning_v3.1_pro`, voice `thiago`, 24 kHz WAV), one request per section, each take cached next to its text in
    `voice/smallest/`. The voice reads straight through a colon, so a section is spoken in pieces after each colon
@@ -257,24 +259,36 @@ files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` ex
 vintage look) or `trailers` (Profissão Spoiler, a games channel). A trailer run writes and voices the script the same
 way (Wikipedia sources, plus the official news on a news channel, and the channel's `writer.md`), then:
 
-1. **Trailers** (`Media/GameTrailers.cs`), fetched before the voice so a game with no footage costs no credits:
+1. **Trailers** (`Media/GameTrailers.cs`), fetched before the voice so a game with no footage costs no credits. Every
+   source below is asked, up to `media.trailers` (3) from each, so a game with one short Steam trailer still gets
+   enough different shots; a trailer found in two places (same title, or same length within a second) is kept once,
+   a source that fails only logs a warning, and the run fails only when no source gave anything:
    - Steam (`Media/SteamTrailers.cs`): the game is found by its Wikipedia article's name (the exact name first, then
      a later edition that starts with its words; anything else is refused, and `make --steam-app <id>` names the app).
      Up to `media.trailers` (3) official trailers, highlighted ones first, are read from their HLS streams at the best
      size up to 1080p, video only, into `media/trailers/`; only https streams on `*.steamstatic.com` are followed.
-   - YouTube (`Media/YouTubeTrailers.cs`), when Steam has no such game (GTA VI): yt-dlp searches "<game> official
+   - The Microsoft Store (`Media/MicrosoftStoreTrailers.cs`), Xbox and PC: the game is found by name in the store
+     catalog (same name rule as Steam), its trailers come from the store's product API, and the best video track up to
+     1080p of each DASH manifest is copied; only https manifests on `*.xboxservices.com` are followed. The cloud
+     runners reach it, unlike YouTube.
+   - YouTube (`Media/YouTubeTrailers.cs`): yt-dlp searches "<game> official
      trailer" and keeps videos from a channel in `media.youTubeChannels` (Rockstar, PlayStation, Xbox, IGN... by id)
      or a verified channel named after the game, whose title names the game and is not a reaction, review or
      breakdown; another channel's reupload of the same length is dropped. `make --youtube <ids or links>` names the
      videos instead. The best H.264 track up to 1080p, video only, cut to `media.maxTrailerSeconds`.
-   - A footage release (`Media/FootageCache.cs`), checked before both: YouTube asks GitHub's runners to sign in ("not
-     a bot"), so for a YouTube-only game run `minuto-util footage --channel <id> --article "<game>"` on the PC first.
-     It downloads the trailers there and puts them in the release `footage-<game>` (replacing it); every cloud run of
-     that game then takes them from it.
+   - A footage release (`Media/FootageCache.cs`), checked before all of them: YouTube asks GitHub's runners to sign
+     in ("not a bot"), so to add a game's YouTube trailers run `minuto-util footage --channel <id> --article "<game>"`
+     on the PC first. It downloads the trailers there from every source and puts them in the release `footage-<game>`
+     (replacing it); every cloud run of that game then takes them from it.
    `media/trailers.json` keeps the list for a re-render. `MINUTO_LIVE_TESTS=1 dotnet test` also runs a live download.
 2. **Cuts** (`tools/trailer.py`): shots are found in each trailer (cached in `shots.json` next to them), the narration
-   is cut into 1.3 to 2.6 s slots on word starts (1.0 to 1.6 s in the first five seconds), each slot gets an unused
-   high-motion shot from a different trailer than the one before, cropped to 9:16 on the action with a slow push in.
+   is cut into 1.3 to 2.6 s slots on word starts (1.0 to 1.6 s in the first five seconds), each slot gets a
+   high-motion scene not seen yet from a different trailer than the one before, cropped to 9:16 on the action with a
+   slow push in. Shots whose middle frames look alike (a trailer cutting back to a scene) count as one scene, a long
+   moving shot gives pieces of about 3 s, and a slot is shortened to fit a short unseen shot rather than show one
+   again. Only when every scene has been seen (one short trailer) does a shot come back, the one seen longest ago,
+   another part of it when it is long, and shots are held up to 4 s so fewer come back (ROB RUN on 2026-11-08 showed
+   about ten shots twice from two trailers; the same footage now gives none).
    The result is `footage.mp4` (silent, exactly the video's frames) and `cuts.json`.
 3. **Final render**: the same as the archive look (captions, voice at `video.voiceLufs`, size cap), with the
    channel's style switches: Montserrat captions in white with key words in red, the channel's name as a text-only
@@ -302,9 +316,12 @@ a beta, an early access), so viewers follow it to know what to play next. Its co
   channel turned to news), leaves the queue on its own.
 - **Sources** (`Pipeline.SourcesAsync`): the official news comes before Wikipedia (which is skipped when the game
   has no article yet): the game's Steam page as Brazil sees
-  it (date, price in reais, systems, Brazilian Portuguese text and dubbing, store description), the developer's Steam
+  it (date, price in reais with a discount kept apart from the normal price and a free game said to be free,
+  systems, Brazilian Portuguese text and dubbing, store description), the developer's Steam
   announcements of the last `news.sourceDays` (45) days, and up to two posts per feed that name the game. The writer is
   told today's date, so it says "acabou de chegar" or "chega dia doze". Every source is listed in the description.
+  A news script that says a phrase twice (four words, or three with a number, like "até quatro pessoas") costs one
+  rewrite (`SpokenText.RepeatedPhrase`), and "por gratuito" anywhere becomes "de graça".
   The voice says some words from `voice.pronunciations` ("GTA" as "gê tê á"), while the captions keep the script.
   The trailers are the studios' own promotional videos, credited in the description; this is the owner's choice for
   this channel and does not change Minuto Útil's media rules.

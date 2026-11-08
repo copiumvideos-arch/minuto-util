@@ -103,11 +103,7 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
         var items = (found?["items"] as JsonArray ?? []).OfType<JsonObject>()
             .Where(i => i["type"]?.GetValue<string>() == "app" && i["id"] is not null)
             .Select(i => (Id: i["id"]!.GetValue<int>(), Name: Clean(i["name"]?.GetValue<string>() ?? ""))).ToList();
-        var words = TextUtil.Fold(title) + " ";
-        var match = items.Where(i => GameNames.Key(i.Name) == wanted)
-            .Concat(items.Where(i => (TextUtil.Fold(i.Name) + " ").StartsWith(words, StringComparison.Ordinal)
-                                     && TextUtil.Fold(i.Name)[(words.Length - 1)..].Split(' ', StringSplitOptions.RemoveEmptyEntries).All(EditionWords.Contains)))
-            .FirstOrDefault();
+        var match = items.Where(i => GameNames.Key(i.Name) == wanted).Concat(items.Where(i => SameGame(i.Name, title))).FirstOrDefault();
         if (match.Id > 0)
         {
             Log.Info($"trailers: \"{game}\" is Steam app {match.Id} ({match.Name})");
@@ -115,6 +111,19 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
         }
         throw new MediaException($"Steam has no game named \"{game}\" (found: {string.Join(", ", items.Take(3).Select(i => i.Name))}); " +
                                  "set its app id with --steam-app.");
+    }
+
+    /// <summary>
+    /// Whether a store's product name is the game: the same name, or the name followed by edition words only
+    /// ("Remastered", "Deluxe Edition"), never a sequel or another game that starts the same way.
+    /// </summary>
+    internal static bool SameGame(string productName, string game)
+    {
+        if (GameNames.Key(productName) == GameNames.Key(game)) return true;
+        var words = TextUtil.Fold(game) + " ";
+        var product = TextUtil.Fold(Clean(productName));
+        return (product + " ").StartsWith(words, StringComparison.Ordinal)
+               && product[(words.Length - 1)..].Split(' ', StringSplitOptions.RemoveEmptyEntries).All(EditionWords.Contains);
     }
 
     /// <summary>The variant with the most lines up to 1080, from an HLS master playlist on Steam's video host.</summary>

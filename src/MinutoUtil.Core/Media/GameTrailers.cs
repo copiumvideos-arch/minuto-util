@@ -1,14 +1,19 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MinutoUtil.Core.Video;
 
 namespace MinutoUtil.Core.Media;
 
 /// <summary>
 /// The footage of a channel with media.footage "trailers": the videos named with --youtube, else the game's footage
-/// release (<see cref="FootageCache"/>, made on the owner's PC), else its Steam trailers, else (a game Steam does not
-/// sell, like GTA VI) its official trailers on YouTube. The list is saved as trailers.json and reused by a re-render.
+/// release (<see cref="FootageCache"/>, made on the owner's PC), else the official trailers from every source together:
+/// Steam, the Microsoft Store and the official YouTube channels (up to media.trailers from each), so a game with one
+/// short Steam trailer still gets enough different shots. The same trailer found in two places is kept once. A source
+/// that fails (YouTube refuses the cloud runners) only logs a warning; the run fails only when no source gave a
+/// trailer. The list is saved as trailers.json and reused by a re-render.
 /// </summary>
-public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, MediaOptions options, FootageCache? cache = null)
+public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, MediaOptions options, FootageCache? cache = null,
+    MicrosoftStoreTrailers? microsoft = null)
 {
     public async Task<IReadOnlyList<MediaItem>> GatherAsync(string game, string mediaFolder, CancellationToken ct)
     {
@@ -36,23 +41,30 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
         }
         else
         {
-            try
+            var all = new List<MediaItem>();
+            var errors = new List<string>();
+            async Task From(string source, Func<Task<IReadOnlyList<MediaItem>>> gather)
             {
-                trailers = await steam.GatherAsync(game, options.SteamAppId, mediaFolder, ct);
-            }
-            catch (MediaException steamError) when (options.SteamAppId is null)
-            {
-                Log.Warn($"trailers: {steamError.Message} Trying YouTube.");
                 try
                 {
-                    trailers = await youTube.SearchAsync(game, mediaFolder, ct);
+                    var found = await gather();
+                    all.AddRange(found);
+                    Log.Info($"trailers: {found.Count} from {source}");
                 }
-                catch (MediaException youTubeError)
+                catch (Exception ex) when (ex is MediaException or ToolException or HttpRequestException or JsonException)
                 {
-                    throw new MediaException($"{steamError.Message} {youTubeError.Message} On the PC, `minuto-util footage --channel " +
-                                             $"<id> --article \"{game}\"` downloads them for the cloud (release {FootageCache.ReleaseTag(game)}).");
+                    Log.Warn($"trailers: nothing from {source}: {TextUtil.Truncate(ex.Message, 200)}");
+                    errors.Add(ex.Message);
                 }
             }
+
+            await From("Steam", () => steam.GatherAsync(game, options.SteamAppId, mediaFolder, ct));
+            if (microsoft is not null) await From("the Microsoft Store", () => microsoft.GatherAsync(game, all.ToList(), mediaFolder, ct));
+            await From("YouTube", () => youTube.SearchAsync(game, mediaFolder, ct, all.ToList()));
+            if (all.Count == 0)
+                throw new MediaException($"{string.Join(" ", errors)} On the PC, `minuto-util footage --channel " +
+                                         $"<id> --article \"{game}\"` downloads them for the cloud (release {FootageCache.ReleaseTag(game)}).");
+            trailers = all;
         }
         await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(trailers, Json.Options), ct);
         return trailers;

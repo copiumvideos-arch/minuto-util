@@ -29,13 +29,16 @@ public sealed partial class YouTubeTrailers(Ffmpeg ffmpeg, MediaOptions options,
         "anime", "movie", "film", "series", "episode",
     ];
 
-    /// <summary>Searches YouTube for the game's official trailers.</summary>
-    public async Task<IReadOnlyList<MediaItem>> SearchAsync(string game, string mediaFolder, CancellationToken ct)
+    /// <summary>
+    /// Searches YouTube for the game's official trailers, leaving out the ones already found in a store
+    /// (<paramref name="already"/>): a video with the same title or the same length within a second is that trailer.
+    /// </summary>
+    public async Task<IReadOnlyList<MediaItem>> SearchAsync(string game, string mediaFolder, CancellationToken ct, IReadOnlyList<MediaItem>? already = null)
     {
         var name = GameNames.Title(game);
         if (GameNames.Key(name).Length == 0) throw new MediaException("No game name to look up on YouTube.");
         var result = await YtDlpAsync(["--flat-playlist", "--dump-json", $"ytsearch{SearchResults}:{name} official trailer"], TimeSpan.FromMinutes(2), ct);
-        var found = Pick(result.Split('\n').Select(ParseLine).OfType<JsonObject>(), name, options);
+        var found = WithoutTrailersHad(Pick(result.Split('\n').Select(ParseLine).OfType<JsonObject>(), name, options), already ?? []);
         if (found.Count == 0) throw new MediaException($"YouTube has no official trailer of \"{name}\" from a channel in media.youTubeChannels; name the videos with --youtube.");
         Log.Info($"trailers: YouTube has {found.Count} official video(s) of \"{name}\": {string.Join(", ", found.Take(options.Trailers).Select(v => v.Title))}");
         return await DownloadAllAsync(found, mediaFolder, ct);
@@ -80,6 +83,14 @@ public sealed partial class YouTubeTrailers(Ffmpeg ffmpeg, MediaOptions options,
             .OrderBy(v => companies.Contains(v.ChannelId) ? 0 : press.Contains(v.ChannelId) ? 2 : 1)
             .ThenByDescending(v => TextUtil.Fold(v.Title).Contains("trailer", StringComparison.Ordinal))
             .ToList();
+    }
+
+    /// <summary>The videos that are not a trailer already had from a store: another title and another length.</summary>
+    internal static List<Video> WithoutTrailersHad(List<Video> videos, IReadOnlyList<MediaItem> had)
+    {
+        var titles = had.Select(t => GameNames.Key(t.Title)).ToHashSet(StringComparer.Ordinal);
+        return videos.Where(v => !titles.Contains(GameNames.Key(v.Title))
+                                 && !had.Any(t => t.DurationSeconds is { } d && Math.Abs(d - v.Duration) <= 1.0)).ToList();
     }
 
     /// <summary>A YouTube video id from an id, a watch address or a youtu.be link; null when it is none of those.</summary>

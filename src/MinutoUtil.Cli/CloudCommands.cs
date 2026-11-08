@@ -306,9 +306,10 @@ internal static class CloudCommands
         var quota = new QuotaTracker(state.QuotaFile, sharedPaths: config.SharedQuotaFiles);
         var models = new List<ILlmClient>();
         if (key(config.Gemini.ApiKeyEnvVar) is { } gemini) models.Add(new GeminiClient(llmHttp, gemini, config.Gemini.Models, usage, quota));
-        if (key(config.CloudflareAi.TokenEnvVar) is { } cloudflare && key(config.CloudflareAi.AccountIdEnvVar) is { } account)
+        if (config.Writer.SpareWriters && key(config.CloudflareAi.TokenEnvVar) is { } cloudflare && key(config.CloudflareAi.AccountIdEnvVar) is { } account)
             models.Add(OpenRouterClient.ForCloudflare(llmHttp, cloudflare, account, config.CloudflareAi.Models, usage, quota));
-        if (key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter) models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
+        if (config.Writer.SpareWriters && key(config.OpenRouter.ApiKeyEnvVar) is { } openRouter)
+            models.Add(new OpenRouterClient(llmHttp, openRouter, config.OpenRouter.WriterModels, usage, quota));
         return new TrendPicker(new ChainedLlmClient(models), http, File.ReadAllText(channel.TrendsPromptFile),
             config.Channel.Name, TimeProvider.System, config.Story.MinYearsAgo, config.News);
     }

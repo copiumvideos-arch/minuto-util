@@ -67,6 +67,6 @@ public sealed partial class FootageCache(string repositoryRoot)
         return tag;
     }
 
-    [GeneratedRegex(@"^(steam|youtube)-[A-Za-z0-9_-]{1,40}\.mp4$")]
+    [GeneratedRegex(@"^(steam|youtube|microsoft)-[A-Za-z0-9_-]{1,40}\.mp4$")]
     private static partial Regex TrailerFile();
 }

@@ -141,9 +141,11 @@ var quota = new QuotaTracker(Path.GetFullPath(Option("--quota-file") ?? Path.Com
 var writers = new List<ILlmClient>();
 if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota));
 else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
-if (Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)
+// The spare writers only for a channel that allows them (writer.spareWriters): Profissão Spoiler waits for Gemini instead.
+if (config.Writer.SpareWriters && Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)
     writers.Add(OpenRouterClient.ForCloudflare(apiHttp, cloudflareToken, cloudflareAccount, config.CloudflareAi.Models, usage, quota));
-if (Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey) writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
+if (config.Writer.SpareWriters && Key(config.OpenRouter.ApiKeyEnvVar) is { } openRouterKey)
+    writers.Add(new OpenRouterClient(apiHttp, openRouterKey, config.OpenRouter.WriterModels, usage, quota));
 var prompt = channel.WriterPrompt(format);
 
 var tools = Path.Combine(root, "tools");
@@ -164,10 +166,10 @@ var gatherer = new MediaGatherer(imageSources, videoSources, new MediaDownloader
 ICoverPainter? painter = Key(config.CloudflareAi.TokenEnvVar) is { } paintToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } paintAccount
     ? new CloudflareCoverPainter(apiHttp, paintToken, paintAccount, config.CloudflareAi, usage)
     : null;
-// The game's official trailers (Steam, else YouTube), for a channel whose footage is trailers (media.footage).
+// The game's official trailers (Steam, the Microsoft Store and YouTube together), for a channel whose footage is trailers.
 var trailers = config.Media.Footage == "trailers"
     ? new GameTrailers(new SteamTrailers(http, ffmpeg, config.Media), new YouTubeTrailers(ffmpeg, config.Media, Path.Combine(root, "tools")), config.Media,
-        new FootageCache(root))
+        new FootageCache(root), new MicrosoftStoreTrailers(http, ffmpeg, config.Media))
     : null;
 // A news channel (config "news") also reads the official news about the game and tells the writer today's date.
 var news = config.News is { } newsOptions ? new GameNews(http, newsOptions, TimeProvider.System) : null;

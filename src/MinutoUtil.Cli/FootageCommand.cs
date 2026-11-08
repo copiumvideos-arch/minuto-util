@@ -52,7 +52,8 @@ internal static class FootageCommand
         Directory.CreateDirectory(folder);
         using var http = SafeHttp.CreatePublicClient(TimeSpan.FromSeconds(60));
         var ffmpeg = new Ffmpeg(config.Video);
-        var trailers = new GameTrailers(new SteamTrailers(http, ffmpeg, media), new YouTubeTrailers(ffmpeg, media, Path.Combine(root, "tools")), media);
+        var trailers = new GameTrailers(new SteamTrailers(http, ffmpeg, media), new YouTubeTrailers(ffmpeg, media, Path.Combine(root, "tools")), media,
+            microsoft: new MicrosoftStoreTrailers(http, ffmpeg, media));
         try
         {
             var found = await trailers.GatherAsync(game, Path.Combine(folder, "media"), cts.Token);

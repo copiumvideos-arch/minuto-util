@@ -26,7 +26,7 @@
   },
   "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
   "news": { "recentDays": 14, "aheadDays": 120, "listDays": 2, "sourceDays": 45 },
-  "writer": { "maxRequests": 5, "minWords": 120, "maxWords": 170, "minSections": 4, "maxSections": 6, "hardWordMargin": 30 },
+  "writer": { "maxRequests": 5, "spareWriters": false, "minWords": 120, "maxWords": 170, "minSections": 4, "maxSections": 6, "hardWordMargin": 30 },
   "voice": {
     "engine": "smallest",
     "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },

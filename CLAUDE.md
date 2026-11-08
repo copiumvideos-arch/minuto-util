@@ -45,7 +45,8 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   game trailers on the narration for a channel with `media.footage` "trailers").
 - Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games news: only games
   just out or with a confirmed date, ideas and sources from `Sources/GameNews.cs` under config `news`; official trailers
-  from Steam or else YouTube through `Media/GameTrailers.cs`, facts-only scripts, Montserrat captions; README "Trailer
+  from Steam, the Microsoft Store and YouTube together through `Media/GameTrailers.cs`, facts-only scripts, Montserrat
+  captions, never a spare writer (`writer.spareWriters` false: a run fails and waits for Gemini); README "Trailer
   channels" and "News channel").
 
 ## Channel style
