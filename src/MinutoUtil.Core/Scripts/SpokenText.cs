@@ -38,6 +38,51 @@ public static partial class SpokenText
 
     public static bool HasDigits(string text) => text.Any(char.IsAsciiDigit);
 
+    /// <summary>A free game said like a price: "por gratuito", "por grátis", "por zero reais", "por R$ 0".</summary>
+    [GeneratedRegex(@"(?<!\w)por\s+(?:gratuito|gratuita|grátis|gratis|zero\s+reais|R\$\s*0(?:,00)?)(?!\w)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FreeAsPrice();
+
+    /// <summary>
+    /// "ROB RUN chegou ao PC por gratuito" becomes "ROB RUN chegou ao PC de graça": nobody says a free game costs
+    /// "gratuito" (the ROB RUN video of 8/11/2026 said it in the title and the narration).
+    /// </summary>
+    public static string WithFreeSaidPlainly(string text) => FreeAsPrice().Replace(text, "de graça");
+
+    // Number words that make a short phrase a fact ("até quatro pessoas", "noventa e nove reais"); "um" and "uma" are
+    // left out, since they are mostly articles.
+    private static readonly HashSet<string> NumberWords =
+    [
+        "dois", "duas", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "catorze",
+        "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove", "vinte", "trinta", "quarenta", "cinquenta",
+        "sessenta", "setenta", "oitenta", "noventa", "cem", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos",
+        "seiscentos", "setecentos", "oitocentos", "novecentos", "mil", "milhao", "milhoes", "bilhao", "bilhoes", "reais",
+        "centavos", "dolares", "gratuito", "gratis", "graca",
+    ];
+
+    /// <summary>
+    /// The first phrase said twice in a narration, or null: any four words in a row, or three in a row with a number or
+    /// a price in them ("até quatro pessoas"). A short news video that says a fact twice wastes the viewer's time (the
+    /// Shrek 2 video said "até quatro pessoas" twice, ROB RUN said "o jogo tem um sistema de" twice). Words that are
+    /// all part of one figure ("noventa e nove" in "noventa e nove reais e noventa e nove centavos") are not a phrase.
+    /// </summary>
+    public static string? RepeatedPhrase(IEnumerable<string> spoken)
+    {
+        var words = string.Join(" ", spoken.Select(TextUtil.Fold)).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var size in new[] { 4, 3 })
+        {
+            var first = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var i = 0; i + size <= words.Length; i++)
+            {
+                var gram = words[i..(i + size)];
+                if (gram.All(w => w == "e" || NumberWords.Contains(w))) continue;
+                if (size == 3 && !gram.Any(NumberWords.Contains)) continue;
+                var phrase = string.Join(' ', gram);
+                if (!first.TryAdd(phrase, i) && i - first[phrase] >= size) return phrase;
+            }
+        }
+        return null;
+    }
+
     // A year split in two the English way ("fifteen ninety"): a number from eleven to nineteen followed straight by a
     // tens word ("quinze noventa", "dezenove quarenta e quatro"), another teen ("dezenove dezoito") or "zero" and a
     // unit ("dezenove zero cinco"). Portuguese never puts two such numbers side by side.

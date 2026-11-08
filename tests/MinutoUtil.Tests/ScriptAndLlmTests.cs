@@ -109,6 +109,56 @@ public sealed class ScriptAndLlmTests
         Assert.Equal("Na década de mil seiscentos e noventa, cresceu.", cleaned.Sections[0].Text);
     }
 
+    // The ROB RUN video (8/11/2026) said "chegou ao PC por gratuito" in the title and "na Steam por gratuito" aloud.
+    [Theory]
+    [InlineData("ROB RUN chegou ao PC por gratuito", "ROB RUN chegou ao PC de graça")]
+    [InlineData("RobRun está disponível na Steam por gratuito.", "RobRun está disponível na Steam de graça.")]
+    [InlineData("Sai por grátis no PC", "Sai de graça no PC")]
+    [InlineData("chegou por R$ 0,00 na Steam", "chegou de graça na Steam")]
+    [InlineData("O jogo é gratuito na Steam.", "O jogo é gratuito na Steam.")]
+    [InlineData("custa por gratuitos motivos", "custa por gratuitos motivos")]
+    public void A_free_game_is_never_said_like_a_price(string text, string expected) => Assert.Equal(expected, SpokenText.WithFreeSaidPlainly(text));
+
+    [Fact]
+    public void The_cleanup_says_free_plainly_in_the_title_hook_sections_and_description()
+    {
+        var section = new ScriptSection("RobRun está disponível na Steam por gratuito.", ["crime"], ["crime"], "q");
+        var script = new VideoScript("ROB RUN chegou ao PC por gratuito", "ROB RUN chegou por gratuito.", "", "", [section],
+            "Disponível por gratuito na Steam.", ["robrun"]);
+        var cleaned = ScriptWriter.Clean(script);
+        Assert.Equal("ROB RUN chegou ao PC de graça", cleaned.Title);
+        Assert.Equal("ROB RUN chegou de graça.", cleaned.Hook);
+        Assert.Equal("RobRun está disponível na Steam de graça.", cleaned.Sections[0].Text);
+        Assert.Equal("Disponível de graça na Steam.", cleaned.Description);
+    }
+
+    [Theory]
+    // Shrek 2 Remastered (7/11/2026): the hook and a section both said the co-op player count.
+    [InlineData("Shrek 2 Remastered chega dia dez de novembro ao PC, trazendo cooperativo para até quatro pessoas.|" +
+                "O jogo permite jogar sozinho ou em até quatro pessoas no modo cooperativo local, online ou misto.", "ate quatro pessoas")]
+    // ROB RUN (8/11/2026): where and how it was out, said at the start and again at the end.
+    [InlineData("O jogo está disponível gratuitamente na Steam para Windows.|No jogo, você pode criar sua própria família do crime.|" +
+                "O jogo tem um sistema de progressão.|O jogo tem um sistema de economia.|RobRun está disponível na Steam de graça.", "o jogo tem um")]
+    // One price is one figure, not a repeat.
+    [InlineData("Custa noventa e nove reais e noventa e nove centavos na Steam.|O jogo tem legendas em português.", null)]
+    [InlineData("ArcheAge Chronicles acabou de chegar ao PC em acesso antecipado.|Custa noventa e nove reais e noventa e nove centavos na Steam.|" +
+                "Você explora o continente de Auroria como membro de uma companhia mercante.", null)]
+    public void A_phrase_said_twice_is_found(string sections, string? expected) =>
+        Assert.Equal(expected, SpokenText.RepeatedPhrase(sections.Split('|')));
+
+    [Fact]
+    public void A_news_script_that_says_a_fact_twice_costs_a_rewrite_but_a_history_script_does_not()
+    {
+        var sections = new[] { "O jogo permite jogar sozinho ou em até quatro pessoas no modo cooperativo local." }
+            .Select(t => new ScriptSection(t, ["coop"], ["coop"], "q")).ToList();
+        var script = new VideoScript("t", "Shrek 2 chega dia dez ao PC, com cooperativo para até quatro pessoas.", "", "", sections, "d", ["shrek"]);
+        var options = new WriterOptions { MinWords = 10, MaxWords = 200, MinSections = 1, MaxSections = 6 };
+
+        var news = new ScriptWriter(new UnavailableClient(), "", options, "Profissão Spoiler") { Today = "2026-11-08" };
+        Assert.Contains("\"ate quatro pessoas\" is said twice", news.HardProblem(script));
+        Assert.Null(new ScriptWriter(new UnavailableClient(), "", options, "Minuto Útil").HardProblem(script));
+    }
+
     [Fact]
     public async Task AScriptFarTooShortCostsExactlyOneMoreRequest()
     {

@@ -16,4 +16,8 @@ that is days away. Test: the hook fits in one sentence a viewer would repeat to 
 3. Then what is new or different in the game, one fact per section, from the official sources: modes, changes from
    the last game, the size of the world, what comes with the launch.
 4. Say where a fact comes from when it matters: "segundo a Sony", "na página da Steam", "no anúncio do estúdio".
-5. End on the last fact, said plainly. Price and platforms make a good last fact.
+5. End on the last fact, said plainly: the most concrete thing a player gets (a mode, what comes with the launch, how
+   to join the beta). The date, price and platforms were already said in step 2 and are never said again at the end.
+
+Patch notes, maintenance, bug fixes and small balance changes (a storage limit raised, a server restarted) are not
+news to someone deciding what to play; leave them out unless the update itself is the news.

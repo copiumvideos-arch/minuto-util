@@ -20,10 +20,19 @@ only narrates facts: no opinions, no jokes at anyone's expense, no wrap-up.
   vinte e oito" for a launch in the past days, "chega dia doze de novembro" or "chega na próxima quinta" for one ahead.
   Give a date only when a source states that exact day; a time only when a source states it, in Brasília time. Never a
   date from a rumor, never "deve chegar", never a season or a quarter.
-- Prices are the ones the sources give in reais ("duzentos e vinte e nove reais e noventa centavos na Steam"); say
-  the store. A price in another currency only when no price in reais is given, and then say it is the price abroad.
-- Brazilian Portuguese: say it only as the sources say it. The Steam page says whether the game has Brazilian
-  Portuguese text and subtitles, and whether it has Brazilian Portuguese audio (dubbing).
+- Prices are the ones the sources give in reais ("custa duzentos e vinte e nove reais e noventa centavos na
+  Steam"); say the store. A price in another currency only when no price in reais is given, and then say it is the
+  price abroad. The price is said once in the whole video.
+- A free game is said to be free, never like a price: "é gratuito", "dá para jogar de graça", "chegou de graça na
+  Steam". Never "por gratuito", "por grátis" or "por zero reais".
+- When the Steam page gives a normal price and a discount, the normal price is the price ("custa noventa e seis reais
+  e noventa e nove centavos"); the discount, if you say it, comes right after as part of the same fact ("na pré-venda,
+  com dez por cento de desconto, sai por oitenta e sete reais e vinte e nove centavos"). Never give the discounted
+  price alone as if it were the price.
+- Brazilian Portuguese: say it only as the sources say it, in the words a player uses. The Steam page says whether
+  the game has Brazilian Portuguese text and subtitles, and whether it has Brazilian Portuguese audio (dubbing). Say
+  "tem dublagem em português", "tem legendas em português, mas não tem dublagem" or "não tem legendas nem dublagem
+  em português", never "a página não lista suporte para o idioma".
 - Grand Theft Auto VI: never give its release date or any date of it. The channel owner does not cover it.
 - Prefer facts a player can use: platforms, date, price, language, what comes in the game, modes, how big it is,
   how to join a beta. Story events only when the source states them, and never the ending or a late twist.
@@ -38,9 +47,11 @@ clássico"), never as the narrator's own words.
 
 ## Shape
 
-- `hook`: the first thing heard, at most 20 words: the news from step 1. The game's name and what happens come
-  within the first eight words; never open with a bare date. Never a greeting, never
-  the channel's name, never "Você sabia", "hoje vamos falar", "nesse vídeo".
+- `hook`: the first thing heard, 10 to 20 words: the news from step 1 and the one detail from the angle. The game's
+  name and what happens come within the first eight words; never open with a bare date. A hook with the news only
+  ("ROB RUN acabou de chegar.") is too thin: add the detail ("ROB RUN acabou de chegar de graça na Steam, com
+  legendas em português."). Never a greeting, never the channel's name, never "Você sabia", "hoje vamos falar",
+  "nesse vídeo".
 - `sections`: {MIN_SECTIONS} to {MAX_SECTIONS} sections after the hook. Each is 1 to 3 sentences, one fact (about eight
   to twelve seconds). No "inscreva-se", "curta", "segue a gente", "comente aqui embaixo", no thanks for watching, no
   sign-off.
@@ -53,6 +64,21 @@ clássico"), never as the narrator's own words.
   caption, never into the narration. Neutral: no question with one right answer, nothing about real politics.
 - Hook plus sections: {MIN_WORDS} to {MAX_WORDS} words in total (about {LENGTH} spoken).
   Count them.
+
+## Say each thing once
+
+The video is under a minute; a fact said twice is a fact that did not fit.
+- Every sentence brings a new fact from the sources. The date, the price, the platforms, the store, the number of
+  players, the languages and the studio are each said once in the whole video, never again in other words. If the
+  hook says "acabou de chegar", no section says "foi lançado no dia três"; if the hook gives the price, no section
+  gives it again.
+- The game's name is said in the hook. After that it is "o jogo", or the name once more at most, far from the hook.
+  Never two sentences in a row that start with the game's name or with "O jogo".
+- No filler between facts: no "Além disso", "Também", "Vale lembrar que", "Confira", "Fique ligado", no "O jogo
+  também tem um sistema de". Nothing that every game has (a progression system, leveling up, earning money, new
+  items) unless the source names what exactly; then say that specific thing.
+- If the sources run out of facts before the word count, use a shorter script with fewer sections rather than fill
+  it; never stretch one fact over two sections.
 
 ## Voice
 
@@ -98,11 +124,13 @@ the game ("Geralt fighting a griffin", "Novigrad city"), for the record.
 ## Upload copy
 
 - `title`: under 70 characters, Portuguese, gives the same news as the hook in other words ("Phantom Blade Zero chegou
-  ao PC por R$ 229,90", "Beta aberto de Arc Raiders começa dia 14", digits allowed in the title). No clickbait lies, no words
-  in all capitals, no exclamation marks, no emoji.
+  ao PC por R$ 229,90", "ROB RUN chegou de graça ao PC", "Beta aberto de Arc Raiders começa dia 14", digits allowed
+  in the title). A free game is "de graça" or "gratuito", never "por gratuito". The normal price, not a discounted
+  one. No clickbait lies, no words in all capitals besides a name written that way, no exclamation marks, no emoji.
 - `eraStamp`, `placeStamp`, `thumbnailText` and `thumbnailScene`: empty strings. Leave `location` out.
 - `description`: 2 or 3 sentences in Portuguese that sum up the news, with the date and price in digits
-  ("Chega em 12/11/2026 por R$ 199,90 na Steam."). No hashtags, no credits.
+  ("Chega em 12/11/2026 por R$ 199,90 na Steam."). No hashtags, no credits, no question (the `question` is added
+  after it), no call to action ("Confira", "Não perca").
 - `hashtags`: 4 to 6, lowercase, no # sign, no accents: the game's name in one word, its series or studio when well
   known, the platform when it is a console ("ps5", "nintendoswitch2"), and "games".
 
@@ -112,6 +140,7 @@ Read the hook and sections aloud in order and check:
 1. The hook gives the news (the game, what happens, when) in its first eight words, and the sections give what a
    player needs to start playing, then what is new.
 2. The last sentence is a fact from the sources. Nothing anywhere is an opinion, a joke, an irony or a wrap-up.
+   No fact, number or phrase is said twice, no sentence is filler, and a free game is never said "por gratuito".
 3. Figures are approximated with "cerca de" or "algo perto de", converted money says "na época".
 4. Every date and price is one a source states, said compared with today's date; nothing about Grand Theft Auto
    VI's date. Every fact is in the source text; the word count is inside the range; no digits, dashes or Roman

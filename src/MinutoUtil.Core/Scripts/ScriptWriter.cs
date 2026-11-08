@@ -10,8 +10,9 @@ public sealed record WrittenScript(VideoScript Script, IReadOnlyList<string> War
 /// <summary>
 /// Asks the model for the script once, grounded in the Wikipedia text, then checks and cleans the answer locally (no
 /// model involved): dashes removed, word and section counts, digits left in the narration, and whether each section's
-/// source quote really is in the source text. Only a script that is far off (too short, too long, too few sections)
-/// costs a second request, and the run's <see cref="RunUsage"/> budget caps even that.
+/// source quote really is in the source text. Only a script that is far off (too short, too long, too few sections,
+/// or on a news channel a phrase said twice) costs a second request, and the run's <see cref="RunUsage"/> budget caps
+/// even that.
 /// </summary>
 public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOptions options, string channelName)
 {
@@ -85,18 +86,18 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
     /// </summary>
     internal static VideoScript Clean(VideoScript script) => script with
     {
-        Title = SpokenText.WithoutDashes(script.Title),
-        Hook = SpokenText.WithFullYears(SpokenText.WithoutDashes(script.Hook)),
+        Title = SpokenText.WithFreeSaidPlainly(SpokenText.WithoutDashes(script.Title)),
+        Hook = SpokenText.WithFreeSaidPlainly(SpokenText.WithFullYears(SpokenText.WithoutDashes(script.Hook))),
         EraStamp = SpokenText.WithoutDashes(script.EraStamp),
         PlaceStamp = SpokenText.WithoutDashes(script.PlaceStamp),
-        Description = SpokenText.WithoutDashes(script.Description),
+        Description = SpokenText.WithFreeSaidPlainly(SpokenText.WithoutDashes(script.Description)),
         Question = SpokenText.WithoutDashes(script.Question ?? "").Trim(),
         ThumbnailText = SpokenText.WithoutDashes(script.ThumbnailText ?? "").Trim(),
         ThumbnailScene = SpokenText.WithoutDashes(script.ThumbnailScene ?? "").Trim(),
         Hashtags = script.Hashtags.Select(h => h.Trim().TrimStart('#').Replace(" ", "")).Where(h => h.Length > 0).Distinct().ToList(),
         Sections = script.Sections.Select(s => s with
         {
-            Text = SpokenText.WithFullYears(SpokenText.WithoutDashes(s.Text)),
+            Text = SpokenText.WithFreeSaidPlainly(SpokenText.WithFullYears(SpokenText.WithoutDashes(s.Text))),
             SearchEn = s.SearchEn.Where(q => !string.IsNullOrWhiteSpace(q)).Select(q => q.Trim()).ToList(),
             SearchPt = s.SearchPt.Where(q => !string.IsNullOrWhiteSpace(q)).Select(q => q.Trim()).ToList(),
         }).ToList(),
@@ -112,6 +113,9 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         var words = script.WordCount;
         if (words < options.MinWords - options.HardWordMargin || words > options.MaxWords + options.HardWordMargin)
             return $"{words} words in hook plus sections, the rule is {options.MinWords} to {options.MaxWords}";
+        // A news video says each fact once; a history script may echo its hook on purpose at the end.
+        if (Today is not null && SpokenText.RepeatedPhrase(script.SpokenSections) is { } repeated)
+            return $"\"{repeated}\" is said twice; say each fact once and give that time to a new fact from the sources";
         return null;
     }
 

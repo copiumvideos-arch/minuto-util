@@ -232,7 +232,7 @@ public sealed class Pipeline(
     }
 
     /// <summary>Bump when trailer.py cuts differently, so footage.mp4 is made again.</summary>
-    private const string TrailerVersion = "1";
+    private const string TrailerVersion = "2";
 
     /// <summary>One cut of trailer.py's plan (cuts.json): the trailer file and the slot it fills, in seconds.</summary>
     private sealed record TrailerCut(string File, IReadOnlyList<double> Slot);

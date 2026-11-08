@@ -131,6 +131,21 @@ public sealed class NewsTests
         Assert.Contains(expected, GameNews.PortugueseSupport(languages));
 
     [Theory]
+    // A free game is said to be free, never as a price ("chegou ao PC por gratuito").
+    [InlineData("""{"is_free":true}""", false, "Preço na Steam Brasil: o jogo é gratuito, dá para baixar e jogar de graça.")]
+    [InlineData("""{"is_free":false,"price_overview":{"discount_percent":0,"initial_formatted":"","final_formatted":"R$ 229,90"}}""", false,
+        "Preço na Steam Brasil: R$ 229,90.")]
+    // Steam's final price is the discounted one: the normal price comes first, the offer apart (Shrek 2 Remastered, 7/11/2026).
+    [InlineData("""{"is_free":false,"price_overview":{"discount_percent":10,"initial_formatted":"R$ 96,99","final_formatted":"R$ 87,29"}}""", true,
+        "Preço normal na Steam Brasil: R$ 96,99. Desconto de 10% na pré-venda: sai por R$ 87,29.")]
+    [InlineData("""{"is_free":false,"price_overview":{"discount_percent":25,"initial_formatted":"R$ 100,00","final_formatted":"R$ 75,00"}}""", false,
+        "Preço normal na Steam Brasil: R$ 100,00. Desconto de 25% por tempo limitado: sai por R$ 75,00.")]
+    [InlineData("""{"is_free":false}""", true, "Preço na Steam Brasil: ainda não informado.")]
+    [InlineData("""{"is_free":false}""", false, "")]
+    public void The_price_line_says_free_games_and_discounts_the_way_a_player_reads_them(string json, bool soon, string expected) =>
+        Assert.Equal(expected, GameNews.PriceLine((System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(json)!, soon));
+
+    [Theory]
     [InlineData("Oct 28, 2026", "2026-10-28")]
     [InlineData("28 Oct, 2026", "2026-10-28")]
     [InlineData("Nov 5, 2026", "2026-11-05")]

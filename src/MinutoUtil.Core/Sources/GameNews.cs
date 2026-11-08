@@ -161,10 +161,7 @@ public sealed partial class GameNews(HttpClient http, NewsOptions options, TimeP
                 : $"Data de lançamento na Steam: {date.ToString("d 'de' MMMM 'de' yyyy", Portuguese)}.");
         else if (soon)
             text.AppendLine(raw is null ? "Na Steam, o jogo ainda não tem data de lançamento." : $"Na Steam, o lançamento aparece como: {raw}.");
-        if (data["is_free"]?.GetValue<bool>() == true) text.AppendLine("Preço na Steam Brasil: gratuito.");
-        else if (Clean(data["price_overview"]?["final_formatted"]?.GetValue<string>(), 40) is { } price)
-            text.AppendLine($"Preço na Steam Brasil: {price}.");
-        else if (soon) text.AppendLine("Preço na Steam Brasil: ainda não informado.");
+        if (PriceLine(data, soon) is { Length: > 0 } priceLine) text.AppendLine(priceLine);
         var systems = new[] { ("windows", "Windows"), ("mac", "Mac"), ("linux", "Linux") }
             .Where(p => data["platforms"]?[p.Item1]?.GetValue<bool>() == true).Select(p => p.Item2).ToList();
         if (systems.Count > 0) text.AppendLine($"Sistemas na Steam: {string.Join(", ", systems)}.");
@@ -239,11 +236,30 @@ public sealed partial class GameNews(HttpClient http, NewsOptions options, TimeP
     /// Brazilian Portuguese on the store page, said plainly. Steam marks the languages with full audio with an asterisk
     /// ("Portuguese - Brazil&lt;strong&gt;*&lt;/strong&gt;").
     /// </summary>
+    /// <summary>
+    /// The price as a player reads it: a free game said to be free to play (so the writer never puts "por gratuito"),
+    /// and a discount kept apart from the normal price (Steam's final price is the discounted one, often a pre-order
+    /// offer), so the normal price is the one the video gives as the price. Empty when Steam has no price.
+    /// </summary>
+    internal static string PriceLine(JsonObject data, bool soon)
+    {
+        if (data["is_free"]?.GetValue<bool>() == true)
+            return "Preço na Steam Brasil: o jogo é gratuito, dá para baixar e jogar de graça.";
+        var price = data["price_overview"];
+        var final = Clean(price?["final_formatted"]?.GetValue<string>(), 40);
+        if (final is null) return soon ? "Preço na Steam Brasil: ainda não informado." : "";
+        var discount = price?["discount_percent"]?.GetValue<int>() ?? 0;
+        var initial = Clean(price?["initial_formatted"]?.GetValue<string>(), 40);
+        if (discount <= 0 || initial is null || initial == final) return $"Preço na Steam Brasil: {final}.";
+        var when = soon ? "na pré-venda" : "por tempo limitado";
+        return $"Preço normal na Steam Brasil: {initial}. Desconto de {discount}% {when}: sai por {final}.";
+    }
+
     internal static string PortugueseSupport(string? languages)
     {
         var entries = (languages ?? "").Split("<br>")[0].Split(',').Select(l => l.Trim()).ToList();
         var brazil = entries.FirstOrDefault(l => l.StartsWith("Portuguese - Brazil", StringComparison.OrdinalIgnoreCase));
-        if (brazil is null) return "Português do Brasil na Steam: o jogo não lista o idioma.";
+        if (brazil is null) return "Português do Brasil na Steam: o jogo não lista o idioma, então não tem legendas nem dublagem em português.";
         return brazil.Contains('*')
             ? "Português do Brasil na Steam: interface, legendas e áudio, com dublagem."
             : "Português do Brasil na Steam: interface e legendas, sem dublagem.";
