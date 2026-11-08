@@ -1,0 +1,51 @@
+{
+  "date": "20261108",
+  "sentAt": "2026-11-08T09:34:31.0599498+00:00",
+  "ideas": [
+    {
+      "article": "Kasato Maru",
+      "year": 1908,
+      "topic": "Imigração",
+      "trend": "Terremoto no Japão",
+      "portugueseArticle": "Kasato Maru",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Cisplatine War",
+      "year": 1825,
+      "topic": "Guerras do Império",
+      "trend": "Crise política no Cone Sul",
+      "portugueseArticle": "Guerra da Cisplatina",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Serra Pelada",
+      "year": 1980,
+      "topic": "Amazônia e Fronteiras",
+      "trend": "Mineração e corrida do ouro",
+      "portugueseArticle": "Serra Pelada",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Night of the Bottle Fight",
+      "year": 1831,
+      "topic": "Primeiro Reinado",
+      "trend": "Polarização política",
+      "portugueseArticle": "Noite das Garrafadas",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Federalist Revolution",
+      "year": 1893,
+      "topic": "República Velha",
+      "trend": "Conflitos regionais no Sul",
+      "portugueseArticle": "Revolução Federalista",
+      "date": null,
+      "status": null
+    }
+  ]
+}
