@@ -147,15 +147,15 @@ public sealed class ScriptAndLlmTests
         Assert.Equal(expected, SpokenText.RepeatedPhrase(sections.Split('|')));
 
     [Fact]
-    public void A_news_script_that_says_a_fact_twice_costs_a_rewrite_but_a_history_script_does_not()
+    public void A_games_script_that_says_a_fact_twice_costs_a_rewrite_but_a_history_script_does_not()
     {
         var sections = new[] { "O jogo permite jogar sozinho ou em até quatro pessoas no modo cooperativo local." }
             .Select(t => new ScriptSection(t, ["coop"], ["coop"], "q")).ToList();
         var script = new VideoScript("t", "Shrek 2 chega dia dez ao PC, com cooperativo para até quatro pessoas.", "", "", sections, "d", ["shrek"]);
         var options = new WriterOptions { MinWords = 10, MaxWords = 200, MinSections = 1, MaxSections = 6 };
 
-        var news = new ScriptWriter(new UnavailableClient(), "", options, "Profissão Spoiler") { Today = "2026-11-08" };
-        Assert.Contains("\"ate quatro pessoas\" is said twice", news.HardProblem(script));
+        var games = new ScriptWriter(new UnavailableClient(), "", options with { NoRepeats = true }, "Profissão Spoiler");
+        Assert.Contains("\"ate quatro pessoas\" is said twice", games.HardProblem(script));
         Assert.Null(new ScriptWriter(new UnavailableClient(), "", options, "Minuto Útil").HardProblem(script));
     }
 

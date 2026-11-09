@@ -85,19 +85,25 @@ public sealed class NewsTests
         new(new HttpClient(web), News with { Feeds = [new("PlayStation Blog BR", "https://blog.br.playstation.com/feed/")] }, new FakeTimeProvider(Today));
 
     [Fact]
-    public void Profissao_Spoiler_is_a_news_channel_with_no_evergreen_backlog_or_history_format()
+    public void Profissao_Spoiler_tells_curiosities_of_famous_games_from_a_backlog_the_cloud_finds_trailers_for()
     {
+        // The news format (2026-11-06 to 2026-11-09) is off: the owner wants facts and curiosities about the games
+        // everyone plays, explained the way Minuto Útil explains history. The news code stays for a channel that sets "news".
         var spoiler = Channel.Load(TestPaths.RepositoryRoot, "profissao-spoiler");
 
-        Assert.NotNull(spoiler.Config.News);
-        Assert.Empty(spoiler.Backlog().Topics);
-        Assert.Empty(spoiler.Config.Formats);
-        Assert.Equal(spoiler.Config.News, spoiler.Backlog().News);
-        var prompt = new ScriptWriter(new MinutoUtil.Core.Llm.ChainedLlmClient([]), spoiler.WriterPrompt(spoiler.Config.Format), spoiler.Config.Writer,
-            "Profissão Spoiler").SystemPrompt();
-        Assert.Contains("The news itself is the angle", prompt);
-        Assert.Contains("You are given today's date", prompt);
-        Assert.DoesNotContain("Never give a game's release date", prompt);
+        Assert.Null(spoiler.Config.News);
+        Assert.Null(spoiler.Backlog().News);
+        Assert.True(spoiler.Backlog().Topics.Count >= 30);
+        Assert.All(spoiler.Backlog().Topics, t => Assert.Equal("Curiosidades de games", t.Topic));
+        Assert.Equal(spoiler.Backlog().Topics.Count, spoiler.Backlog().Topics.Select(t => t.Article).Distinct().Count());
+        Assert.True(spoiler.Config.Writer.NoRepeats);
+        Assert.False(Channel.Load(TestPaths.RepositoryRoot, "minuto-util").Config.Writer.NoRepeats);
+        var writer = new ScriptWriter(new MinutoUtil.Core.Llm.ChainedLlmClient([]), spoiler.WriterPrompt(spoiler.Config.Format), spoiler.Config.Writer,
+            "Profissão Spoiler");
+        var prompt = writer.SystemPrompt();
+        Assert.Contains("## How the explanation moves", prompt);
+        Assert.Contains("End on the fact that answers the opening question", prompt);
+        Assert.DoesNotContain("today's date", prompt);
         Assert.DoesNotMatch(@"\{[A-Z_]+\}", prompt);
         // Minuto Útil stays a channel of past events.
         Assert.Null(Channel.Load(TestPaths.RepositoryRoot, "minuto-util").Config.News);

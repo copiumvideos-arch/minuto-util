@@ -43,11 +43,13 @@ Python tools run with `uv run`, structured like Flopômetro in `D:\projects\cana
   `motion.py` (Ken Burns, Depth Anything parallax), `mapinsert.py` (the Natural Earth map shot), `watermark.py`
   (the round watermark cut from the emblem), `channels.py` (which channels a workflow run is for), `trailer.py` (cuts
   game trailers on the narration for a channel with `media.footage` "trailers").
-- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (games news: only games
-  just out or with a confirmed date, ideas and sources from `Sources/GameNews.cs` under config `news`; official trailers
-  from Steam, the Microsoft Store and YouTube together through `Media/GameTrailers.cs`, facts-only scripts, Montserrat
-  captions, never a spare writer (`writer.spareWriters` false: a run fails and waits for Gemini); README "Trailer
-  channels" and "News channel").
+- Channels: `minuto-util` (history, archive pictures, the style below) and `profissao-spoiler` (one curiosity
+  about one famous game per video, from Wikipedia, explained the way Minuto Útil explains history: its `angle.md` and
+  `writer.md` follow "How the explanation moves", so a lesson about how the narrator explains goes into both channels'
+  prompts; official trailers from Steam, the Microsoft Store and YouTube together through `Media/GameTrailers.cs`,
+  facts-only scripts, Montserrat captions, never a spare writer (`writer.spareWriters` false: a run fails and waits
+  for Gemini), a phrase said twice costs a rewrite (`writer.noRepeats`); README "Trailer channels". The games news
+  mode (config `news`, `Sources/GameNews.cs`) is kept but off since 2026-11-09).
 
 ## Channel style
 

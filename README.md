@@ -294,12 +294,20 @@ way (Wikipedia sources, plus the official news on a news channel, and the channe
    channel's style switches: Montserrat captions in white with key words in red, the channel's name as a text-only
    watermark, no vintage layers, year card, map or cover. No music: trending sounds are added in the TikTok app.
 
-Its scripts state facts only and end on the last fact (no opinions, ironies or "Ou seja" wrap-ups), see
-`channels/profissao-spoiler/prompts/writer.md`.
+**Curiosities of famous games.** Since 2026-11-09 Profissão Spoiler explains one curiosity about one famous game
+per video (about 170 to 250 words, one to one and a half minutes), from Wikipedia like Minuto Útil, with Minuto Útil's
+way of explaining (`prompts/angle.md`, `prompts/writer.md`): a question in the hook answered by the last fact, steps
+that cause or complicate each other in spoken links ("só que", "aí", "então"), sources named, doubt admitted, a few
+casual words, and short sentences, since the voice pauses at periods and question marks and barely at a comma
+inside a long sentence. It states facts only: no opinions, ironies or "Ou seja" wrap-ups. The ideas
+(`prompts/trends.md`) are games most players know by name, Steam and Microsoft Store games first since the cloud
+finds their trailers; `topics.json` is a backlog of famous Steam games whose store names were checked. A script that
+says a phrase twice (four words, or three with a number, like "até quatro pessoas") costs one rewrite
+(`writer.noRepeats`, `SpokenText.RepeatedPhrase`).
 
-**News channel.** Profissão Spoiler covers only games that just came out or have a confirmed date coming (a launch,
-a beta, an early access), so viewers follow it to know what to play next. Its config has a `news` block
-(`NewsOptions` in `Config.cs`), which changes three things:
+**News channel.** A channel whose config has a `news` block (`NewsOptions` in `Config.cs`) covers only games that just
+came out or have a confirmed date coming (a launch, a beta, an early access). Profissão Spoiler ran this way from
+2026-11-06 to 2026-11-09 and no channel uses it now; the block changes three things:
 - **Ideas** (`ideas.yml`, `prompts/trends.md`): besides the trends, the picker gets today's official games news from
   `Sources/GameNews.cs`: the games of Steam Brasil's most played new releases, top sellers and most awaited upcoming
   games whose Steam release date is inside the window, each with that date, and the latest posts of PlayStation Blog
@@ -320,15 +328,14 @@ a beta, an early access), so viewers follow it to know what to play next. Its co
   systems, Brazilian Portuguese text and dubbing, store description), the developer's Steam
   announcements of the last `news.sourceDays` (45) days, and up to two posts per feed that name the game. The writer is
   told today's date, so it says "acabou de chegar" or "chega dia doze". Every source is listed in the description.
-  A news script that says a phrase twice (four words, or three with a number, like "até quatro pessoas") costs one
-  rewrite (`SpokenText.RepeatedPhrase`), and "por gratuito" anywhere becomes "de graça".
+  "Por gratuito" anywhere becomes "de graça".
   The voice says some words from `voice.pronunciations` ("GTA" as "gê tê á"), while the captions keep the script.
   The trailers are the studios' own promotional videos, credited in the description; this is the owner's choice for
   this channel and does not change Minuto Útil's media rules.
 
 **Formats.** A topic's series can pick another kind of video (`formats` in a channel's config.json: its length,
 sections, trailers and an angle prompt in place of `{ANGLE}` in writer.md). No channel uses one now; Profissão Spoiler's
-"História dos games" was dropped when it turned to news.
+"História dos games" was dropped on 2026-11-06.
 
 ## Cloud runs (no PC needed)
 

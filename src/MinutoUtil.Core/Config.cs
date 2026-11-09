@@ -251,6 +251,13 @@ public sealed record WriterOptions
     /// </summary>
     public bool SpareWriters { get; init; } = true;
 
+    /// <summary>
+    /// Whether a script that says the same phrase twice (four words, or three with a number) is asked for again, once
+    /// (<see cref="Scripts.SpokenText.RepeatedPhrase"/>). On for Profissão Spoiler, whose viewers heard the same fact
+    /// twice; off for Minuto Útil, whose ending may echo the hook on purpose.
+    /// </summary>
+    public bool NoRepeats { get; init; }
+
     /// <summary>Spoken words of hook plus sections. pt-BR narration runs at about 150 words a minute at speed 1.0.</summary>
     public int MinWords { get; init; } = 130;
     public int MaxWords { get; init; } = 170;

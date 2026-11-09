@@ -1,23 +1,36 @@
 ## Angle
 
-The news itself is the angle: the game just came out, or it has a date, a beta or an early access coming. The hook
-says what happened or what is coming and the one detail a Brazilian player cares about most, taken from the sources:
-the first Brazilian Portuguese dubbing, a free beta, a low price in reais, a platform it was never on before, a date
-that is days away. Test: the hook fits in one sentence a viewer would repeat to a friend who plays games.
-"A história de Phantom Blade Zero" is not an angle.
+Do not cover the whole game. Pick one question about it that the sources answer well and that a player would ask out
+loud: why something in the game is the way it is, how it was possible, what almost went wrong, where a famous detail
+came from, what was cut or reused, how a number got so big. Good questions come from a decision, a near cancellation,
+a contradiction, a small cause with a big effect, a number that sounds wrong, or a person behind the game. Test: the
+question fits in one sentence a gamer would repeat to a friend ("por que um dos fantasmas do Pac-Man foge de você?").
+"A história de Fallout 4" is not an angle. If the sources do not answer the question, pick another.
 
-## How the facts move
+## How the explanation moves
 
-1. Open with the news: the game and what happens to it, with when ("acabou de chegar", "chega dia doze de novembro",
-   "o beta abre nesta sexta"), compared with today's date you are given.
-2. Then what a player needs to start playing, as far as the sources say it: the platforms, the date and time (in
-   Brasília time when the source gives a time), the price in reais, Brazilian Portuguese dubbing or subtitles, Game
-   Pass or PS Plus, how to get into the beta.
-3. Then what is new or different in the game, one fact per section, from the official sources: modes, changes from
-   the last game, the size of the world, what comes with the launch.
-4. Say where a fact comes from when it matters: "segundo a Sony", "na página da Steam", "no anúncio do estúdio".
-5. End on the last fact, said plainly: the most concrete thing a player gets (a mode, what comes with the launch, how
-   to join the beta). The date, price and platforms were already said in step 2 and are never said again at the end.
+1. Open with the question itself or with the strangest true fact behind it, straight away.
+2. When there is a version everyone knows (what players repeat, the obvious answer), say it in one or two sentences,
+   then turn: "Mas a história é mais complicada do que isso." Only when the sources really add to or correct that
+   version; otherwise skip this step.
+3. Explain in the order things happened, one step per section. Each step causes the next or complicates it, linked
+   in spoken words: "então", "só que", "aí", "daí", "porque", "agora", "e aí". A list of facts joined by "e depois"
+   or "além disso" is a summary, and viewers swipe summaries.
+4. Keep a person or a small team at the center when the sources have one (the director, a programmer, the studio):
+   what they saw, decided, risked. Concrete details beat abstractions: a number, a year, an object, a piece of the
+   game a player knows (a boss, a map, a weapon, a sound, a character).
+5. Say where a striking fact comes from when the sources name it: "segundo o diretor", "numa entrevista, ele contou,
+   abre aspas, ...". Only quotes the sources give, word for word.
+6. Say what is not known when the sources hedge: "não dá para saber exatamente", "segundo o próprio estúdio".
+   Admitting doubt is part of the voice and keeps the facts honest.
+7. Now and then ask the viewer a short question and answer it at once ("E por que isso importava? Porque..."), or
+   compare with something a player can picture, as long as the comparison is plainly true.
+8. End on the fact that answers the opening question. Keep the strongest true detail for the last section, say it
+   plainly, and stop there: the answer is the last thing heard. It answers the hook with a new fact, never by saying
+   the hook again.
 
-Patch notes, maintenance, bug fixes and small balance changes (a storage limit raised, a server restarted) are not
-news to someone deciding what to play; leave them out unless the update itself is the news.
+The payoff must be worth the wait and true to the opening: no bait the sources do not support, no superlative they
+do not state ("o maior segredo dos games").
+
+Tell the making and the curiosities, not the plot: the game's own story gets a sentence or two at most, and never
+its ending or a late twist.

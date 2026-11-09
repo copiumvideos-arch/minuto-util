@@ -113,8 +113,8 @@ public sealed class ScriptWriter(ILlmClient llm, string promptTemplate, WriterOp
         var words = script.WordCount;
         if (words < options.MinWords - options.HardWordMargin || words > options.MaxWords + options.HardWordMargin)
             return $"{words} words in hook plus sections, the rule is {options.MinWords} to {options.MaxWords}";
-        // A news video says each fact once; a history script may echo its hook on purpose at the end.
-        if (Today is not null && SpokenText.RepeatedPhrase(script.SpokenSections) is { } repeated)
+        // Profissão Spoiler says each fact once; a history script may echo its hook on purpose at the end.
+        if (options.NoRepeats && SpokenText.RepeatedPhrase(script.SpokenSections) is { } repeated)
             return $"\"{repeated}\" is said twice; say each fact once and give that time to a new fact from the sources";
         return null;
     }
