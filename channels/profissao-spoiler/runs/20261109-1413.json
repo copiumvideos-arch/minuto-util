@@ -1,0 +1,16 @@
+{
+  "tag": "20261109-1413",
+  "article": "TANUKI: Pon's Summer",
+  "year": 2026,
+  "topic": "Lançamentos dos games",
+  "trend": "Steam Brasil próximos lançamentos",
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: The run's budget of 5 Gemini requests is spent; not asking gemini.",
+  "updatedAt": "2026-11-09T14:17:52.1212825+00:00"
+}
