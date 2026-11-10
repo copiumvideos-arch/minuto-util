@@ -1,0 +1,16 @@
+{
+  "tag": "20261110-1404",
+  "article": "Baldur's Gate 3",
+  "year": 2023,
+  "topic": "Curiosidades de games",
+  "trend": "clássico",
+  "portugueseArticle": "Baldur's Gate III",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash returned 503: {",
+  "updatedAt": "2026-11-10T14:05:05.0304868+00:00"
+}
