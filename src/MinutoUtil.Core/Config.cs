@@ -252,6 +252,15 @@ public sealed record WriterOptions
     public bool SpareWriters { get; init; } = true;
 
     /// <summary>
+    /// Minutes a run keeps asking Gemini when every model is busy (503, timeouts), once every
+    /// <see cref="GeminiBusyRetryEveryMinutes"/>; 0 gives up after one pass. 60 for Profissão Spoiler, which has no
+    /// spare writers: Gemini's overload failed every one of its runs from 2026-11-09 to 11.
+    /// </summary>
+    public int GeminiBusyRetryMinutes { get; init; }
+
+    public int GeminiBusyRetryEveryMinutes { get; init; } = 5;
+
+    /// <summary>
     /// Whether a script that says the same phrase twice (four words, or three with a number) is asked for again, once
     /// (<see cref="Scripts.SpokenText.RepeatedPhrase"/>). On for Profissão Spoiler, whose viewers heard the same fact
     /// twice; off for Minuto Útil, whose ending may echo the hook on purpose.

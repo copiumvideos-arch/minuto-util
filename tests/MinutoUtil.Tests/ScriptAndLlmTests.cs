@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Time.Testing;
 using MinutoUtil.Core;
 using MinutoUtil.Core.Llm;
 using MinutoUtil.Core.Scripts;
@@ -189,6 +190,94 @@ public sealed class ScriptAndLlmTests
         Assert.Equal(2, handler.Requests.Count);
         Assert.Contains("gemini-b", handler.Requests[1].Request.RequestUri!.ToString());
         Assert.Equal(2, usage.GeminiRequests);
+    }
+
+    private static readonly GeminiBusyRetry AnHourEveryFiveMinutes = new(TimeSpan.FromMinutes(60), TimeSpan.FromMinutes(5));
+
+    private static HttpResponseMessage Busy() =>
+        FakeHandler.Json(HttpStatusCode.ServiceUnavailable, """{"error":{"code":503,"message":"This model is currently experiencing high demand.","status":"UNAVAILABLE"}}""");
+
+    /// <summary>Moves the fake clock a minute at a time until the request is done, so the client's waits run out.</summary>
+    private static async Task<T> WithClock<T>(Task<T> task, FakeTimeProvider time)
+    {
+        for (var i = 0; i < 500 && !task.IsCompleted; i++)
+        {
+            await Task.Delay(5);
+            time.Advance(TimeSpan.FromMinutes(1));
+        }
+        return await task;
+    }
+
+    [Fact]
+    public async Task ABusyGeminiIsAskedAgainEveryFiveMinutesUntilItAnswers()
+    {
+        // The Profissão Spoiler runs of 2026-11-09 to 11: every model 503 at first, then one answers.
+        var count = 0;
+        var handler = new FakeHandler((_, _) => Interlocked.Increment(ref count) <= 6 ? Busy() : FakeHandler.Json(HttpStatusCode.OK, GeminiAnswer));
+        var time = new FakeTimeProvider();
+        var start = time.GetUtcNow();
+        var usage = new RunUsage(5);
+        var gemini = new GeminiClient(new HttpClient(handler), "key", Models, usage, busyRetry: AnHourEveryFiveMinutes, time: time);
+
+        var script = await WithClock(gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None), time);
+
+        Assert.Equal(5, script.Sections.Count);
+        // Two busy passes of three models, then gemini-a answered on the third pass, ten minutes later.
+        Assert.Equal(7, handler.Requests.Count);
+        Assert.Equal(TimeSpan.FromMinutes(10), time.GetUtcNow() - start);
+        Assert.Equal(1, usage.GeminiRequests);
+        Assert.Equal(6, usage.GeminiBusyRequests);
+        Assert.Contains("plus 6 busy", usage.Summary());
+    }
+
+    [Fact]
+    public async Task ABusyGeminiIsGivenUpAfterAnHour()
+    {
+        var handler = new FakeHandler((_, _) => Busy());
+        var time = new FakeTimeProvider();
+        var start = time.GetUtcNow();
+        var usage = new RunUsage(5);
+        var gemini = new GeminiClient(new HttpClient(handler), "key", Models, usage, busyRetry: AnHourEveryFiveMinutes, time: time);
+
+        var error = await Assert.ThrowsAsync<LlmException>(() => WithClock(gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None), time));
+
+        // Passes at 0, 5, ..., 60 minutes: thirteen of three requests, none of them taken from the run's budget of 5.
+        Assert.Contains("60 minutes", error.Message);
+        Assert.Equal(39, handler.Requests.Count);
+        Assert.Equal(TimeSpan.FromMinutes(60), time.GetUtcNow() - start);
+        Assert.Equal(0, usage.GeminiRequests);
+    }
+
+    [Fact]
+    public async Task ARejectedKeyOrADailyQuotaIsNotWaitedFor()
+    {
+        var unauthorized = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.Unauthorized, """{"error":{"message":"API key not valid"}}"""));
+        var time = new FakeTimeProvider();
+        var gemini = new GeminiClient(new HttpClient(unauthorized), "key", Models, new RunUsage(5), busyRetry: AnHourEveryFiveMinutes, time: time);
+        await Assert.ThrowsAsync<LlmException>(() => gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None));
+        Assert.Single(unauthorized.Requests);
+
+        using var temp = new TempFolder();
+        var outOfQuota = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.TooManyRequests, """{"error":{"message":"quota exceeded PerDay"}}"""));
+        var quota = new QuotaTracker(Path.Combine(temp.Path, "quota.json"));
+        gemini = new GeminiClient(new HttpClient(outOfQuota), "key", Models, new RunUsage(5), quota, AnHourEveryFiveMinutes, time);
+        await Assert.ThrowsAsync<LlmException>(() => gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None));
+        Assert.Equal(3, outOfQuota.Requests.Count);
+    }
+
+    [Fact]
+    public async Task WithoutBusyRetryABusyGeminiFailsAfterOnePass()
+    {
+        // Minuto Útil: its spare writers take over at once, so nothing changes for it.
+        var handler = new FakeHandler((_, _) => Busy());
+        var usage = new RunUsage(5);
+        var gemini = new GeminiClient(new HttpClient(handler), "key", Models, usage);
+
+        await Assert.ThrowsAsync<LlmException>(() => gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None));
+
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Equal(3, usage.GeminiRequests);
+        Assert.Equal(0, usage.GeminiBusyRequests);
     }
 
     [Fact]

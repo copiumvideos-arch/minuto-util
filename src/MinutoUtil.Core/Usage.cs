@@ -44,6 +44,24 @@ public sealed class RunUsage(int maxGeminiRequests = 3, int maxSpareRequests = 4
         }
     }
 
+    private int _geminiBusy;
+
+    /// <summary>Gemini requests that failed because the model was busy and were given back to the budget.</summary>
+    public int GeminiBusyRequests => _geminiBusy;
+
+    /// <summary>
+    /// Gives back a Gemini request that failed because the model was busy, for a run that waits for Gemini
+    /// (<see cref="Llm.GeminiBusyRetry"/>): that wait is bounded by time, and the budget stays for real answers.
+    /// </summary>
+    public void ReturnBusyGeminiRequest()
+    {
+        lock (this)
+        {
+            if (_gemini > 0) _gemini--;
+            _geminiBusy++;
+        }
+    }
+
     private int _coverImages;
 
     /// <summary>Painted thumbnail pictures asked of Cloudflare Workers AI (not part of the writer's budget).</summary>
@@ -58,6 +76,6 @@ public sealed class RunUsage(int maxGeminiRequests = 3, int maxSpareRequests = 4
     }
 
     public string Summary() =>
-        $"usage: gemini requests {GeminiRequests} (budget {maxGeminiRequests}), spare writer requests {SpareRequests} (budget {maxSpareRequests}), " +
+        $"usage: gemini requests {GeminiRequests} (budget {maxGeminiRequests}){(GeminiBusyRequests > 0 ? $" plus {GeminiBusyRequests} busy" : "")}, spare writer requests {SpareRequests} (budget {maxSpareRequests}), " +
         $"smallest requests {SmallestRequests}, smallest characters {SmallestCharacters}, cover images {CoverImages}, voice {Voice ?? "none"}";
 }

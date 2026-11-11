@@ -70,8 +70,10 @@ style"). Keep files under 50 MB (`video.maxVideoKbps`), since videos are sent th
 - Do not modify anything in `D:\projects\canal-dark`: its scheduled task builds from it and runs a live channel.
   Reading its files (like `data/quota-state.json`) is fine.
 - The Gemini key's free quota is shared with the live channel: as few requests as possible (1-3 per video), never a
-  retry loop. `writer.maxRequests` caps a run's Gemini requests (the spares have `writer.maxSpareRequests`). Test
-  with stored answers, not real calls.
+  retry loop. `writer.maxRequests` caps a run's Gemini requests (the spares have `writer.maxSpareRequests`). The one
+  exception, by the owner's choice (2026-11-11): `writer.geminiBusyRetryMinutes` lets a channel without spares
+  (Profissão Spoiler) ask again every 5 minutes for up to an hour while Gemini is busy (5xx, timeouts), never on a
+  quota or auth error. Test with stored answers, not real calls.
 - Smallest.ai free credits are limited: each section is spoken once and cached; re-render with `make --run <folder>`.
   Never print `SMALLEST_API_KEY` or put any key in a URL or log.
 - Media: only public domain, CC0, CC BY, CC BY-SA, always credited (author, license, source URL). No British Pathé,

@@ -41,6 +41,10 @@ Wikipedia (pt + en article text) -> script (Gemini free tier, OpenRouter free mo
    take the spares' turn. Workers AI is asked for up to 8,192 reply tokens; its default of 256 cuts a script short.
    `writer.spareWriters` false (Profissão Spoiler) turns the spares off for the script and the ideas: when Gemini
    fails the run fails, since a spare's script ("ROB RUN chegou ao PC por gratuito", 2026-11-08) was not usable.
+   So that a Gemini overload spike does not fail the run, `writer.geminiBusyRetryMinutes` (60 for Profissão
+   Spoiler, 0 by default) asks every model again each `writer.geminiBusyRetryEveryMinutes` (5) while any of them is
+   busy (5xx, timeout); those busy requests do not count against `writer.maxRequests` and show as "plus N busy" in
+   the usage line. Every Spoiler run from 2026-11-09 to 11 failed on 503s that Minuto Útil's spares covered.
 4. **Voice** (`Voice/SmallestVoice.cs`, `Voice/Narrator.cs`, `tools/voice.py`): Smallest.ai Waves
    (`lightning_v3.1_pro`, voice `thiago`, 24 kHz WAV), one request per section, each take cached next to its text in
    `voice/smallest/`. The voice reads straight through a colon, so a section is spoken in pieces after each colon

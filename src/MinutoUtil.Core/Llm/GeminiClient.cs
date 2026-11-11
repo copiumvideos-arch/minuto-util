@@ -6,15 +6,29 @@ using System.Text.Json.Nodes;
 namespace MinutoUtil.Core.Llm;
 
 /// <summary>
-/// Gemini API, free tier. Adapted from Flopômetro's client with one difference: no retries. The key's free quota is
-/// shared with the live Flopômetro channel, so each model gets one request at most; a busy or failing model hands over
-/// to the next one, and a model out of its daily quota is recorded in <paramref name="quota"/> and skipped without a
-/// request until it resets (midnight Pacific time). The key goes in a header, never the URL, so it stays out of logs.
+/// How long a run waits for Gemini when every model is busy (503, another 5xx, a timeout or a dropped connection),
+/// and how often it asks again in the meantime (<see cref="WriterOptions.GeminiBusyRetryMinutes"/>).
 /// </summary>
-public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null)
+public sealed record GeminiBusyRetry(TimeSpan For, TimeSpan Every);
+
+/// <summary>
+/// Gemini API, free tier. Adapted from Flopômetro's client. The key's free quota is shared with the live Flopômetro
+/// channel, so one pass asks each model once at most: a busy or failing model hands over to the next one, and a model
+/// out of its daily quota is recorded in <paramref name="quota"/> and skipped without a request until it resets
+/// (midnight Pacific time). By default a failed pass is the end (the spare writers take over). With
+/// <paramref name="busyRetry"/> (Profissão Spoiler, which has no spare writers) a pass in which a model was busy is
+/// asked again every few minutes for a while; those busy requests are counted apart from the run's budget, since
+/// Gemini's overload spikes (2026-11-09 to 11) left whole runs with nothing but 503s. The key goes in a header, never
+/// the URL, so it stays out of logs.
+/// </summary>
+public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<string> models, RunUsage usage, QuotaTracker? quota = null,
+    GeminiBusyRetry? busyRetry = null, TimeProvider? time = null)
     : ILlmClient
 {
     private readonly QuotaTracker _quota = quota ?? new QuotaTracker();
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+    // The first busy pass of this run: the wait is for the whole run, not for each request (a rewrite included).
+    private DateTimeOffset? _firstBusy;
 
     internal static string QuotaKey(string model) => $"gemini:{model}";
 
@@ -39,7 +53,31 @@ public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<s
         };
         var json = body.ToJsonString();
 
+        while (true)
+        {
+            var pass = await AskEachModelAsync<T>(json, ct);
+            if (pass.Answered) return pass.Value!;
+            if (busyRetry is null || !pass.Busy) throw new LlmException($"No Gemini model answered. Last error: {pass.LastError}");
+
+            var now = _time.GetUtcNow();
+            _firstBusy ??= now;
+            var deadline = _firstBusy.Value + busyRetry.For;
+            if (now + busyRetry.Every > deadline)
+                throw new LlmException($"No Gemini model answered in {busyRetry.For.TotalMinutes:0} minutes of trying. Last error: {pass.LastError}");
+
+            Log.Warn($"every Gemini model is busy; asking again in {busyRetry.Every.TotalMinutes:0} minutes " +
+                     $"(until {deadline.ToUniversalTime():HH:mm} UTC at most)");
+            await Task.Delay(busyRetry.Every, _time, ct);
+        }
+    }
+
+    private readonly record struct Pass<T>(bool Answered, T? Value, bool Busy, string LastError);
+
+    /// <summary>One request to each model in turn until one answers. Busy: at least one model failed for being busy.</summary>
+    private async Task<Pass<T>> AskEachModelAsync<T>(string json, CancellationToken ct)
+    {
         var lastError = "no Gemini model configured";
+        var busy = false;
         foreach (var model in models)
         {
             if (_quota.ExhaustedUntil(QuotaKey(model)) is { } until)
@@ -67,6 +105,8 @@ public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<s
             {
                 lastError = $"gemini:{model} failed: {ex.Message}";
                 Log.Warn(lastError);
+                busy = true;
+                if (busyRetry is not null) usage.ReturnBusyGeminiRequest();
                 continue;
             }
             using var _ = response;
@@ -76,7 +116,7 @@ public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<s
                 Log.Info($"gemini:{model} answered");
                 try
                 {
-                    return LlmJson.Deserialize<T>(ExtractText(text));
+                    return new Pass<T>(true, LlmJson.Deserialize<T>(ExtractText(text)), false, "");
                 }
                 catch (JsonException ex)
                 {
@@ -93,8 +133,13 @@ public sealed class GeminiClient(HttpClient http, string apiKey, IReadOnlyList<s
                 throw new LlmException(lastError);
             if (response.StatusCode == HttpStatusCode.TooManyRequests && QuotaTracker.IsDailyQuota(text))
                 _quota.MarkExhausted(QuotaKey(model), QuotaTracker.NextPacificMidnight(_quota.Now), text);
+            if ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.RequestTimeout)
+            {
+                busy = true;
+                if (busyRetry is not null) usage.ReturnBusyGeminiRequest();
+            }
         }
-        throw new LlmException($"No Gemini model answered. Last error: {lastError}");
+        return new Pass<T>(false, default, busy, lastError);
     }
 
     private static string ExtractText(string responseJson)

@@ -139,7 +139,11 @@ using var apiHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
 var quota = new QuotaTracker(Path.GetFullPath(Option("--quota-file") ?? Path.Combine(root, "data", "quota-state.json")), sharedPaths: config.SharedQuotaFiles);
 
 var writers = new List<ILlmClient>();
-if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota));
+// writer.geminiBusyRetryMinutes: a channel without spare writers waits for a busy Gemini instead of failing at once.
+var busyRetry = config.Writer.GeminiBusyRetryMinutes > 0
+    ? new GeminiBusyRetry(TimeSpan.FromMinutes(config.Writer.GeminiBusyRetryMinutes), TimeSpan.FromMinutes(Math.Max(1, config.Writer.GeminiBusyRetryEveryMinutes)))
+    : null;
+if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota, busyRetry));
 else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");
 // The spare writers only for a channel that allows them (writer.spareWriters): Profissão Spoiler waits for Gemini instead.
 if (config.Writer.SpareWriters && Key(config.CloudflareAi.TokenEnvVar) is { } cloudflareToken && Key(config.CloudflareAi.AccountIdEnvVar) is { } cloudflareAccount)

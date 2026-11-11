@@ -25,7 +25,7 @@
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "sharedQuotaFiles": ["D:/projects/canal-dark/data/quota-state.json"],
-  "writer": { "maxRequests": 5, "spareWriters": false, "noRepeats": true, "minWords": 170, "maxWords": 250, "minSections": 5, "maxSections": 8, "hardWordMargin": 30, "length": "one to one and a half minutes" },
+  "writer": { "maxRequests": 5, "spareWriters": false, "geminiBusyRetryMinutes": 60, "geminiBusyRetryEveryMinutes": 5, "noRepeats": true, "minWords": 170, "maxWords": 250, "minSections": 5, "maxSections": 8, "hardWordMargin": 30, "length": "one to one and a half minutes" },
   "voice": {
     "engine": "smallest",
     "smallest": { "voiceId": "thiago", "model": "lightning_v3.1_pro", "language": "pt", "sampleRate": 24000, "speed": 1.0 },
