@@ -1,0 +1,16 @@
+{
+  "tag": "20261111-1409",
+  "article": "Sonic Frontiers",
+  "year": 2022,
+  "topic": "Curiosidades de games",
+  "trend": "rockstar games gta vi",
+  "portugueseArticle": "Sonic Frontiers",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash returned 503: {",
+  "updatedAt": "2026-11-11T14:10:40.3538105+00:00"
+}
