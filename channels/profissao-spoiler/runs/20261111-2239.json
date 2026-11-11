@@ -1,0 +1,16 @@
+{
+  "tag": "20261111-2239",
+  "article": "The Legend of Zelda: Ocarina of Time",
+  "year": 1998,
+  "topic": "Recordes dos games",
+  "trend": "Zelda: Ocarina of Time",
+  "portugueseArticle": "The Legend of Zelda: Ocarina of Time",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash returned 503: {",
+  "updatedAt": "2026-11-11T22:46:23.0683127+00:00"
+}
