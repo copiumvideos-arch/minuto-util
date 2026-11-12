@@ -1,0 +1,16 @@
+{
+  "tag": "20261112-1152",
+  "article": "Contestado War",
+  "year": 1912,
+  "topic": "Guerras do Brasil",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: InvalidOperationException: No usable pictures were found; nothing to render.",
+  "updatedAt": "2026-11-12T11:59:16.0788099+00:00"
+}
