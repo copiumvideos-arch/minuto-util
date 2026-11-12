@@ -1,0 +1,16 @@
+{
+  "tag": "20261112-1412",
+  "article": "The Legend of Zelda: Ocarina of Time",
+  "year": 1998,
+  "topic": "Recordes dos games",
+  "trend": "Zelda: Ocarina of Time",
+  "portugueseArticle": "The Legend of Zelda: Ocarina of Time",
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: Steam has no game named \"The Legend of Zelda: Ocarina of Time\" (found: ); set its app id with --steam-app. The Microsoft Store has no game named \"The Legend of Zelda: Ocarina of Time\" (found: ). None of the YouTube trailers could be downloaded. On the PC, `minuto-util foo",
+  "updatedAt": "2026-11-12T14:36:42.1594021+00:00"
+}
