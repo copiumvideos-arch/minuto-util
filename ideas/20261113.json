@@ -1,0 +1,42 @@
+{
+  "date": "20261113",
+  "sentAt": "2026-11-13T09:51:37.0196531+00:00",
+  "ideas": [
+    {
+      "article": "Madeira-Mamoré Railroad",
+      "year": 1912,
+      "topic": "Infraestrutura",
+      "trend": "Desenvolvimento da Amazônia",
+      "portugueseArticle": "Estrada de Ferro Madeira-Mamoré",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Modern Art Week",
+      "year": 1922,
+      "topic": "Cultura",
+      "trend": "Cultura modernista",
+      "portugueseArticle": "Semana de Arte Moderna",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Treaty of Tordesillas",
+      "year": 1494,
+      "topic": "Grandes descobertas",
+      "trend": "Divisão do mundo entre Portugal e Espanha",
+      "portugueseArticle": "Tratado de Tordesilhas",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Women's rights in Brazil",
+      "year": 1932,
+      "topic": "Direitos civis",
+      "trend": "Direitos das mulheres no Brasil",
+      "portugueseArticle": "Sufrágio feminino no Brasil",
+      "date": null,
+      "status": null
+    }
+  ]
+}
