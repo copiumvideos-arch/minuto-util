@@ -1,0 +1,60 @@
+{
+  "date": "20261114",
+  "sentAt": "2026-11-14T09:33:02.0543348+00:00",
+  "ideas": [
+    {
+      "article": "Guaraní War",
+      "year": 1756,
+      "topic": "Conflitos Indígenas",
+      "trend": "Dom Pedro I (mais lido)",
+      "portugueseArticle": "Guerra Guaranítica",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Abdication of Pedro I of Brazil",
+      "year": 1831,
+      "topic": "Monarquias",
+      "trend": "Dom Pedro I (mais lido)",
+      "portugueseArticle": "Abdicação de Pedro I do Brasil",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Mauá Railway",
+      "year": 1854,
+      "topic": "Invenções e Transportes",
+      "trend": "Nubank recebe licença bancária",
+      "portugueseArticle": "Estrada de Ferro Mauá",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Amazon rubber cycle",
+      "year": 1879,
+      "topic": "Economia",
+      "trend": "Governo Lula retira subvenção extra de diesel",
+      "portugueseArticle": "Ciclo da borracha",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Plano Real",
+      "year": 1994,
+      "topic": "Economia",
+      "trend": "Governo Lula retira subvenção extra de diesel",
+      "portugueseArticle": "Plano Real",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "1970 FIFA World Cup final",
+      "year": 1970,
+      "topic": "Esporte",
+      "trend": "Arrascaeta decisivo na Bombonera",
+      "portugueseArticle": "Final da Copa do Mundo FIFA de 1970",
+      "date": null,
+      "status": null
+    }
+  ]
+}
