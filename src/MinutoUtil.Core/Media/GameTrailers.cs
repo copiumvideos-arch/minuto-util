@@ -10,9 +10,11 @@ namespace MinutoUtil.Core.Media;
 /// Steam, the Microsoft Store and the official YouTube channels (up to media.trailers from each), so a game with one
 /// short Steam trailer still gets enough different shots. The same trailer found in two places is kept once. A source
 /// that fails (YouTube refuses the cloud runners) only logs a warning; the run fails only when no source gave a
-/// trailer. The list is saved as trailers.json and reused by a re-render.
+/// trailer: with <see cref="NoFootageException"/> when every store said plainly it has nothing (the cloud run then
+/// drops the game and tries another), with a plain <see cref="MediaException"/> when a store was down or a download
+/// broke (the game is tried again later). The list is saved as trailers.json and reused by a re-render.
 /// </summary>
-public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, MediaOptions options, FootageCache? cache = null,
+public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers? youTube, MediaOptions options, FootageCache? cache = null,
     MicrosoftStoreTrailers? microsoft = null)
 {
     public async Task<IReadOnlyList<MediaItem>> GatherAsync(string game, string mediaFolder, CancellationToken ct)
@@ -33,7 +35,7 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
         IReadOnlyList<MediaItem> trailers;
         if (options.YouTubeVideos.Count > 0)
         {
-            trailers = await youTube.NamedAsync(options.YouTubeVideos, mediaFolder, ct);
+            trailers = await (youTube ?? throw new MediaException("No YouTube source to fetch the named videos from.")).NamedAsync(options.YouTubeVideos, mediaFolder, ct);
         }
         else if (cache is not null && await cache.DownloadAsync(game, mediaFolder, ct) is { } cached)
         {
@@ -43,6 +45,7 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
         {
             var all = new List<MediaItem>();
             var errors = new List<string>();
+            var transient = false;
             async Task From(string source, Func<Task<IReadOnlyList<MediaItem>>> gather)
             {
                 try
@@ -55,15 +58,21 @@ public sealed class GameTrailers(SteamTrailers steam, YouTubeTrailers youTube, M
                 {
                     Log.Warn($"trailers: nothing from {source}: {TextUtil.Truncate(ex.Message, 200)}");
                     errors.Add(ex.Message);
+                    // YouTube refusing the runner is how YouTube always answers there, so only the stores count.
+                    if (source != "YouTube" && ex is HttpRequestException or MediaException { Transient: true }) transient = true;
                 }
             }
 
             await From("Steam", () => steam.GatherAsync(game, options.SteamAppId, mediaFolder, ct));
             if (microsoft is not null) await From("the Microsoft Store", () => microsoft.GatherAsync(game, all.ToList(), mediaFolder, ct));
-            await From("YouTube", () => youTube.SearchAsync(game, mediaFolder, ct, all.ToList()));
+            // Null only in tests, where yt-dlp would reach the network.
+            if (youTube is not null) await From("YouTube", () => youTube.SearchAsync(game, mediaFolder, ct, all.ToList()));
             if (all.Count == 0)
-                throw new MediaException($"{string.Join(" ", errors)} On the PC, `minuto-util footage --channel " +
-                                         $"<id> --article \"{game}\"` downloads them for the cloud (release {FootageCache.ReleaseTag(game)}).");
+            {
+                var message = $"{string.Join(" ", errors)} On the PC, `minuto-util footage --channel " +
+                              $"<id> --article \"{game}\"` downloads them for the cloud (release {FootageCache.ReleaseTag(game)}).";
+                throw transient ? new MediaException(message, transient: true) : new NoFootageException(message);
+            }
             trailers = all;
         }
         await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(trailers, Json.Options), ct);

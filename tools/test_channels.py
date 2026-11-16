@@ -22,32 +22,34 @@ def two_channels(tmp_path):
     (other / "config.json").write_text(json.dumps({"channel": {
         "name": "Teste", "envPrefix": "SPOILER", "tokenFolder": "%LOCALAPPDATA%/MinutoUtil/channels/test-spoiler",
         "stateFolder": "channels/test-spoiler", "releasePrefix": "run-test-spoiler-",
-        "scheduleUtcHours": [11, 23], "ideasUtcHours": []}}), encoding="utf-8")
+        "scheduleUtcHours": [21, 23], "ideasUtcHours": []}}), encoding="utf-8")
     return str(tmp_path)
 
 
 def test_minuto_keeps_its_secrets_state_folder_and_releases():
     assert channels.matrix("scheduleUtcHours", "minuto-util", "") == [
-        {"id": "minuto-util", "prefix": "MINUTO", "state": "state", "release": "run-"}]
+        {"id": "minuto-util", "prefix": "MINUTO", "state": "state", "release": "run-", "retry": 0}]
 
 
 def test_each_scheduled_hour_picks_its_own_channel():
-    for cron in ("0 11 * * *", "0 21 * * *"):
-        assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", cron)] == ["minuto-util"]
-    for cron in ("0 13 * * *", "0 22 * * *"):
+    assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", "0 21 * * *")] == ["minuto-util"]
+    for cron in ("0 14 * * *", "0 19 * * *", "0 23 * * *"):
         assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", cron)] == ["profissao-spoiler"]
+    for cron in ("0 11 * * *", "0 13 * * *", "0 22 * * *"):
+        assert channels.matrix("scheduleUtcHours", "", cron) == []
     assert [c["id"] for c in channels.matrix("ideasUtcHours", "", "0 9 * * *")] == ["minuto-util", "profissao-spoiler"]
     assert channels.matrix("scheduleUtcHours", "", "0 9 * * *") == []
 
 
 def test_a_shared_hour_renders_both_channels_and_each_gets_its_own_names(tmp_path):
     root = two_channels(tmp_path)
-    both = channels.matrix("scheduleUtcHours", "", "0 11 * * *", root)
+    both = channels.matrix("scheduleUtcHours", "", "0 21 * * *", root)
     assert [c["id"] for c in both] == ["minuto-util", "test-spoiler"]
     spoiler = both[1]
-    assert spoiler == {"id": "test-spoiler", "prefix": "SPOILER", "state": "state/channels/test-spoiler", "release": "run-test-spoiler-"}
+    assert spoiler == {"id": "test-spoiler", "prefix": "SPOILER", "state": "state/channels/test-spoiler", "release": "run-test-spoiler-",
+                       "retry": 0}
     assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", "0 23 * * *", root)] == ["test-spoiler"]
-    assert [c["id"] for c in channels.matrix("scheduleUtcHours", "", "0 21 * * *", root)] == ["minuto-util"]
+    assert channels.matrix("scheduleUtcHours", "", "0 11 * * *", root) == []
     assert [c["id"] for c in channels.matrix("ideasUtcHours", "", "0 9 * * *", root)] == ["minuto-util"]
 
 
@@ -78,16 +80,34 @@ def test_a_config_that_could_share_another_channels_files_is_refused(tmp_path, c
         channels.load("test-spoiler", root)
 
 
+def test_only_profissao_spoiler_starts_a_failed_run_again():
+    assert channels.matrix("scheduleUtcHours", "profissao-spoiler", "")[0]["retry"] == 1
+    assert channels.matrix("scheduleUtcHours", "minuto-util", "")[0]["retry"] == 0
+
+
+@pytest.mark.parametrize("retry", [2, -1, "1", True, None])
+def test_a_retry_count_other_than_0_or_1_is_refused(tmp_path, retry):
+    root = two_channels(tmp_path)
+    path = os.path.join(root, "channels", "test-spoiler", "config.json")
+    with open(path, encoding="utf-8") as f:
+        config = json.load(f)
+    config["channel"]["retryFailedRuns"] = retry
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f)
+    with pytest.raises(ValueError):
+        channels.load("test-spoiler", root)
+
+
 def test_the_command_line_prints_a_matrix_and_step_outputs():
-    env = {**os.environ, "CHANNEL": "", "SCHEDULE": "0 11 * * *"}
+    env = {**os.environ, "CHANNEL": "", "SCHEDULE": "0 21 * * *"}
     out = subprocess.run([sys.executable, os.path.join(HERE, "channels.py"), "matrix", "scheduleUtcHours"],
                          env=env, capture_output=True, text=True, check=True).stdout
-    assert json.loads(out) == [{"id": "minuto-util", "prefix": "MINUTO", "state": "state", "release": "run-"}]
+    assert json.loads(out) == [{"id": "minuto-util", "prefix": "MINUTO", "state": "state", "release": "run-", "retry": 0}]
 
     env["CHANNEL"] = "minuto-util"
     out = subprocess.run([sys.executable, os.path.join(HERE, "channels.py"), "outputs"],
                          env=env, capture_output=True, text=True, check=True).stdout
-    assert out.splitlines() == ["id=minuto-util", "prefix=MINUTO", "state=state", "release=run-"]
+    assert out.splitlines() == ["id=minuto-util", "prefix=MINUTO", "state=state", "release=run-", "retry=0"]
 
     env["CHANNEL"] = "../etc"
     assert subprocess.run([sys.executable, os.path.join(HERE, "channels.py"), "outputs"], env=env,

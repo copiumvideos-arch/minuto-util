@@ -996,12 +996,12 @@ public sealed class BotFeatureTests
         var state = new CloudState(temp.Path);
         var queue = new[] { "Magna Carta", "Lei Áurea", "Apollo 11", "Sputnik 1" }
             .Select((a, i) => new QueueEntry($"b-{i}", new BacklogTopic(a, 1900, "x"), QueueOrigin.Backlog)).ToList();
-        // Tuesday 27/10 15:30 in Brasília: the next renders are 18h today, then 08h and 18h tomorrow.
+        // Tuesday 27/10 15:30 in Brasília: the next renders are 18h today, then 18h on each next day.
         var now = new DateTimeOffset(2026, 10, 27, 15, 30, 0, TimeSpan.FromHours(-3));
 
         var text = CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings(), [], queue, now).ReplaceLineEndings("\n");
 
-        Assert.Contains("\n1. Magna Carta: hoje às 18h\n2. Lei Áurea: amanhã às 08h\n3. Apollo 11: amanhã às 18h", text);
+        Assert.Contains("\n1. Magna Carta: hoje às 18h\n2. Lei Áurea: amanhã às 18h\n3. Apollo 11: quinta às 18h", text);
         Assert.DoesNotContain("Sputnik", text);
         Assert.Contains("vai ao ar quando você toca ✅ Publicar", text);
         Assert.Contains("1. Magna Carta (pausado)", CloudFlow.StatusMessage(PublishData.Minuto.Config.Channel, new BotSettings { Paused = true }, [], queue, now));

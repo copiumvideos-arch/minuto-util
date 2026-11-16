@@ -154,9 +154,12 @@ internal static class PublishingCommands
             : OAuthClient.Load(TokenStores.ExpandPath(options.ClientSecretFile));
 
     /// <summary>The owner's Telegram bot, or null (with a note) when its two variables are not set.</summary>
+    /// <summary>Videos up to 50 MB from a runner: five minutes, not the 30 seconds an API call gets.</summary>
+    private static readonly Lazy<HttpClient> TelegramUploads = new(() => SafeHttp.CreatePublicClient(TimeSpan.FromMinutes(5)));
+
     internal static TelegramNotifier? Telegram(TelegramOptions options, Func<string, string?> key, HttpClient http)
     {
-        if (key(options.BotTokenEnvVar) is { } token && key(options.ChatIdEnvVar) is { } chat) return new TelegramNotifier(http, token, chat);
+        if (key(options.BotTokenEnvVar) is { } token && key(options.ChatIdEnvVar) is { } chat) return new TelegramNotifier(http, token, chat, TelegramUploads.Value);
         Log.Info($"Telegram is off ({options.BotTokenEnvVar} or {options.ChatIdEnvVar} not set); the TikTok caption stays in its file");
         return null;
     }

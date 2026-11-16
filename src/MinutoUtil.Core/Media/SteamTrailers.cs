@@ -7,7 +7,21 @@ using MinutoUtil.Core.Video;
 namespace MinutoUtil.Core.Media;
 
 /// <summary>Footage could not be found or used; the message says why, for the run log and Telegram.</summary>
-public sealed class MediaException(string message) : Exception(message);
+/// <summary>A media source failed. <see cref="Transient"/>: it may work later (a store answered 5xx, a download broke),
+/// so the game is not given up on.</summary>
+public class MediaException(string message, bool transient = false) : Exception(message)
+{
+    public bool Transient { get; } = transient;
+}
+
+/// <summary>
+/// No source gave a single trailer for the game (not on Steam or the Microsoft Store, and YouTube refuses the cloud
+/// runners). `make` exits with <see cref="NoFootageException.ExitCode"/> so the cloud run can move on to another game.
+/// </summary>
+public sealed class NoFootageException(string message) : MediaException(message)
+{
+    public const int ExitCode = 4;
+}
 
 /// <summary>
 /// The official trailers of a game from its Steam store page: the footage of a channel with media.footage "trailers".
@@ -79,7 +93,7 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
                 if (File.Exists(path)) File.Delete(path);
             }
         }
-        if (trailers.Count == 0) throw new MediaException($"None of the trailers of {name} (Steam app {app}) could be downloaded.");
+        if (trailers.Count == 0) throw new MediaException($"None of the trailers of {name} (Steam app {app}) could be downloaded.", transient: true);
         return trailers;
     }
 
@@ -161,7 +175,7 @@ public sealed partial class SteamTrailers(HttpClient http, Ffmpeg ffmpeg, MediaO
     private static async Task<JsonNode?> GetJsonAsync(HttpClient http, string url, CancellationToken ct)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!response.IsSuccessStatusCode) throw new MediaException($"Steam answered {(int)response.StatusCode} for {new Uri(url).AbsolutePath}.");
+        if (!response.IsSuccessStatusCode) throw new MediaException($"Steam answered {(int)response.StatusCode} for {new Uri(url).AbsolutePath}.", transient: true);
         return JsonNode.Parse(await SafeHttp.ReadLimitedAsync(response, MaxJsonBytes, ct));
     }
 

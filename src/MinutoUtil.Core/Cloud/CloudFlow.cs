@@ -184,8 +184,13 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         text.AppendLine($"{run.Topic} · {run.Article} ({TextUtil.YearLabel(run.Year)})");
         if (run.Trend is { Length: > 0 } trend) text.AppendLine($"💡 Inspiração: {trend}");
         text.AppendLine($"{metadata.DurationSeconds:0} s · voz {metadata.Voice} · roteiro {metadata.Writer}");
+        // The names the voice said from a respelling: the first thing to listen for.
+        var lines = logLines.ToList();
+        if (lines.Select(l => l.IndexOf(Voice.Narrator.RespelledPrefix, StringComparison.Ordinal) is var i and >= 0 ? l[(i + Voice.Narrator.RespelledPrefix.Length)..] : null)
+                .OfType<string>().LastOrDefault() is { Length: > 0 } respelled)
+            text.AppendLine($"🗣️ Pronúncia: {TextUtil.Truncate(respelled, 300)}");
         // The log's warnings are what a reviewer should look or listen for (a section Whisper heard poorly, a reused picture).
-        var warnings = logLines.Select(l => l.IndexOf(" WARN ", StringComparison.Ordinal) is var i and >= 0 ? l[(i + 6)..] : null)
+        var warnings = lines.Select(l => l.IndexOf(" WARN ", StringComparison.Ordinal) is var i and >= 0 ? l[(i + 6)..] : null)
             .OfType<string>().Where(w => !w.StartsWith("gemini:", StringComparison.Ordinal) && !w.StartsWith("openrouter:", StringComparison.Ordinal))
             .Distinct().ToList();
         if (warnings.Count > 0)
@@ -411,14 +416,35 @@ public sealed class CloudFlow(CloudState state, SendMessage send, TimeProvider t
         await send($"❌ Rejeitado: {run.Title}. O tema não volta para a fila.", [], ct);
     }
 
-    /// <summary>A render that broke: the topic gets one more chance later, and the owner gets the link to the log.</summary>
-    public async Task FailedAsync(string tag, string reason, string? logUrl, CancellationToken ct)
+    /// <summary>
+    /// A render that broke: the topic gets one more chance later, and the owner gets the link to the log.
+    /// <paramref name="retrying"/>: the workflow starts the channel again right away (channel.retryFailedRuns).
+    /// </summary>
+    public async Task FailedAsync(string tag, string reason, string? logUrl, CancellationToken ct, bool retrying = false)
     {
         var run = state.Find(tag) ?? throw new PublishRefusedException($"Run {tag} is not in the state branch.");
         state.Save(run with { Status = RunStatus.Failed, Note = TextUtil.Truncate(reason, 300), UpdatedAt = time.GetUtcNow() });
         var failures = state.Runs().Count(r => r.Status == RunStatus.Failed && string.Equals(r.Article, run.Article, StringComparison.OrdinalIgnoreCase));
-        var next = failures >= CloudState.MaxFailures ? "O tema saiu da fila." : "O tema volta na próxima execução.";
+        var next = (failures >= CloudState.MaxFailures ? "O tema saiu da fila." : "O tema volta na próxima execução.")
+                   + (retrying ? " 🔁 Tentando de novo agora." : "");
         await send($"⚠️ O vídeo sobre {run.Article} falhou: {TextUtil.Truncate(reason, 300)}\n{next}{(logUrl is null ? "" : $"\n{logUrl}")}", [], ct);
+    }
+
+    /// <summary>
+    /// The game has no footage the cloud can reach: it leaves the queue for good and the same run goes on with the
+    /// next game (<paramref name="last"/>: the run gives up for this slot). The owner hears which game was skipped and
+    /// how to make it anyway.
+    /// </summary>
+    public async Task NoFootageAsync(string tag, string channelId, TopicBacklog backlog, string reason, CancellationToken ct, bool last = false)
+    {
+        var run = state.Find(tag) ?? throw new PublishRefusedException($"Run {tag} is not in the state branch.");
+        state.Drop(backlog, run.Article, run.Topic, reason);
+        state.Save(run with { Status = RunStatus.Failed, Note = TextUtil.Truncate($"sem trailer: {reason}", 300), UpdatedAt = time.GetUtcNow() });
+        await send($"🎞️ Pulei {run.Article}: a nuvem não achou trailer dele (fora da Steam e da Microsoft Store, e o YouTube " +
+                   "bloqueia a nuvem). Saiu da fila. Para fazer esse jogo, rode no PC `minuto-util footage --channel " +
+                   $"{channelId} " +
+                   $"--article \"{run.Article}\"` e mande o nome com /novo. " +
+                   (last ? "Já pulei jogos demais nesta execução; o próximo horário segue a fila." : "Indo para o próximo jogo."), [], ct);
     }
 
     public static VideoMetadata ReadMetadata(string folder) =>

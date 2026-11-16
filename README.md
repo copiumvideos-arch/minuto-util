@@ -248,7 +248,8 @@ written for Minuto Útil. The `channel` block of `config.json` names everything 
 | `tokenFolder` | `%LOCALAPPDATA%/MinutoUtil` (DPAPI sign-ins, `client_secret.json`) | e.g. `%LOCALAPPDATA%/MinutoUtil/channels/<id>` |
 | `stateFolder` | `.`: the root of the `state` branch, where its files always were | `channels/<id>` (required) |
 | `releasePrefix` | `run-` | `run-<id>-` (required) |
-| `scheduleUtcHours` | `[11, 21]` | its render hours; `render.yml` needs a cron line for each (a test checks) |
+| `scheduleUtcHours` | `[21]` | its render hours; `render.yml` needs a cron line for each (a test checks). Profissão Spoiler: `[14, 19, 23]` |
+| `retryFailedRuns` | `0`: a failed run waits for the next slot (spares the Gemini quota shared with Flopômetro) | `0` or `1`: a failed queue run starts once more right away (Profissão Spoiler: `1`) |
 | `ideasUtcHours` | `[9]` | its idea list hours, or `[]`; `ideas.yml` cron lines likewise |
 
 The variable names and sign-in files under `youtube`, `tiktok` and `telegram` are filled in from `envPrefix` and
@@ -263,10 +264,14 @@ files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` ex
 vintage look) or `trailers` (Profissão Spoiler, a games channel). A trailer run writes and voices the script the same
 way (Wikipedia sources, plus the official news on a news channel, and the channel's `writer.md`), then:
 
-1. **Trailers** (`Media/GameTrailers.cs`), fetched before the voice so a game with no footage costs no credits. Every
+1. **Trailers** (`Media/GameTrailers.cs`), fetched first, before the sources and the script, so a game with no footage
+   costs no Gemini request and no voice credits. Every
    source below is asked, up to `media.trailers` (3) from each, so a game with one short Steam trailer still gets
    enough different shots; a trailer found in two places (same title, or same length within a second) is kept once,
-   a source that fails only logs a warning, and the run fails only when no source gave anything:
+   a source that fails only logs a warning, and the run fails only when no source gave anything. When every store
+   said plainly it has nothing (not a 5xx or a broken download), `make` exits 4 and a queue run in `render.yml` drops
+   that game for good (`cloud no-footage`: `removed/` on the state branch, a Telegram note with the `footage` command)
+   and goes on with the next game under the same tag, up to 3 games; a game the owner named fails as before:
    - Steam (`Media/SteamTrailers.cs`): the game is found by its Wikipedia article's name (the exact name first, then
      a later edition that starts with its words; anything else is refused, and `make --steam-app <id>` names the app).
      Up to `media.trailers` (3) official trailers, highlighted ones first, are read from their HLS streams at the best
@@ -348,7 +353,7 @@ free Actions minutes on a 4-core runner; secrets stay in Actions secrets, tokens
 but run logs and the release videos waiting for review can be seen by anyone with the link):
 
 ```
-render.yml (08:00 and 18:00 Brasília, or "/novo" on Telegram)
+render.yml (Minuto Útil 18:00 Brasília; Profissão Spoiler 11:00, 16:00 and 20:00; or "/novo" on Telegram)
   -> next topic from channels/minuto-util/topics.json -> make -> video kept as a GitHub release "run-<tag>"
   -> Telegram: the video with "✅ Publicar" and "❌ Rejeitar"
 tap -> relay/ (Cloudflare Worker, the bot's webhook) -> publish.yml

@@ -48,18 +48,19 @@ public sealed class Pipeline(
         Directory.CreateDirectory(folder);
         var video = config.Video;
 
-        var sources = await SourcesAsync(folder, ct);
-        var (script, writerName) = await ScriptAsync(folder, sources, ct);
-        Log.Info($"script: \"{script.Title}\", {script.WordCount} words, {script.Sections.Count} sections");
-        if (scriptOnly) return null;
-
-        // Trailers before the voice: a game with no footage fails here, before any voice credits are spent.
+        // Trailers first: a game with no footage fails here (NoFootageException), before any Gemini request or voice
+        // credit is spent, and the cloud run moves on to another game.
         IReadOnlyList<MediaItem>? found = null;
         if (config.Media.Footage == "trailers")
         {
             if (trailers is null) throw new InvalidOperationException("media.footage is \"trailers\" but no trailer source was given.");
             found = await trailers.GatherAsync(config.Story.EnglishArticle, Path.Combine(folder, "media"), ct);
         }
+
+        var sources = await SourcesAsync(folder, ct);
+        var (script, writerName) = await ScriptAsync(folder, sources, ct);
+        Log.Info($"script: \"{script.Title}\", {script.WordCount} words, {script.Sections.Count} sections");
+        if (scriptOnly) return null;
 
         var timings = await narrator.NarrateAsync(script, folder, ct);
         // Whole frames, so the shots, the captions and the audio all end on the same frame.

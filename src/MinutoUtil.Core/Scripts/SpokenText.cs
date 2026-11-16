@@ -109,8 +109,38 @@ public static partial class SpokenText
             return char.IsUpper(m.Value[0]) ? char.ToUpperInvariant(words[0]) + words[1..] : words;
         });
 
+    /// <summary>
+    /// The respellings the voice uses for a script: the channel's own (<paramref name="configured"/>), then, when
+    /// <paramref name="fromScript"/>, the writer's list for the words it does not cover. A writer's entry is kept only
+    /// when its word is in the narration and its respelling is plain Portuguese letters (no digits, no markup), so a
+    /// bad entry can never make the voice say something that is not in the script. Longest words first, so
+    /// "Resident Evil 4" is respelled before "Resident Evil".
+    /// </summary>
+    public static IReadOnlyList<KeyValuePair<string, string>> Respellings(VideoScript script, IReadOnlyDictionary<string, string> configured, bool fromScript)
+    {
+        var all = new Dictionary<string, string>(configured, StringComparer.Ordinal);
+        if (fromScript)
+        {
+            var narration = string.Join('\n', script.SpokenSections);
+            foreach (var p in script.Pronunciations ?? [])
+            {
+                var written = (p.Written ?? "").Trim();
+                var spoken = Regex.Replace(p.Spoken ?? "", @"\s+", " ").Trim();
+                if (written.Length is 0 or > 60 || spoken.Length is 0 or > 80 || all.ContainsKey(written)) continue;
+                if (spoken.Equals(written, StringComparison.OrdinalIgnoreCase) || !RespellingText().IsMatch(spoken)) continue;
+                if (!Regex.IsMatch(narration, $@"(?<!\w){Regex.Escape(written)}(?!\w)", RegexOptions.CultureInvariant)) continue;
+                all[written] = spoken;
+            }
+        }
+        return all.OrderByDescending(r => r.Key.Length).ThenBy(r => r.Key, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>Letters (accented too), spaces, hyphens and apostrophes only.</summary>
+    [GeneratedRegex(@"^[\p{L}][\p{L} '\-]*$")]
+    private static partial Regex RespellingText();
+
     /// <summary>Each whole word in <paramref name="respellings"/> written the way the voice must say it: "GTA seis" becomes "gê tê á seis".</summary>
-    public static string Pronounce(string text, IReadOnlyDictionary<string, string> respellings) =>
+    public static string Pronounce(string text, IEnumerable<KeyValuePair<string, string>> respellings) =>
         respellings.Aggregate(text, (current, r) =>
             Regex.Replace(current, $@"(?<!\w){Regex.Escape(r.Key)}(?!\w)", r.Value.Replace("$", "$$"), RegexOptions.CultureInvariant));
 

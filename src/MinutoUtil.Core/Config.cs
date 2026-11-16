@@ -125,6 +125,13 @@ public sealed record ChannelOptions
     /// <summary>The scheduled renders in UTC hours; render.yml has one cron line per hour (a test checks it).</summary>
     public IReadOnlyList<int> ScheduleUtcHours { get; init; } = [];
 
+    /// <summary>
+    /// How many times render.yml starts a failed scheduled run again right away (0: never, the topic waits for the
+    /// next slot). Read by tools/channels.py. Each retry may cost the writer's Gemini requests again, so Minuto Útil,
+    /// which shares the quota with Flopômetro, keeps 0.
+    /// </summary>
+    public int RetryFailedRuns { get; init; }
+
     /// <summary>The daily idea list in UTC hours (ideas.yml); empty for a channel without one.</summary>
     public IReadOnlyList<int> IdeasUtcHours { get; init; } = [];
 
@@ -310,6 +317,12 @@ public sealed record VoiceOptions
     /// together. Whole words, case-sensitive; the captions keep the script's spelling.
     /// </summary>
     public Dictionary<string, string> Pronunciations { get; init; } = [];
+
+    /// <summary>
+    /// Also use the respellings the writer lists in the script (<see cref="Scripts.VideoScript.Pronunciations"/>), for a
+    /// channel full of English names (Profissão Spoiler). The ones above win over the writer's for the same word.
+    /// </summary>
+    public bool ScriptPronunciations { get; init; }
 }
 
 public sealed record SmallestOptions

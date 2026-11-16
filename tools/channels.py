@@ -2,7 +2,7 @@
 workflows run it with the runner's python3 before anything is installed).
 
     python3 tools/channels.py matrix <field>   prints a JSON list for a job matrix, one entry per channel:
-        {"id", "prefix", "state", "release"}. A run started by hand (CHANNEL set, from the workflow's channel input)
+        {"id", "prefix", "state", "release", "retry"}. A run started by hand (CHANNEL set, from the workflow's channel input)
         is for that one channel. A scheduled run (SCHEDULE set to the cron line that fired, like "0 14 * * *") is for
         every channel whose <field> (scheduleUtcHours or ideasUtcHours) has that hour; none gives []. The field "all"
         gives every channel on any schedule (the hourly TikTok look in publish.yml).
@@ -10,6 +10,7 @@ workflows run it with the runner's python3 before anything is installed).
 
 "state" is the channel's folder in the state branch checkout (./state): "state" for Minuto Util, whose files were
 there before channels, "state/channels/<id>" for the others. "release" starts the GitHub release name of each run.
+"retry" is channel.retryFailedRuns: how many times render.yml starts a failed scheduled run again (0 or 1).
 """
 
 import json
@@ -44,8 +45,12 @@ def load(channel_id: str, root: str = ROOT) -> dict:
         raise ValueError(f"channels/{channel_id}/config.json: channel.stateFolder must be channels/{channel_id}")
     if release != ("run-" if channel_id == LEGACY else f"run-{channel_id}-"):
         raise ValueError(f"channels/{channel_id}/config.json: channel.releasePrefix must be run-{channel_id}-")
+    retry = channel.get("retryFailedRuns", 0)
+    if not isinstance(retry, int) or isinstance(retry, bool) or not 0 <= retry <= 1:
+        raise ValueError(f"channels/{channel_id}/config.json: channel.retryFailedRuns must be 0 or 1")
     return {
         "id": channel_id,
+        "retry": retry,
         "prefix": prefix,
         "state": "state" if folder == "." else f"state/{folder}",
         "release": release,
@@ -60,7 +65,7 @@ def all_channels(root: str = ROOT) -> list:
 
 
 def entry(channel: dict) -> dict:
-    return {k: channel[k] for k in ("id", "prefix", "state", "release")}
+    return {k: channel[k] for k in ("id", "prefix", "state", "release", "retry")}
 
 
 def matrix(field: str, channel_id: str, schedule: str, root: str = ROOT) -> list:

@@ -163,7 +163,7 @@ public sealed class MicrosoftStoreTrailers(HttpClient http, Ffmpeg ffmpeg, Media
     private async Task<JsonNode?> GetJsonAsync(string url, CancellationToken ct)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!response.IsSuccessStatusCode) throw new MediaException($"The Microsoft Store answered {(int)response.StatusCode} for {new Uri(url).AbsolutePath}.");
+        if (!response.IsSuccessStatusCode) throw new MediaException($"The Microsoft Store answered {(int)response.StatusCode} for {new Uri(url).AbsolutePath}.", transient: true);
         return JsonNode.Parse(await SafeHttp.ReadLimitedAsync(response, MaxJsonBytes, ct));
     }
 }

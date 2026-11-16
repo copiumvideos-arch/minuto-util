@@ -85,6 +85,16 @@ is answered and the idea is closed.
   and `sections` a game is called what Brazilian players call it out loud, when that differs from the full title:
   "GTA San Andreas", "Red Dead dois", "Zelda Breath of the Wild", "CS". When unsure, use the shortest name a Brazilian
   gamer would recognize. The `title` uses the same short name with digits ("GTA 5"), never a Roman numeral.
+- `pronunciations`: the voice is Brazilian Portuguese and reads every word as Portuguese, so "The Witcher" comes out
+  as "te uitche-r" and "Resident Evil" as "re-zi-dén-tchi é-vil". List every English (or other foreign) word or name
+  in `hook` and `sections` that a Portuguese reader would say wrong, `written` exactly as it is in the text (same
+  case, same spacing; the longest form, "Red Dead Redemption", not each word), and `spoken` the way a Brazilian
+  gamer says it out loud, in Portuguese spelling with an accent on the stressed syllable, so the voice reads it
+  right: "The Witcher" = "dê uítcher", "Resident Evil" = "rézident ívou", "Counter-Strike" = "cáunter strái",
+  "Among Us" = "âmong âs", "Fall Guys" = "fól gáis", "Call of Duty" = "cól óf diúti", "Minecraft" = "máincréfti",
+  "Creeper" = "crípêr", "Hollow Knight" = "rólou náiti", "Steam" = "istím". Letters, spaces and hyphens only, no
+  digits. Leave out names a Portuguese reader already says right ("Mario", "Sonic", "Toru Iwatani", "Nintendo") and
+  letter names the channel already handles ("GTA"). An empty list when there are none.
 - Never use em dashes or en dashes. Use commas or periods instead.
 - Write every number out in words, the way it is spoken: "dois mil e quinze", "trinta e cinco mil", "oitenta e um
   milhões de dólares". Round when the sources allow it and the exact figure does not matter; keep it exact when the

@@ -20,9 +20,14 @@ public sealed record TelegramButton(string Text, string Data);
 /// <summary>
 /// Messages to the owner through the channel's own Telegram bot (not Flopômetro's). The bot token is part of
 /// Telegram's URL, so errors are rebuilt from Telegram's "description" and never carry the request address.
+/// Videos and pictures go through <paramref name="uploads"/> when given: a 40 MB video from a GitHub runner can take
+/// longer than the 30 seconds a message gets (on 2026-11-14 a finished video was lost that way).
 /// </summary>
-public sealed class TelegramNotifier(HttpClient http, string botToken, string chatId)
+public sealed class TelegramNotifier(HttpClient http, string botToken, string chatId, HttpClient? uploads = null)
 {
+    /// <summary>How often an upload is tried when Telegram does not answer in time or answers 5xx.</summary>
+    public const int UploadAttempts = 2;
+
     /// <summary>Telegram's limit for a video caption; longer text is cut.</summary>
     public const int MaxCaption = 1024;
 
@@ -37,7 +42,10 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
     }
 
     /// <summary>Uploads a video (Telegram bots take up to 50 MB) with a caption and one row of buttons.</summary>
-    public async Task SendVideoAsync(string videoPath, string caption, IReadOnlyList<TelegramButton> buttons, CancellationToken ct)
+    public Task SendVideoAsync(string videoPath, string caption, IReadOnlyList<TelegramButton> buttons, CancellationToken ct) =>
+        UploadAsync("sendVideo", () => SendVideoOnceAsync(videoPath, caption, buttons, ct), ct);
+
+    private async Task SendVideoOnceAsync(string videoPath, string caption, IReadOnlyList<TelegramButton> buttons, CancellationToken ct)
     {
         await using var file = File.OpenRead(videoPath);
         using var form = new MultipartFormDataContent
@@ -50,12 +58,15 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
         var video = new StreamContent(file);
         video.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
         form.Add(video, "video", Path.GetFileName(videoPath));
-        using var response = await http.PostAsync(Url("sendVideo"), form, ct);
+        using var response = await (uploads ?? http).PostAsync(Url("sendVideo"), form, ct);
         await EnsureOkAsync(response, "sendVideo", ct);
     }
 
     /// <summary>Uploads a picture (Telegram bots take up to 10 MB) with a caption.</summary>
-    public async Task SendPhotoAsync(string photoPath, string caption, CancellationToken ct)
+    public Task SendPhotoAsync(string photoPath, string caption, CancellationToken ct) =>
+        UploadAsync("sendPhoto", () => SendPhotoOnceAsync(photoPath, caption, ct), ct);
+
+    private async Task SendPhotoOnceAsync(string photoPath, string caption, CancellationToken ct)
     {
         await using var file = File.OpenRead(photoPath);
         using var form = new MultipartFormDataContent
@@ -66,8 +77,29 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
         var photo = new StreamContent(file);
         photo.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
         form.Add(photo, "photo", Path.GetFileName(photoPath));
-        using var response = await http.PostAsync(Url("sendPhoto"), form, ct);
+        using var response = await (uploads ?? http).PostAsync(Url("sendPhoto"), form, ct);
         await EnsureOkAsync(response, "sendPhoto", ct);
+    }
+
+    /// <summary>
+    /// One upload, tried again once after a timeout or a 5xx. A timed-out upload may still have arrived, so the owner
+    /// can get the same video twice; that beats a finished video lost.
+    /// </summary>
+    private static async Task UploadAsync(string method, Func<Task> send, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await send();
+                return;
+            }
+            catch (Exception ex) when (attempt < UploadAttempts && !ct.IsCancellationRequested
+                                       && (ex is TaskCanceledException || ex is TelegramServerException))
+            {
+                Log.Warn($"Telegram {method} failed ({TextUtil.Truncate(ex.Message, 120)}); trying once more");
+            }
+        }
     }
 
     private string Url(string method) => $"https://api.telegram.org/bot{botToken}/{method}";
@@ -90,6 +122,10 @@ public sealed class TelegramNotifier(HttpClient http, string botToken, string ch
         {
             description = "";
         }
-        throw new HttpRequestException($"Telegram {method} returned {(int)response.StatusCode}: {TextUtil.Truncate(description, 200)}");
+        var message = $"Telegram {method} returned {(int)response.StatusCode}: {TextUtil.Truncate(description, 200)}";
+        throw (int)response.StatusCode >= 500 ? new TelegramServerException(message) : new HttpRequestException(message);
     }
 }
+
+/// <summary>Telegram answered 5xx: worth one more try.</summary>
+public sealed class TelegramServerException(string message) : HttpRequestException(message);

@@ -25,6 +25,8 @@ using MinutoUtil.Core.Video;
 ///   cloud review  --state <dir> --tag <tag> --run <folder>          sends the video to Telegram with the buttons
 ///   cloud publish --state <dir> --tag <tag> --run <folder>          YouTube + TikTok draft for an approved run
 ///   cloud reject  --state <dir> --tag <tag>
+///   cloud failed  --state <dir> --tag <tag> --reason "<text>" [--log-url <url>] [--retrying]
+///   cloud no-footage --state <dir> --tag <tag> --reason "<text>" [--last]   no trailers: the game leaves the queue
 ///   cloud tiktok-check --state <dir>     the signed-in TikTok account and the status of the latest drafts
 ///   cloud tiktok-remind --state <dir>    hourly: a draft nobody posted gets one reminder with a "Reenviar" button
 ///   cloud tiktok-resend --state <dir> --tag <tag> --run <folder>    sends a published run's TikTok draft again
@@ -179,10 +181,15 @@ internal static class CloudCommands
                     await flow.RejectAsync(tag, cts.Token);
                     return 0;
                 case "failed":
-                    await flow.FailedAsync(tag, Option(args, "--reason") ?? "unknown error", Option(args, "--log-url"), cts.Token);
+                    await flow.FailedAsync(tag, Option(args, "--reason") ?? "unknown error", Option(args, "--log-url"), cts.Token,
+                        retrying: args.Contains("--retrying"));
+                    return 0;
+                case "no-footage":
+                    await flow.NoFootageAsync(tag, channel.Id, channel.Backlog(), Option(args, "--reason") ?? "no trailers", cts.Token,
+                        last: args.Contains("--last"));
                     return 0;
                 default:
-                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|tiktok-check|tiktok-remind|tiktok-resend|failed --state <dir> ..., or cloud secrets --repo <owner/name>");
+                    Console.Error.WriteLine("Usage: cloud ideas|approve|add-idea|next|review|publish|reject|tiktok-check|tiktok-remind|tiktok-resend|failed|no-footage --state <dir> ..., or cloud secrets --repo <owner/name>");
                     return 1;
             }
         }

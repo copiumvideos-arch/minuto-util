@@ -55,6 +55,13 @@ public sealed record VideoScript(
     [Description("Where the event happened, for a map: the place name in Portuguese as shown on screen (\"Normandia\") and its latitude and longitude in decimal degrees (west and south negative).")]
     public ScriptLocation? Location { get; init; }
 
+    /// <summary>
+    /// How the voice must say the foreign names in the narration (voice.scriptPronunciations): the Portuguese voice
+    /// reads "The Witcher" letter by letter as Portuguese. Optional: scripts written before 2026-11-16 lack it.
+    /// </summary>
+    [Description("Every English (or other non-Portuguese) word or name in `hook` and `sections` that a Brazilian Portuguese text-to-speech voice would read wrong, exactly as written there, with how a Brazilian gamer says it, respelled in Portuguese letters with accents on the stressed syllable (\"The Witcher\" as \"dê uítcher\", \"Counter-Strike\" as \"cáunter strái\"). Leave out words a Portuguese reader already says right. Empty list when there are none.")]
+    public IReadOnlyList<ScriptPronunciation> Pronunciations { get; init; } = [];
+
     /// <summary>What the voice says, in order: the hook, then each section.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> SpokenSections => [Hook, .. Sections.Select(s => s.Text)];
@@ -64,3 +71,10 @@ public sealed record VideoScript(
 }
 
 public sealed record ScriptLocation(string Name, double Latitude, double Longitude);
+
+/// <summary>One foreign name in the narration and how the voice must say it.</summary>
+public sealed record ScriptPronunciation(
+    [property: Description("The word or name exactly as written in the narration: \"Resident Evil\".")]
+    string Written,
+    [property: Description("How to say it, respelled in Portuguese letters: \"rézident ívou\".")]
+    string Spoken);

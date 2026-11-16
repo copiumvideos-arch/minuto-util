@@ -4,19 +4,23 @@
 # this workflow again with `continue`, which picks the run up from its saved folder.
 # Every channel in channels/ runs here: a run started by hand (or by the relay) names its channel, and a scheduled run
 # renders every channel whose channel.scheduleUtcHours has that hour, one matrix job each (tools/channels.py).
+# A queue run whose game has no trailers the cloud can reach (make exits 4) drops that game and tries the next one,
+# up to 3 games. A queue run that fails for another reason starts once more right away when the channel's
+# channel.retryFailedRuns allows it (Profissão Spoiler; Minuto Útil keeps 0 to spare the shared Gemini quota).
 name: render
 
 on:
   schedule:
     # One line per hour in any channel's channel.scheduleUtcHours (a test checks they match), always at minute 0.
     # The owner's times are in Brasília (UTC-3, no daylight saving since 2019); cron runs in UTC, so add 3 hours.
-    # Minuto Útil: 08:00 and 18:00 in Brasília (11 and 21 UTC). Profissão Spoiler: 10:00 and 19:00 (13 and 22 UTC).
-    # Four videos a day in all, by the owner's choice; /novo adds more. GitHub may start scheduled runs some minutes
-    # late. Skipped while paused (/pausar).
-    - cron: "0 11 * * *"
-    - cron: "0 13 * * *"
+    # Minuto Útil: 18:00 in Brasília (21 UTC). Profissão Spoiler: 11:00, 16:00 and 20:00 (14, 19 and 23 UTC), apart
+    # enough that a slow Gemini (up to an hour) never runs into the next slot. Four videos a day in all, by the owner's
+    # choice (2026-11-16: the games channel gets more views); /novo adds more. GitHub may start scheduled runs some
+    # minutes late. Skipped while paused (/pausar).
+    - cron: "0 14 * * *"
+    - cron: "0 19 * * *"
     - cron: "0 21 * * *"
-    - cron: "0 22 * * *"
+    - cron: "0 23 * * *"
   workflow_dispatch:
     inputs:
       channel:
@@ -43,9 +47,15 @@ on:
         description: "continue: write another script for review instead of making the video"
         type: boolean
         default: false
+      retry:
+        description: "Set by a failed run that starts again (channel.retryFailedRuns): how many times it was tried"
+        required: false
+        default: "0"
 
 permissions:
   contents: write
+  # A failed run starts the workflow once more (channel.retryFailedRuns).
+  actions: write
 
 jobs:
   channels:
@@ -174,7 +184,8 @@ jobs:
           ARTICLE: ${{ inputs.article }}
           REMAKE: ${{ inputs.remake }}
           RESCRIPT: ${{ inputs.rescript }}
-          SCHEDULED: ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
+          # A retry of a scheduled run is scheduled too: it stops while the channel is paused.
+          SCHEDULED: ${{ (github.event_name == 'schedule' || (inputs.retry != '' && inputs.retry != '0')) && '--scheduled' || '' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
@@ -198,10 +209,16 @@ jobs:
           cat next.json
           echo "review=$(jq -r .review next.json)" >> "$GITHUB_OUTPUT"
 
+      # make exits 4 when the game has no trailers the cloud can reach (not on Steam or the Microsoft Store, and
+      # YouTube refuses the runners). A queue run then drops that game (cloud no-footage) and goes on with the next
+      # one under the same tag, up to 3 games; a game the owner named fails as it is, with the footage hint.
       - name: Render
+        id: render
         if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          ARTICLE: ${{ inputs.article }}
+          REMAKE: ${{ inputs.remake }}
           SCRIPT_ONLY: ${{ steps.next.outputs.review == 'true' && '--script-only' || '' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -209,20 +226,36 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SMALLEST_API_KEY: ${{ secrets.SMALLEST_API_KEY }}
         run: |
-          article=$(jq -r .article next.json)
-          year=$(jq -r .year next.json)
-          topic=$(jq -r .topic next.json)
-          portuguese=$(jq -r .portugueseArticle next.json)
-          $CLI make --run "output/$TAG" --article "$article" --portuguese-article "$portuguese" --year "$year" --topic "$topic" \
-            --quota-file "$CHANNEL_STATE/quota-state.json" $SCRIPT_ONLY
+          set +e
+          for game in 1 2 3; do
+            article=$(jq -r .article next.json)
+            year=$(jq -r .year next.json)
+            topic=$(jq -r .topic next.json)
+            portuguese=$(jq -r .portugueseArticle next.json)
+            $CLI make --run "output/$TAG" --article "$article" --portuguese-article "$portuguese" --year "$year" --topic "$topic" \
+              --quota-file "$CHANNEL_STATE/quota-state.json" $SCRIPT_ONLY
+            code=$?
+            if [ "$code" != "4" ] || [ -n "$ARTICLE$REMAKE$CONTINUE" ]; then exit "$code"; fi
+            reason=$(grep -h " WARN run failed" "output/$TAG/run.log" 2>/dev/null | tail -n 1 | cut -c 15-)
+            last=""; [ "$game" = "3" ] && last="--last"
+            $CLI cloud no-footage --state state --tag "$TAG" --reason "${reason:-no trailers}" $last || exit 1
+            if [ -n "$last" ]; then echo "skipped=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            rm -rf "output/$TAG"
+            $CLI cloud next --state state --tag "$TAG" --scheduled > next.json
+            code=$?
+            if [ "$code" = "3" ]; then echo "skipped=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            if [ "$code" != "0" ]; then exit "$code"; fi
+            cat next.json
+          done
 
       # Review mode: the folder so far (sources, script, log) is kept with the run until the owner answers.
       - name: Send the script for review
-        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review == 'true'
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.render.outputs.skipped != 'true' && steps.next.outputs.review == 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          tar -czf run.tar.gz -C "output/$TAG" .
+          # The trailers stay out (hundreds of MB); the approved run downloads them again.
+          tar -czf run.tar.gz --exclude=./media -C "output/$TAG" .
           if gh release view "$RELEASE$TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE$TAG" run.tar.gz --clobber
           else
@@ -231,7 +264,7 @@ jobs:
           $CLI cloud script-review --state state --tag "$TAG" --run "output/$TAG"
 
       - name: Keep the video
-        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review != 'true'
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.render.outputs.skipped != 'true' && steps.next.outputs.review != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
@@ -247,7 +280,7 @@ jobs:
           fi
 
       - name: Send for review
-        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.next.outputs.review != 'true'
+        if: steps.next.outcome == 'success' && steps.next.outputs.empty != 'true' && steps.render.outputs.skipped != 'true' && steps.next.outputs.review != 'true'
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: $CLI cloud review --state state --tag "$TAG" --run "output/$TAG"
@@ -257,9 +290,21 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.tag }}
           LOG_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTICLE: ${{ inputs.article }}
+          REMAKE: ${{ inputs.remake }}
+          ATTEMPT: ${{ inputs.retry || '0' }}
+          MAX_RETRY: ${{ matrix.retry }}
         run: |
           reason=$(grep -h " WARN " "output/$TAG/run.log" 2>/dev/null | tail -n 1 | cut -c 15- || true)
-          $CLI cloud failed --state state --tag "$TAG" --reason "${reason:-a etapa do GitHub Actions falhou}" --log-url "$LOG_URL"
+          # Only a queue run starts again (a game the owner named, a remake or an approved script waits for the owner).
+          [[ "$ATTEMPT" =~ ^[0-9]$ ]] || ATTEMPT=9
+          retrying=""
+          if [ -z "$ARTICLE$REMAKE$CONTINUE" ] && [ "$ATTEMPT" -lt "${MAX_RETRY:-0}" ]; then retrying="--retrying"; fi
+          $CLI cloud failed --state state --tag "$TAG" --reason "${reason:-a etapa do GitHub Actions falhou}" --log-url "$LOG_URL" $retrying
+          # Queued behind this job (concurrency render-<channel>), so it starts after the state is saved.
+          if [ -n "$retrying" ]; then
+            gh workflow run render.yml --ref "$GITHUB_REF_NAME" -f channel="$CHANNEL" -f retry="$((ATTEMPT + 1))"
+          fi
 
       - name: Save the state
         if: always() && steps.tag.outcome == 'success'

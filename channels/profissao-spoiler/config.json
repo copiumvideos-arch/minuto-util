@@ -6,7 +6,8 @@
     "tokenFolder": "%LOCALAPPDATA%/MinutoUtil/channels/profissao-spoiler",
     "stateFolder": "channels/profissao-spoiler",
     "releasePrefix": "run-profissao-spoiler-",
-    "scheduleUtcHours": [13, 22],
+    "scheduleUtcHours": [14, 19, 23],
+    "retryFailedRuns": 1,
     "ideasUtcHours": [9]
   },
   "story": {
@@ -32,7 +33,8 @@
     "kokoroVoice": "pm_santa",
     "sectionPause": 0.4,
     "maxPause": 0.55,
-    "pronunciations": { "GTA": "gê tê á" }
+    "pronunciations": { "GTA": "gê tê á" },
+    "scriptPronunciations": true
   },
   "media": { "footage": "trailers", "trailers": 3, "commons": false, "libraryOfCongress": false, "internetArchive": false },
   "video": {

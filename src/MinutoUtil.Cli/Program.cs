@@ -196,7 +196,7 @@ try
 catch (Exception ex) when (ex is not OperationCanceledException)
 {
     Log.Warn($"run failed: {ex.GetType().Name}: {ex.Message}");
-    return 1;
+    return ex is NoFootageException ? NoFootageException.ExitCode : 1;
 }
 finally
 {

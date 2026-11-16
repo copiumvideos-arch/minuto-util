@@ -281,6 +281,17 @@ public sealed class CloudState(string folder)
         return entry;
     }
 
+    /// <summary>
+    /// Takes a topic out of the queue for good without it being in the queue right now (the run already took it):
+    /// a game the cloud cannot find footage for. The owner can still ask for it by name with /novo.
+    /// </summary>
+    public void Drop(TopicBacklog backlog, string article, string topic, string reason)
+    {
+        var identity = backlog.Identity(article, topic);
+        Write(Path.Combine(RemovedFolder, $"{TextUtil.Slug(identity, 60)}.json"),
+            new { article, removedAt = Time.GetUtcNow(), reason = TextUtil.Truncate(reason, 300) });
+    }
+
     private HashSet<string> Removed() =>
         Directory.Exists(RemovedFolder)
             ? Directory.GetFiles(RemovedFolder, "*.json").Select(Path.GetFileNameWithoutExtension).OfType<string>().ToHashSet(StringComparer.Ordinal)
