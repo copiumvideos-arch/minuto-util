@@ -1,0 +1,16 @@
+{
+  "tag": "20261117-2023",
+  "article": "Euro Truck Simulator 2",
+  "year": 2012,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash is out of its daily quota until 2026-11-17 21:13 UTC",
+  "updatedAt": "2026-11-17T20:25:14.4205345+00:00"
+}
