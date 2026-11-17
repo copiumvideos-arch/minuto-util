@@ -1,0 +1,16 @@
+{
+  "tag": "20261117-2337",
+  "article": "Portal 2",
+  "year": 2011,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: None of the trailers of Portal 2 (Steam app 620) could be downloaded. Portal 2 has no trailers on the Microsoft Store. None of the YouTube trailers could be downloaded. On the PC, `minuto-util footage --channel <id> --article \"Portal 2\"` downloads them for the cloud (rele",
+  "updatedAt": "2026-11-17T23:39:45.3583115+00:00"
+}
