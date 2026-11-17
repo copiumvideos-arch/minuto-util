@@ -1,0 +1,16 @@
+{
+  "tag": "20261117-1449",
+  "article": "Terraria",
+  "year": 2011,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered in 60 minutes of trying. Last error: gemini:gemini-3.5-flash failed: The request was canceled due to the configured HttpClient.Timeout of 180 seconds elapsing.",
+  "updatedAt": "2026-11-17T15:55:10.1802654+00:00"
+}
