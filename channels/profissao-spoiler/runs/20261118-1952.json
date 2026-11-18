@@ -1,0 +1,16 @@
+{
+  "tag": "20261118-1952",
+  "article": "Fallout 4",
+  "year": 2015,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash returned 429: {",
+  "updatedAt": "2026-11-18T20:00:01.6007179+00:00"
+}
