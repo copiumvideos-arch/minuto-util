@@ -1,0 +1,16 @@
+{
+  "tag": "20261118-2232",
+  "article": "Mortal Kombat 11",
+  "year": 2019,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash returned 429: {",
+  "updatedAt": "2026-11-18T22:47:28.5391411+00:00"
+}
