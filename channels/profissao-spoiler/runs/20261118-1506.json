@@ -1,0 +1,16 @@
+{
+  "tag": "20261118-1506",
+  "article": "PUBG: Battlegrounds",
+  "year": 2017,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash is out of its daily quota until 2026-11-18 16:06 UTC",
+  "updatedAt": "2026-11-18T15:08:50.7254505+00:00"
+}
