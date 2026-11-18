@@ -266,6 +266,46 @@ public sealed class ScriptAndLlmTests
     }
 
     [Fact]
+    public async Task EveryModelInAQuotaLockIsWaitedForWhenTheChannelAllowsIt()
+    {
+        // Profissão Spoiler, 2026-11-18 20:00: a retry found all three models locked for the next hour (another run
+        // had hit their daily quota) and failed without a request. Now it waits for the first lock to end.
+        using var temp = new TempFolder();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 18, 20, 0, 0, TimeSpan.Zero));
+        var start = time.GetUtcNow();
+        var quota = new QuotaTracker(Path.Combine(temp.Path, "quota.json"), time);
+        quota.MarkExhausted(GeminiClient.QuotaKey("gemini-a"), start.AddMinutes(54));
+        quota.MarkExhausted(GeminiClient.QuotaKey("gemini-b"), start.AddMinutes(60));
+        quota.MarkExhausted(GeminiClient.QuotaKey("gemini-c"), start.AddMinutes(60));
+        var handler = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.OK, GeminiAnswer));
+        var retry = AnHourEveryFiveMinutes with { QuotaWait = TimeSpan.FromMinutes(60) };
+        var gemini = new GeminiClient(new HttpClient(handler), "key", Models, new RunUsage(5), quota, retry, time);
+
+        var script = await WithClock(gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None), time);
+
+        Assert.Equal(5, script.Sections.Count);
+        // One request, to gemini-a, a minute after its lock ended (the test clock moves a minute at a time).
+        Assert.Single(handler.Requests);
+        Assert.Contains("gemini-a", handler.Requests[0].Request.RequestUri!.ToString());
+        Assert.InRange(time.GetUtcNow() - start, TimeSpan.FromMinutes(55), TimeSpan.FromMinutes(56));
+    }
+
+    [Fact]
+    public async Task AQuotaLockLongerThanTheQuotaWaitFailsAtOnce()
+    {
+        using var temp = new TempFolder();
+        var time = new FakeTimeProvider();
+        var quota = new QuotaTracker(Path.Combine(temp.Path, "quota.json"), time);
+        foreach (var model in Models) quota.MarkExhausted(GeminiClient.QuotaKey(model), time.GetUtcNow().AddMinutes(50));
+        var handler = new FakeHandler((_, _) => FakeHandler.Json(HttpStatusCode.OK, GeminiAnswer));
+        var retry = AnHourEveryFiveMinutes with { QuotaWait = TimeSpan.FromMinutes(30) };
+        var gemini = new GeminiClient(new HttpClient(handler), "key", Models, new RunUsage(5), quota, retry, time);
+
+        await Assert.ThrowsAsync<LlmException>(() => gemini.CompleteJsonAsync<VideoScript>("s", "u", CancellationToken.None));
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
     public async Task WithoutBusyRetryABusyGeminiFailsAfterOnePass()
     {
         // Minuto Útil: its spare writers take over at once, so nothing changes for it.

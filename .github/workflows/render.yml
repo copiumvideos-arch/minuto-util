@@ -88,8 +88,8 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     # A render takes up to about 50 minutes; Profissão Spoiler may first wait up to an hour for a busy Gemini
-    # (writer.geminiBusyRetryMinutes).
-    timeout-minutes: 140
+    # (writer.geminiBusyRetryMinutes) and up to another hour for a quota lock to end (writer.geminiQuotaWaitMinutes).
+    timeout-minutes: 180
     env:
       # The app for this channel: CH_<NAME> variables reach it as <prefix>_<NAME> (.github/scripts/cli.sh).
       CLI: bash .github/scripts/cli.sh
@@ -186,7 +186,7 @@ jobs:
           RESCRIPT: ${{ inputs.rescript }}
           # A retry of a scheduled run is scheduled too: it stops while the channel is paused.
           SCHEDULED: ${{ (github.event_name == 'schedule' || (inputs.retry != '' && inputs.retry != '0')) && '--scheduled' || '' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets[format('{0}_GEMINI_API_KEY', matrix.prefix)] || secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -220,7 +220,7 @@ jobs:
           ARTICLE: ${{ inputs.article }}
           REMAKE: ${{ inputs.remake }}
           SCRIPT_ONLY: ${{ steps.next.outputs.review == 'true' && '--script-only' || '' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets[format('{0}_GEMINI_API_KEY', matrix.prefix)] || secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

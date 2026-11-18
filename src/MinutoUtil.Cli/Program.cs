@@ -141,7 +141,8 @@ var quota = new QuotaTracker(Path.GetFullPath(Option("--quota-file") ?? Path.Com
 var writers = new List<ILlmClient>();
 // writer.geminiBusyRetryMinutes: a channel without spare writers waits for a busy Gemini instead of failing at once.
 var busyRetry = config.Writer.GeminiBusyRetryMinutes > 0
-    ? new GeminiBusyRetry(TimeSpan.FromMinutes(config.Writer.GeminiBusyRetryMinutes), TimeSpan.FromMinutes(Math.Max(1, config.Writer.GeminiBusyRetryEveryMinutes)))
+    ? new GeminiBusyRetry(TimeSpan.FromMinutes(config.Writer.GeminiBusyRetryMinutes), TimeSpan.FromMinutes(Math.Max(1, config.Writer.GeminiBusyRetryEveryMinutes)),
+        TimeSpan.FromMinutes(Math.Max(0, config.Writer.GeminiQuotaWaitMinutes)))
     : null;
 if (Key(config.Gemini.ApiKeyEnvVar) is { } geminiKey) writers.Add(new GeminiClient(apiHttp, geminiKey, config.Gemini.Models, usage, quota, busyRetry));
 else Log.Warn($"{config.Gemini.ApiKeyEnvVar} is not set; Gemini is skipped");

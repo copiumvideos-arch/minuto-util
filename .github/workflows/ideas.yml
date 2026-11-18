@@ -121,7 +121,7 @@ jobs:
           CH_YOUTUBE_REFRESH_TOKEN: ${{ secrets[format('{0}_YOUTUBE_REFRESH_TOKEN', matrix.prefix)] }}
           CH_TELEGRAM_BOT_TOKEN: ${{ secrets[format('{0}_TELEGRAM_BOT_TOKEN', matrix.prefix)] }}
           CH_TELEGRAM_CHAT_ID: ${{ secrets[format('{0}_TELEGRAM_CHAT_ID', matrix.prefix)] }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets[format('{0}_GEMINI_API_KEY', matrix.prefix)] || secrets.GEMINI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           CLOUDFLARE_AI_TOKEN: ${{ secrets.CLOUDFLARE_AI_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

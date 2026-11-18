@@ -254,7 +254,9 @@ written for Minuto Útil. The `channel` block of `config.json` names everything 
 
 The variable names and sign-in files under `youtube`, `tiktok` and `telegram` are filled in from `envPrefix` and
 `tokenFolder` unless a config names them. The free keys (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `SMALLEST_API_KEY`,
-`CLOUDFLARE_*`) are shared by every channel. Sign-ins are bound to their channel: the DPAPI entropy and the sealed
+`CLOUDFLARE_*`) are shared by every channel, except that a `<prefix>_GEMINI_API_KEY` secret (for example
+`SPOILER_GEMINI_API_KEY`) gives a channel its own Gemini key in the cloud workflows. It must come from a separate
+Google Cloud project, since the free quota is per project, not per key. Sign-ins are bound to their channel: the DPAPI entropy and the sealed
 files' AES-GCM associated data are `<id>-<platform>-token` (for `minuto-util` exactly what they were before channels).
 `youtube.channelId` is required for publishing: an empty or wrong one refuses every sign-in.
 

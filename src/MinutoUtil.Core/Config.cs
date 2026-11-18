@@ -268,6 +268,13 @@ public sealed record WriterOptions
     public int GeminiBusyRetryEveryMinutes { get; init; } = 5;
 
     /// <summary>
+    /// Minutes a run may wait in all for a Gemini model to come out of a quota lock when every model is locked (only
+    /// with <see cref="GeminiBusyRetryMinutes"/>); 0 fails at once. 60 for Profissão Spoiler: on 2026-11-17 and 18 its
+    /// retries found every model locked for the next hour and failed without a request.
+    /// </summary>
+    public int GeminiQuotaWaitMinutes { get; init; }
+
+    /// <summary>
     /// Whether a script that says the same phrase twice (four words, or three with a number) is asked for again, once
     /// (<see cref="Scripts.SpokenText.RepeatedPhrase"/>). On for Profissão Spoiler, whose viewers heard the same fact
     /// twice; off for Minuto Útil, whose ending may echo the hook on purpose.
