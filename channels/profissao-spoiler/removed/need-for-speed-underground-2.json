@@ -1,0 +1,5 @@
+{
+  "article": "Need for Speed: Underground 2",
+  "removedAt": "2026-11-18T14:47:06.5969289+00:00",
+  "reason": "run failed: NoFootageException: Steam has no game named \"Need for Speed: Underground 2\" (found: ); set its app id with --steam-app. The Microsoft Store has no game named \"Need for Speed: Underground 2\" (found: ). None of the YouTube trailers could be downloaded. On the PC, `minuto-util footage --cha"
+}
