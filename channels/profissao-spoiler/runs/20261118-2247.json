@@ -1,0 +1,16 @@
+{
+  "tag": "20261118-2247",
+  "article": "Mortal Kombat 11",
+  "year": 2019,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: LlmException: No Gemini model answered. Last error: gemini:gemini-3.5-flash is out of its daily quota until 2026-11-19 00:59 UTC",
+  "updatedAt": "2026-11-19T00:09:36.7027129+00:00"
+}
