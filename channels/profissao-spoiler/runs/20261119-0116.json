@@ -1,0 +1,16 @@
+{
+  "tag": "20261119-0116",
+  "article": "Hogwarts Legacy",
+  "year": 2023,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: HttpRequestException: en.wikipedia.org returned 429 for \"Hogwarts Legacy\".",
+  "updatedAt": "2026-11-19T01:17:44.1368901+00:00"
+}
