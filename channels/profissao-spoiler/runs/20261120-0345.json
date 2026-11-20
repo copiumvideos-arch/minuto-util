@@ -5,12 +5,12 @@
   "topic": "Curiosidades de games",
   "trend": null,
   "portugueseArticle": null,
-  "status": "failed",
+  "status": "published",
   "title": null,
-  "youTubeUrl": null,
-  "tikTokPublishId": null,
-  "tikTokSentAt": null,
-  "tikTokChecked": false,
-  "note": "script: put back the accents of 1 word(s) the writer left out",
-  "updatedAt": "2026-11-20T04:00:29.5451221+00:00"
+  "youTubeUrl": "https://youtube.com/shorts/wOicPvmtAXA",
+  "tikTokPublishId": "zernio:6b0066481ca3a5d80df8a577",
+  "tikTokSentAt": "2026-11-20T15:25:11.0097141+00:00",
+  "tikTokChecked": true,
+  "note": null,
+  "updatedAt": "2026-11-20T15:25:11.013488+00:00"
 }
