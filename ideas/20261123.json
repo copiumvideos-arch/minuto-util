@@ -1,0 +1,33 @@
+{
+  "date": "20261123",
+  "sentAt": "2026-11-23T20:44:20.9935457+00:00",
+  "ideas": [
+    {
+      "article": "São Luís, Maranhão",
+      "year": 1612,
+      "topic": "Colonial – Urbanismo",
+      "trend": "Avenida no Leblon desbanca rua em SP e se torna a mais cara do Brasil",
+      "portugueseArticle": "São Luís (Maranhão)",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Treaty of Rio de Janeiro (1825)",
+      "year": 1825,
+      "topic": "Império – Política internacional",
+      "trend": "Lula recebe 4 ministros do STF, Alcolumbre e Motta em jantar no Alvorada",
+      "portugueseArticle": "Tratado do Rio de Janeiro (1825)",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Plano Real",
+      "year": 1994,
+      "topic": "República – Economia",
+      "trend": "Economistas sobem previsão da inflação e do dólar e diminuem a do PIB neste ano",
+      "portugueseArticle": "Plano Real",
+      "date": null,
+      "status": null
+    }
+  ]
+}
