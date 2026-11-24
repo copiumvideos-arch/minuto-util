@@ -1,0 +1,60 @@
+{
+  "date": "20261124",
+  "sentAt": "2026-11-24T19:50:10.3131532+00:00",
+  "ideas": [
+    {
+      "article": "Marajoara culture",
+      "year": 800,
+      "topic": "Brasil Pré-Cabral",
+      "trend": "Arqueologia e arte pré-colombiana na Amazônia",
+      "portugueseArticle": "Marajoaras",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Confederation of the Equator",
+      "year": 1824,
+      "topic": "Império do Brasil",
+      "trend": "Constituição e movimentos republicanos no Nordeste",
+      "portugueseArticle": "Confederação do Equador",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "São Paulo Revolt of 1924",
+      "year": 1924,
+      "topic": "Tenentismo",
+      "trend": "Conflitos urbanos e história da República",
+      "portugueseArticle": "Revolta Paulista de 1924",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Cangaço",
+      "year": 1938,
+      "topic": "História do Brasil",
+      "trend": "Governo mapeia organizações criminosas no país",
+      "portugueseArticle": "Cangaço",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Xingu Indigenous Park",
+      "year": 1961,
+      "topic": "Povos Indígenas",
+      "trend": "Preservação da Amazônia e direitos indígenas no Centro-Oeste",
+      "portugueseArticle": "Parque Indígena do Xingu",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Serra Pelada",
+      "year": 1980,
+      "topic": "Economia do Brasil",
+      "trend": "Mineração e corridas do ouro no Brasil",
+      "portugueseArticle": "Serra Pelada",
+      "date": null,
+      "status": null
+    }
+  ]
+}
