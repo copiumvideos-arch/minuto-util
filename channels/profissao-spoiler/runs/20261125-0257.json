@@ -1,0 +1,16 @@
+{
+  "tag": "20261125-0257",
+  "article": "BioShock",
+  "year": 2007,
+  "topic": "Curiosidades de games",
+  "trend": null,
+  "portugueseArticle": null,
+  "status": "failed",
+  "title": null,
+  "youTubeUrl": null,
+  "tikTokPublishId": null,
+  "tikTokSentAt": null,
+  "tikTokChecked": false,
+  "note": "run failed: MediaException: None of the trailers of BioShock™ (Steam app 7670) could be downloaded. BioShock: The Collection has no trailers on the Microsoft Store. None of the YouTube trailers could be downloaded. On the PC, `minuto-util footage --channel <id> --article \"BioShock\"` downloads them f",
+  "updatedAt": "2026-11-25T02:58:15.5429858+00:00"
+}
