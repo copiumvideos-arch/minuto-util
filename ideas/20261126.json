@@ -1,0 +1,69 @@
+{
+  "date": "20261126",
+  "sentAt": "2026-11-26T18:47:58.3735873+00:00",
+  "ideas": [
+    {
+      "article": "Salvador, Bahia",
+      "year": 1549,
+      "topic": "Fundação",
+      "trend": "Macron diz que carne brasileira é 'dopada'",
+      "portugueseArticle": "Salvador",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Dutch invasions of Brazil",
+      "year": 1624,
+      "topic": "Conflitos",
+      "trend": "Macron diz que carne brasileira é 'dopada'",
+      "portugueseArticle": "Invasões holandesas no Brasil",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Battle of Pirajá",
+      "year": 1822,
+      "topic": "Independência",
+      "trend": "Independência do Brasil",
+      "portugueseArticle": "Batalha de Pirajá",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "São Paulo Railway Company",
+      "year": 1867,
+      "topic": "Inovações",
+      "trend": "Alckmin critica tarifa de 10% dos EUA sobre aviões brasileiros",
+      "portugueseArticle": "Estrada de Ferro Santos-Jundiaí",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Itaipu Dam",
+      "year": 1982,
+      "topic": "Infraestrutura",
+      "trend": "Ibovespa dispara quase 4% com ‘efeito Trabuco’",
+      "portugueseArticle": "Usina Hidrelétrica de Itaipu",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Brazilian communist uprising",
+      "year": 1935,
+      "topic": "Política",
+      "trend": "Crise de 25 de Novembro de 1975",
+      "portugueseArticle": "Intentona Comunista",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Legality Campaign",
+      "year": 1961,
+      "topic": "Política",
+      "trend": "Diretas Já",
+      "portugueseArticle": "Campanha da Legalidade",
+      "date": null,
+      "status": null
+    }
+  ]
+}
