@@ -1,0 +1,60 @@
+{
+  "date": "20261127",
+  "sentAt": "2026-11-27T18:36:04.3862719+00:00",
+  "ideas": [
+    {
+      "article": "Plano Real",
+      "year": 1994,
+      "topic": "Economia brasileira",
+      "trend": "Novo ministro da Fazenda e política fiscal",
+      "portugueseArticle": "Plano Real",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "1798 Revolt of the Alfaiates",
+      "year": 1798,
+      "topic": "Revoltas coloniais",
+      "trend": "Direitos civis e igualdade no Brasil",
+      "portugueseArticle": "Conjuração Baiana",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "March of the One Hundred Thousand",
+      "year": 1968,
+      "topic": "Ditadura militar",
+      "trend": "Chico Buarque e a música de protesto",
+      "portugueseArticle": "Passeata dos Cem Mil",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Portuguese conquest of French Guiana",
+      "year": 1809,
+      "topic": "Expansão territorial",
+      "trend": "Geopolítica e disputas de fronteira",
+      "portugueseArticle": "Conquista portuguesa da Guiana Francesa",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Platine War",
+      "year": 1851,
+      "topic": "Guerras sul-americanas",
+      "trend": "Noticiário político e eleições na Argentina",
+      "portugueseArticle": "Guerra do Prata",
+      "date": null,
+      "status": null
+    },
+    {
+      "article": "Diretas Já",
+      "year": 1984,
+      "topic": "Redemocratização",
+      "trend": "Reformas eleitorais e votações no Congresso",
+      "portugueseArticle": "Diretas Já",
+      "date": null,
+      "status": null
+    }
+  ]
+}
